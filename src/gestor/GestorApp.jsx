@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { css } from "./styles.js";
-import { NAV_ITEMS } from "./constants.js";
+import { NAV_ITEMS, NAV_ITEMS_FISICA } from "./constants.js";
 import { useGestor } from "./GestorContext.jsx";
 import {
   ModalLancamento,
@@ -8,7 +8,11 @@ import {
   ModalPlano,
   ModalCliente,
   ModalFornecedor,
+  ModalCategoriaPF,
+  ModalMeta,
 } from "./components/Modals.jsx";
+
+// ─── Páginas Pessoa Jurídica ──────────────────────────────────────────────────
 import {
   DashboardPage,
   LancamentosPage,
@@ -26,28 +30,173 @@ import {
   EmpresaPage,
 } from "./pages/Pages.jsx";
 
-const PAGE_MAP = {
-  dashboard: DashboardPage,
+// ─── Páginas Pessoa Física ────────────────────────────────────────────────────
+import {
+  DashboardPFPage,
+  LancamentosPFPage,
+  CategoriasPFPage,
+  OrcamentoPage,
+  MetasPage,
+  RelatoriosPFPage,
+  PerfilPFPage,
+} from "./pages/PagesPF.jsx";
+
+const PAGE_MAP_PJ = {
+  dashboard:   DashboardPage,
   lancamentos: LancamentosPage,
-  dre: DREPage,
-  contas: ContasPage,
-  plano: PlanoContasPage,
-  impostos: ImpostosPage,
-  clientes: ClientesPage,
-  fornecedores: FornecedoresPage,
+  dre:         DREPage,
+  contas:      ContasPage,
+  plano:       PlanoContasPage,
+  impostos:    ImpostosPage,
+  clientes:    ClientesPage,
+  fornecedores:FornecedoresPage,
   importacoes: ImportacoesPage,
   conciliacao: ConciliacaoPage,
-  balancete: BalancetePage,
-  fechamento: FechamentoPage,
-  relatorios: RelatoriosPage,
-  empresa: EmpresaPage,
+  balancete:   BalancetePage,
+  fechamento:  FechamentoPage,
+  relatorios:  RelatoriosPage,
+  empresa:     EmpresaPage,
 };
+
+const PAGE_MAP_PF = {
+  dashboard:   DashboardPFPage,
+  lancamentos: LancamentosPFPage,
+  categorias:  CategoriasPFPage,
+  orcamento:   OrcamentoPage,
+  metas:       MetasPage,
+  contas:      ContasPage,      // reaproveitado do PJ
+  relatorios:  RelatoriosPFPage,
+  perfil:      PerfilPFPage,
+};
+
+// ─── Profile Manager Modal ────────────────────────────────────────────────────
+
+function ProfileManagerModal({ onClose }) {
+  const { state, empresa, switchEmpresa, addPerfil, removePerfil } = useGestor();
+  const [creating, setCreating] = useState(false);
+  const [newNome, setNewNome] = useState("");
+  const [newTipo, setNewTipo] = useState("juridica");
+
+  const handleCreate = () => {
+    const nome = newNome.trim();
+    if (!nome) return;
+    addPerfil(nome, newTipo);
+    setCreating(false);
+    setNewNome("");
+    onClose();
+  };
+
+  const handleDelete = (e, id) => {
+    e.stopPropagation();
+    if (state.empresas.length <= 1) return alert("Não é possível excluir o único perfil.");
+    if (confirm("Excluir este perfil permanentemente?")) removePerfil(id);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <span className="modal-title">Gerenciar Perfis</span>
+          <button className="btn btn-secondary btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {state.empresas.map((emp) => {
+            const isPF = emp.tipo === "fisica";
+            const isAtivo = emp.id === empresa.id;
+            return (
+              <div
+                key={emp.id}
+                className={`profile-item${isAtivo ? " active" : ""}`}
+                onClick={() => { switchEmpresa(emp.id); onClose(); }}
+              >
+                <div>
+                  <div className="profile-item-name">
+                    {isPF ? (emp.pessoa?.nome || emp.nome) : (emp.company?.nomeFantasia || emp.nome)}
+                  </div>
+                  <div className="profile-item-sub">
+                    {isPF ? (emp.pessoa?.cpf || "CPF não informado") : (emp.company?.cnpj || emp.nome)}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className={`badge ${isPF ? "badge-pf" : "badge-pj"}`}>
+                    {isPF ? "Pessoa Física" : "Pessoa Jurídica"}
+                  </span>
+                  {isAtivo && <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700 }}>ATIVO</span>}
+                  {!isAtivo && (
+                    <button
+                      className="btn btn-danger btn-sm btn-icon"
+                      onClick={(e) => handleDelete(e, emp.id)}
+                      title="Excluir perfil"
+                      style={{ fontSize: 11 }}
+                    >✕</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {creating ? (
+            <div style={{ marginTop: 14, padding: "14px", background: "var(--surface2)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-light)" }}>
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <label className="form-label">Nome do Perfil</label>
+                <input
+                  className="form-input"
+                  value={newNome}
+                  onChange={(e) => setNewNome(e.target.value)}
+                  placeholder="Ex: João Silva ou Empresa ABC"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 14 }}>
+                <label className="form-label">Tipo de Perfil</label>
+                <select className="form-select" value={newTipo} onChange={(e) => setNewTipo(e.target.value)}>
+                  <option value="juridica">Pessoa Jurídica (Empresa)</option>
+                  <option value="fisica">Pessoa Física (Pessoal)</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-primary btn-sm" onClick={handleCreate}>Criar Perfil</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => { setCreating(false); setNewNome(""); }}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="btn btn-secondary"
+              style={{ width: "100%", marginTop: 12, justifyContent: "center" }}
+              onClick={() => setCreating(true)}
+            >
+              + Novo Perfil
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App Shell ────────────────────────────────────────────────────────────────
 
 export default function GestorApp() {
   const [page, setPage] = useState("dashboard");
-  const { company, modalOpen, apiOnline } = useGestor();
-  const PageComponent = PAGE_MAP[page] || DashboardPage;
-  const pageLabel = NAV_ITEMS.find((n) => n.id === page)?.label || "Dashboard";
+  const [showProfileManager, setShowProfileManager] = useState(false);
+  const { empresa, tipo, pessoa, company, modalOpen, apiOnline } = useGestor();
+
+  const isPF = tipo === "fisica";
+  const navItems = isPF ? NAV_ITEMS_FISICA : NAV_ITEMS;
+  const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
+
+  // Se a página atual não existe no novo mapa, volta ao dashboard
+  const currentPage = pageMap[page] ? page : "dashboard";
+  const PageComponent = pageMap[currentPage] || pageMap.dashboard;
+  const pageLabel = navItems.find((n) => n.id === currentPage)?.label || "Dashboard";
+
+  const displayName = isPF
+    ? (pessoa?.nome || empresa.nome)
+    : (company.nomeFantasia || empresa.nome);
+  const displaySub = isPF
+    ? (pessoa?.cpf || "CPF não informado")
+    : (company.cnpj || "");
 
   return (
     <>
@@ -56,24 +205,21 @@ export default function GestorApp() {
         <aside className="sidebar">
           <div className="sidebar-logo">
             <div className="brand-row">
-              <div className="brand-mark">GF</div>
+              <div className="brand-mark">{isPF ? "PF" : "GF"}</div>
               <div>
-                <h1>
-                  Gestor
-                  <br />
-                  Financeiro
-                </h1>
-                <p>Painel · v2.0</p>
+                <h1>Gestor<br />{isPF ? "Pessoal" : "Financeiro"}</h1>
+                <p>{isPF ? "Finanças · v2.0" : "Painel · v2.0"}</p>
               </div>
             </div>
           </div>
+
           <nav className="nav-section">
             <div className="nav-label">Navegação</div>
-            <div className="nav-list">
-              {NAV_ITEMS.map((n) => (
+            <div className={isPF ? "nav-list-pf" : "nav-list"}>
+              {navItems.map((n) => (
                 <div
                   key={n.id}
-                  className={`nav-item${page === n.id ? " active" : ""}`}
+                  className={`nav-item${currentPage === n.id ? " active" : ""}`}
                   onClick={() => setPage(n.id)}
                   onKeyDown={(e) => e.key === "Enter" && setPage(n.id)}
                   role="button"
@@ -85,9 +231,26 @@ export default function GestorApp() {
               ))}
             </div>
           </nav>
+
           <div className="sidebar-footer">
-            <div className="sidebar-footer-name">{company.nomeFantasia}</div>
-            <div className="sidebar-footer-cnpj">{company.cnpj}</div>
+            <div className="sidebar-footer-profile">
+              <div className="sidebar-footer-info">
+                <div className="sidebar-footer-name">{displayName}</div>
+                <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span className={`badge ${isPF ? "badge-pf" : "badge-pj"}`} style={{ fontSize: 9, padding: "1px 5px" }}>
+                    {isPF ? "PF" : "PJ"}
+                  </span>
+                  <span className="sidebar-footer-cnpj" style={{ display: "inline" }}>{displaySub}</span>
+                </div>
+              </div>
+              <button
+                className="sidebar-footer-switch"
+                onClick={() => setShowProfileManager(true)}
+                title="Gerenciar Perfis"
+              >
+                ⇄
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -99,7 +262,10 @@ export default function GestorApp() {
                 className={`status-dot ${apiOnline ? "online" : "offline"}`}
                 title={apiOnline ? "API online" : "API offline"}
               />
-              <span className="company-badge">{company.nomeFantasia}</span>
+              <span className="company-badge">{displayName}</span>
+              <span className={`badge ${isPF ? "badge-pf" : "badge-pj"}`} style={{ fontSize: 10 }}>
+                {isPF ? "Pessoa Física" : "Pessoa Jurídica"}
+              </span>
             </div>
           </div>
           <div className="content">
@@ -107,11 +273,19 @@ export default function GestorApp() {
           </div>
         </main>
 
-        {modalOpen === "lancamento" && <ModalLancamento />}
-        {modalOpen === "conta" && <ModalConta />}
-        {modalOpen === "plano" && <ModalPlano />}
-        {modalOpen === "cliente" && <ModalCliente />}
-        {modalOpen === "fornecedor" && <ModalFornecedor />}
+        {/* Modais PJ */}
+        {modalOpen === "lancamento"  && <ModalLancamento />}
+        {modalOpen === "conta"       && <ModalConta />}
+        {modalOpen === "plano"       && <ModalPlano />}
+        {modalOpen === "cliente"     && <ModalCliente />}
+        {modalOpen === "fornecedor"  && <ModalFornecedor />}
+
+        {/* Modais PF */}
+        {modalOpen === "categoria-pf" && <ModalCategoriaPF />}
+        {modalOpen === "meta"         && <ModalMeta />}
+
+        {/* Profile Manager */}
+        {showProfileManager && <ProfileManagerModal onClose={() => setShowProfileManager(false)} />}
       </div>
     </>
   );

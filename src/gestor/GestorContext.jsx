@@ -5,6 +5,7 @@ import {
   getEmpresaAtiva,
   updateEmpresaAtiva,
   createEmpresa,
+  createPerfil,
 } from "./storage.js";
 import {
   filterLancamentos,
@@ -40,12 +41,14 @@ export function GestorProvider({ children }) {
 
   const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
   const { company, contas, planoContas, lancamentos, clientes, fornecedores } = empresa;
-  const fechamentos = empresa.fechamentos || [];
+  const fechamentos  = empresa.fechamentos  || [];
+  const metas        = empresa.metas        || [];
+  const orcamentos   = empresa.orcamentos   || [];
+  const tipo         = empresa.tipo         || "juridica";
+  const pessoa       = empresa.pessoa       || null;
   const filterPeriodo = state.filterPeriodo;
 
-  useEffect(() => {
-    saveState(state);
-  }, [state]);
+  useEffect(() => { saveState(state); }, [state]);
 
   useEffect(() => {
     checkApiStatus().then((s) => setApiOnline(!!s.online));
@@ -69,15 +72,18 @@ export function GestorProvider({ children }) {
   const setEmpresaField = useCallback((field, value) => {
     setState((s) => {
       const emp = getEmpresaAtiva(s);
-      return updateEmpresaAtiva(s, {
-        company: { ...emp.company, [field]: value },
-      });
+      return updateEmpresaAtiva(s, { company: { ...emp.company, [field]: value } });
     });
   }, []);
 
-  const updateEmpresaData = useCallback((data) => {
-    patchEmpresa(data);
-  }, [patchEmpresa]);
+  const setPessoaField = useCallback((field, value) => {
+    setState((s) => {
+      const emp = getEmpresaAtiva(s);
+      return updateEmpresaAtiva(s, { pessoa: { ...(emp.pessoa || {}), [field]: value } });
+    });
+  }, []);
+
+  const updateEmpresaData = useCallback((data) => { patchEmpresa(data); }, [patchEmpresa]);
 
   const switchEmpresa = useCallback((id) => {
     setState((s) => ({ ...s, empresaAtivaId: id }));
@@ -85,11 +91,21 @@ export function GestorProvider({ children }) {
 
   const addEmpresa = useCallback((nome) => {
     const emp = createEmpresa(nome);
-    setState((s) => ({
-      ...s,
-      empresas: [...s.empresas, emp],
-      empresaAtivaId: emp.id,
-    }));
+    setState((s) => ({ ...s, empresas: [...s.empresas, emp], empresaAtivaId: emp.id }));
+  }, []);
+
+  const addPerfil = useCallback((nome, tipoPerfil = "juridica") => {
+    const emp = createPerfil(nome, tipoPerfil);
+    setState((s) => ({ ...s, empresas: [...s.empresas, emp], empresaAtivaId: emp.id }));
+  }, []);
+
+  const removePerfil = useCallback((id) => {
+    setState((s) => {
+      const empresas = s.empresas.filter((e) => e.id !== id);
+      if (!empresas.length) return s;
+      const empresaAtivaId = s.empresaAtivaId === id ? empresas[0].id : s.empresaAtivaId;
+      return { ...s, empresas, empresaAtivaId };
+    });
   }, []);
 
   const openModal = useCallback((type, item = null) => {
@@ -103,21 +119,21 @@ export function GestorProvider({ children }) {
   }, []);
 
   const crudList = (key) => ({
-    add: (item) => patchEmpresa({ [key]: [...empresa[key], item] }),
+    add:    (item) => patchEmpresa({ [key]: [...(empresa[key] || []), item] }),
     update: (id, data) =>
-      patchEmpresa({
-        [key]: empresa[key].map((x) => (x.id === id ? { ...x, ...data } : x)),
-      }),
+      patchEmpresa({ [key]: (empresa[key] || []).map((x) => (x.id === id ? { ...x, ...data } : x)) }),
     remove: (id) =>
-      patchEmpresa({ [key]: empresa[key].filter((x) => x.id !== id) }),
+      patchEmpresa({ [key]: (empresa[key] || []).filter((x) => x.id !== id) }),
   });
 
-  const lancCrud = crudList("lancamentos");
-  const contaCrud = crudList("contas");
-  const planoCrud = crudList("planoContas");
-  const clienteCrud = crudList("clientes");
+  const lancCrud       = crudList("lancamentos");
+  const contaCrud      = crudList("contas");
+  const planoCrud      = crudList("planoContas");
+  const clienteCrud    = crudList("clientes");
   const fornecedorCrud = crudList("fornecedores");
   const fechamentoCrud = crudList("fechamentos");
+  const metaCrud       = crudList("metas");
+  const orcamentoCrud  = crudList("orcamentos");
 
   const saveLancamento = useCallback(
     (data) => {
@@ -153,9 +169,7 @@ export function GestorProvider({ children }) {
   );
 
   const markConsiliado = useCallback(
-    (id) => {
-      lancCrud.update(id, { consiliado: true });
-    },
+    (id) => { lancCrud.update(id, { consiliado: true }); },
     [lancCrud]
   );
 
@@ -177,7 +191,6 @@ export function GestorProvider({ children }) {
         throw new Error("Nenhum dado retornado do Access.");
       }
       setState((s) => {
-        const emp = getEmpresaAtiva(s);
         const updated = updateEmpresaAtiva(s, empresaPatch);
         return { ...updated, ...statePatch };
       });
@@ -196,8 +209,7 @@ export function GestorProvider({ children }) {
         tipo: tipoFilter,
         search,
         contaId: contaFilter || undefined,
-        consiliado:
-          consiliadoFilter === "Sim" ? "Sim" : consiliadoFilter === "Nao" ? "Nao" : undefined,
+        consiliado: consiliadoFilter === "Sim" ? "Sim" : consiliadoFilter === "Nao" ? "Nao" : undefined,
       })].reverse(),
     [lancamentos, filterPeriodo, tipoFilter, search, contaFilter, consiliadoFilter]
   );
@@ -241,56 +253,26 @@ export function GestorProvider({ children }) {
   );
 
   const value = {
-    state,
-    setState,
-    empresa,
-    company,
-    contas,
-    planoContas,
-    lancamentos,
-    clientes,
-    fornecedores,
-    filterPeriodo,
-    setFilterPeriodo,
-    search,
-    setSearch,
-    tipoFilter,
-    setTipoFilter,
-    consiliadoFilter,
-    setConsiliadoFilter,
-    contaFilter,
-    setContaFilter,
-    showSaldoCol,
-    setShowSaldoCol,
-    modalOpen,
-    editingItem,
-    openModal,
-    closeModal,
-    apiOnline,
-    syncing,
-    syncError,
-    setEmpresaField,
-    updateEmpresaData,
-    patchEmpresa,
-    switchEmpresa,
-    addEmpresa,
-    saveLancamento,
-    markConsiliado,
-    setLancamentos,
-    lancCrud,
-    contaCrud,
-    planoCrud,
-    clienteCrud,
-    fornecedorCrud,
+    state, setState,
+    empresa, tipo, pessoa,
+    company, contas, planoContas, lancamentos, clientes, fornecedores,
+    metas, orcamentos,
+    filterPeriodo, setFilterPeriodo,
+    search, setSearch,
+    tipoFilter, setTipoFilter,
+    consiliadoFilter, setConsiliadoFilter,
+    contaFilter, setContaFilter,
+    showSaldoCol, setShowSaldoCol,
+    modalOpen, editingItem, openModal, closeModal,
+    apiOnline, syncing, syncError,
+    setEmpresaField, setPessoaField, updateEmpresaData, patchEmpresa,
+    switchEmpresa, addEmpresa, addPerfil, removePerfil,
+    saveLancamento, markConsiliado, setLancamentos,
+    lancCrud, contaCrud, planoCrud, clienteCrud, fornecedorCrud,
+    fechamentos, fechamentoCrud,
+    metaCrud, orcamentoCrud,
     syncAccess,
-    lancsFiltrados,
-    dreAtual,
-    consultaDRE,
-    mensal,
-    balancete,
-    fluxoCaixa,
-    fechamentos,
-    fechamentoCrud,
+    lancsFiltrados, dreAtual, consultaDRE, mensal, balancete, fluxoCaixa,
     getSaldoConta: saldoContaFn,
     getSaldoTotal: saldoTotalFn,
     getDRE: (ano, mes) => getDRE(lancamentos, planoContas, ano, mes),

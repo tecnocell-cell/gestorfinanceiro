@@ -2,94 +2,80 @@ import { useState } from "react";
 import { generateId } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
 
-const cadastroFields = [
-  ["codigo", "Código (TB_Codigo)", "number"],
-  ["tipo", "Tipo", "text"],
-  ["nome", "Nome *", "text", true],
-  ["apelido", "Apelido", "text"],
-  ["contato", "Contato", "text"],
-  ["documento", "CPF/CNPJ", "text"],
-  ["rgInscricao", "RG / Inscrição", "text"],
-  ["telefone", "Telefone", "text"],
-  ["email", "E-mail", "email"],
-  ["endereco", "Endereço", "text", true],
-  ["bairro", "Bairro", "text"],
-  ["cidade", "Cidade", "text"],
-  ["estado", "Estado", "text"],
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function CadastroForm({ form, set }) {
-  return (
-    <div className="form-grid">
-      {cadastroFields.map(([key, label, type, full]) => (
-        <div className="form-group" key={key} style={full ? { gridColumn: "1 / -1" } : undefined}>
-          <label className="form-label">{label}</label>
-          <input
-            className="form-input"
-            type={type === "number" ? "number" : type === "email" ? "email" : "text"}
-            value={form[key] ?? ""}
-            onChange={(e) => set(key, e.target.value)}
-            maxLength={key === "estado" ? 2 : undefined}
-            placeholder={key === "codigo" ? "Auto" : undefined}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
+const Hdr = ({ onClose, title }) => (
+  <div className="modal-header">
+    <span className="modal-title">{title}</span>
+    <button type="button" className="modal-close" onClick={onClose}>✕</button>
+  </div>
+);
+
+const Ftr = ({ onClose, onSave, saveLabel = "Salvar" }) => (
+  <div className="modal-footer">
+    <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+    <button type="button" className="btn btn-primary" onClick={onSave}>{saveLabel}</button>
+  </div>
+);
+
+const Section = ({ label }) => (
+  <div className="modal-section">
+    <div className="modal-section-label">{label}</div>
+  </div>
+);
+
+// ─── Modal Lançamento ─────────────────────────────────────────────────────────
 
 export function ModalLancamento() {
-  const { editingItem, contas, planoContas, clientes, fornecedores, closeModal, saveLancamento, lancamentos } = useGestor();
+  const {
+    editingItem, contas, planoContas, clientes, fornecedores,
+    closeModal, saveLancamento, lancamentos, tipo,
+  } = useGestor();
+  const isPF = tipo === "fisica";
   const item = editingItem;
+
   const [form, setForm] = useState({
-    codigo: item?.codigo ?? "",
-    lote: item?.lote || "",
-    data: item?.data || new Date().toISOString().slice(0, 10),
-    tipo: item?.tipo || "Entrada",
+    codigo:       item?.codigo        ?? "",
+    lote:         item?.lote          || "",
+    data:         item?.data          || new Date().toISOString().slice(0, 10),
+    tipo:         item?.tipo          || "Entrada",
     contaEntradaId: item?.contaEntradaId || "",
-    contaSaidaId: item?.contaSaidaId || "",
-    planoId: item?.planoId || "",
-    valor: item?.valor ?? "",
-    historico: item?.historico || "",
-    contaContabil: item?.contaContabil || "",
-    natureza: item?.natureza || "",
-    exportado: item?.exportado || false,
-    consiliado: item?.consiliado || false,
-    clienteId: item?.clienteId || "",
-    fornecedorId: item?.fornecedorId || "",
+    contaSaidaId: item?.contaSaidaId  || "",
+    planoId:      item?.planoId       || "",
+    valor:        item?.valor         ?? "",
+    historico:    item?.historico     || "",
+    contaContabil:item?.contaContabil || "",
+    natureza:     item?.natureza      || "",
+    exportado:    item?.exportado     || false,
+    consiliado:   item?.consiliado    || false,
+    clienteId:    item?.clienteId     || "",
+    fornecedorId: item?.fornecedorId  || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   const handleSave = () => {
     if (!form.data || !form.valor || !form.planoId) {
-      alert("Preencha data, valor e plano de contas.");
+      alert(`Preencha data, valor e ${isPF ? "categoria" : "plano de contas"}.`);
       return;
     }
-    const lote = form.lote || (() => {
-      const nums = lancamentos.map((l) => parseInt(String(l.lote || "").replace(/\D/g, ""), 10)).filter((n) => !Number.isNaN(n));
-      const next = (nums.length ? Math.max(...nums) : 0) + 1;
-      return `L${String(next).padStart(3, "0")}`;
-    })();
+    const nums = lancamentos.map((l) => parseInt(String(l.lote || "").replace(/\D/g, ""), 10)).filter((n) => !Number.isNaN(n));
+    const lote = form.lote || `L${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0")}`;
     saveLancamento({ ...form, lote });
   };
 
+  const contasAtivas = contas.filter((c) => !c.inativo);
+  const showEntrada = form.tipo === "Entrada" || form.tipo === "Transferencia";
+  const showSaida   = form.tipo === "Saida"   || form.tipo === "Transferencia";
+
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal">
-        <div className="modal-header">
-          <span className="modal-title">{item ? "Editar Lançamento" : "Novo Lançamento"}</span>
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={closeModal}>✕</button>
-        </div>
+      <div className="modal" style={{ maxWidth: isPF ? 500 : 680 }}>
+        <Hdr onClose={closeModal} title={item?.id ? "Editar Lançamento" : "Novo Lançamento"} />
+
         <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Código (TB_Codigo)</label>
-              <input className="form-input" type="number" value={form.codigo} onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Lote</label>
-              <input className="form-input" value={form.lote} onChange={(e) => set("lote", e.target.value)} placeholder="Auto se vazio" />
-            </div>
+
+          {/* ── Linha principal ── */}
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
             <div className="form-group">
               <label className="form-label">Data *</label>
               <input className="form-input" type="date" value={form.data} onChange={(e) => set("data", e.target.value)} />
@@ -97,111 +83,167 @@ export function ModalLancamento() {
             <div className="form-group">
               <label className="form-label">Tipo *</label>
               <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
-                <option>Entrada</option>
-                <option>Saida</option>
-                <option>Transferencia</option>
+                <option value="Entrada">Entrada</option>
+                <option value="Saida">Saída</option>
+                <option value="Transferencia">Transferência</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Valor *</label>
-              <input className="form-input" type="number" step="0.01" value={form.valor} onChange={(e) => set("valor", e.target.value)} />
+              <label className="form-label">Valor (R$) *</label>
+              <input className="form-input" type="number" step="0.01" min="0" value={form.valor}
+                onChange={(e) => set("valor", e.target.value)} placeholder="0,00" />
             </div>
           </div>
-          <div className="form-grid" style={{ marginTop: 12 }}>
-            <div className="form-group">
-              <label className="form-label">Conta Contábil</label>
-              <input className="form-input" value={form.contaContabil} onChange={(e) => set("contaContabil", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Natureza</label>
-              <input className="form-input" value={form.natureza} onChange={(e) => set("natureza", e.target.value)} />
+
+          {/* ── Contas ── */}
+          <div className="modal-section">
+            <div className="modal-section-label">{isPF ? "Conta" : "Contas Financeiras"}</div>
+            <div className="form-grid" style={{ gridTemplateColumns: showEntrada && showSaida ? "1fr 1fr" : "1fr" }}>
+              {showEntrada && (
+                <div className="form-group">
+                  <label className="form-label">Conta de Entrada</label>
+                  <select className="form-select" value={form.contaEntradaId} onChange={(e) => set("contaEntradaId", e.target.value)}>
+                    <option value="">— Selecione —</option>
+                    {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
+                  </select>
+                </div>
+              )}
+              {showSaida && (
+                <div className="form-group">
+                  <label className="form-label">Conta de Saída</label>
+                  <select className="form-select" value={form.contaSaidaId} onChange={(e) => set("contaSaidaId", e.target.value)}>
+                    <option value="">— Selecione —</option>
+                    {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
-          <div className="form-grid" style={{ marginTop: 12 }}>
-            {(form.tipo === "Entrada" || form.tipo === "Transferencia") && (
-              <div className="form-group">
-                <label className="form-label">Conta Entrada</label>
-                <select className="form-select" value={form.contaEntradaId} onChange={(e) => set("contaEntradaId", e.target.value)}>
-                  <option value="">— Selecione —</option>
-                  {contas.filter((c) => !c.inativo).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-            )}
-            {(form.tipo === "Saida" || form.tipo === "Transferencia") && (
-              <div className="form-group">
-                <label className="form-label">Conta Saída</label>
-                <select className="form-select" value={form.contaSaidaId} onChange={(e) => set("contaSaidaId", e.target.value)}>
-                  <option value="">— Selecione —</option>
-                  {contas.filter((c) => !c.inativo).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="form-group">
-              <label className="form-label">Plano de Contas *</label>
+
+          {/* ── Categoria / Plano ── */}
+          <div className="modal-section">
+            <div className="modal-section-label">{isPF ? "Categoria" : "Classificação"}</div>
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">{isPF ? "Categoria *" : "Plano de Contas *"}</label>
               <select className="form-select" value={form.planoId} onChange={(e) => set("planoId", e.target.value)}>
                 <option value="">— Selecione —</option>
-                {planoContas.map((p) => <option key={p.id} value={p.id}>[{p.tipo}] {p.descricao}</option>)}
+                {planoContas.filter((p) => !p.inativo).map((p) => (
+                  <option key={p.id} value={p.id}>[{p.tipo}] {p.descricao}</option>
+                ))}
               </select>
             </div>
+
+            {!isPF && (
+              <div className="form-grid" style={{ marginTop: 12, gridTemplateColumns: "1fr 1fr" }}>
+                <div className="form-group">
+                  <label className="form-label">Cliente</label>
+                  <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
+                    <option value="">— Nenhum —</option>
+                    {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fornecedor</label>
+                  <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
+                    <option value="">— Nenhum —</option>
+                    {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Histórico ── */}
+          <div className="modal-section">
+            <div className="modal-section-label">Descrição</div>
             <div className="form-group">
-              <label className="form-label">Cliente</label>
-              <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
-                <option value="">— Nenhum —</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fornecedor</label>
-              <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
-                <option value="">— Nenhum —</option>
-                {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-              </select>
+              <label className="form-label">Histórico / Observação</label>
+              <textarea className="form-textarea" value={form.historico}
+                onChange={(e) => set("historico", e.target.value)}
+                placeholder="Descreva o lançamento…" />
             </div>
           </div>
-          <div className="form-group" style={{ marginTop: 12 }}>
-            <label className="form-label">Histórico</label>
-            <textarea className="form-textarea" value={form.historico} onChange={(e) => set("historico", e.target.value)} />
-          </div>
-          <p style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 16 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
-              <input type="checkbox" checked={form.exportado} onChange={(e) => set("exportado", e.target.checked)} />
-              Exportado Domínio
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
-              <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
-              Conciliado
-            </label>
-          </p>
+
+          {/* ── Campos PJ avançados ── */}
+          {!isPF && (
+            <div className="modal-section">
+              <div className="modal-section-label">Identificação Contábil</div>
+              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+                <div className="form-group">
+                  <label className="form-label">Código</label>
+                  <input className="form-input" type="number" value={form.codigo}
+                    onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Lote</label>
+                  <input className="form-input" value={form.lote}
+                    onChange={(e) => set("lote", e.target.value)} placeholder="Auto" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Conta Contábil</label>
+                  <input className="form-input" value={form.contaContabil}
+                    onChange={(e) => set("contaContabil", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Natureza</label>
+                  <input className="form-input" value={form.natureza}
+                    onChange={(e) => set("natureza", e.target.value)} />
+                </div>
+              </div>
+              <div className="check-row">
+                <label className="check-item">
+                  <input type="checkbox" checked={form.exportado} onChange={(e) => set("exportado", e.target.checked)} />
+                  Exportado Domínio
+                </label>
+                <label className="check-item">
+                  <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
+                  Conciliado
+                </label>
+              </div>
+            </div>
+          )}
+
+          {isPF && (
+            <div className="check-row" style={{ marginTop: 18 }}>
+              <label className="check-item">
+                <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
+                Confirmado
+              </label>
+            </div>
+          )}
         </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave}>Salvar</button>
-        </div>
+
+        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Salvar"} />
       </div>
     </div>
   );
 }
 
+// ─── Modal Conta ──────────────────────────────────────────────────────────────
+
 export function ModalConta() {
-  const { editingItem, closeModal, contaCrud } = useGestor();
+  const { editingItem, closeModal, contaCrud, tipo } = useGestor();
+  const isPF = tipo === "fisica";
   const item = editingItem;
+
   const [form, setForm] = useState({
-    codigo: item?.codigo ?? "",
-    nome: item?.nome || "",
-    apelido: item?.apelido || "",
-    tipo: item?.tipo || "Banco",
-    saldoInicial: item?.saldoInicial ?? 0,
-    contaContabil: item?.contaContabil || "",
+    codigo:              item?.codigo              ?? "",
+    nome:                item?.nome                || "",
+    apelido:             item?.apelido             || "",
+    tipo:                item?.tipo                || "Banco",
+    saldoInicial:        item?.saldoInicial        ?? 0,
+    contaContabil:       item?.contaContabil       || "",
     codigoClassificacao: item?.codigoClassificacao ?? "",
-    classificacao: item?.classificacao || "",
-    nomeClassificacao: item?.nomeClassificacao || "",
-    natureza: item?.natureza || "",
-    inativo: item?.inativo || false,
-    usarSaldo: item?.usarSaldo !== false,
+    classificacao:       item?.classificacao       || "",
+    nomeClassificacao:   item?.nomeClassificacao   || "",
+    natureza:            item?.natureza            || "",
+    inativo:             item?.inativo             || false,
+    usarSaldo:           item?.usarSaldo           !== false,
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   const handleSave = () => {
+    if (!form.nome.trim()) return alert("Nome obrigatório.");
     const data = {
       ...form,
       codigo: Number(form.codigo) || form.codigo,
@@ -213,83 +255,116 @@ export function ModalConta() {
     closeModal();
   };
 
+  const tipoOptions = isPF
+    ? ["Banco", "Caixa", "Poupança", "Investimento", "Outros"]
+    : ["Banco", "Caixa", "Outros"];
+
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 480 }}>
-        <div className="modal-header">
-          <span className="modal-title">{item ? "Editar Conta" : "Nova Conta"}</span>
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={closeModal}>✕</button>
-        </div>
+      <div className="modal" style={{ maxWidth: 520 }}>
+        <Hdr onClose={closeModal} title={item?.id ? "Editar Conta" : "Nova Conta"} />
+
         <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Código</label>
-              <input className="form-input" type="number" value={form.codigo} onChange={(e) => set("codigo", e.target.value)} />
+          {/* Identificação */}
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">Nome da Conta *</label>
+              <input className="form-input" value={form.nome}
+                onChange={(e) => set("nome", e.target.value)} placeholder="Ex: Conta Bradesco" />
             </div>
             <div className="form-group">
-              <label className="form-label">Conta Contábil</label>
-              <input className="form-input" value={form.contaContabil} onChange={(e) => set("contaContabil", e.target.value)} placeholder="1.1.01" />
+              <label className="form-label">Apelido (exibição)</label>
+              <input className="form-input" value={form.apelido}
+                onChange={(e) => set("apelido", e.target.value)} placeholder="Ex: Bradesco CC" />
             </div>
             <div className="form-group">
               <label className="form-label">Tipo</label>
               <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
-                <option>Banco</option><option>Caixa</option><option>Outros</option>
+                {tipoOptions.map((t) => <option key={t}>{t}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Saldo Inicial</label>
-              <input className="form-input" type="number" step="0.01" value={form.saldoInicial} onChange={(e) => set("saldoInicial", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Cód. Classificação DRE</label>
-              <input className="form-input" type="number" value={form.codigoClassificacao} onChange={(e) => set("codigoClassificacao", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Nome</label>
-              <input className="form-input" value={form.nome} onChange={(e) => set("nome", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Apelido (exibição)</label>
-              <input className="form-input" value={form.apelido} onChange={(e) => set("apelido", e.target.value)} placeholder="Ex: Itaú CC" />
+          </div>
+
+          {/* Saldo */}
+          <div className="modal-section">
+            <div className="modal-section-label">Saldo</div>
+            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              <div className="form-group">
+                <label className="form-label">Saldo Inicial (R$)</label>
+                <input className="form-input" type="number" step="0.01"
+                  value={form.saldoInicial} onChange={(e) => set("saldoInicial", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Código</label>
+                <input className="form-input" type="number" value={form.codigo}
+                  onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
+              </div>
             </div>
           </div>
-          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 16 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+
+          {/* Contábil — só PJ */}
+          {!isPF && (
+            <div className="modal-section">
+              <div className="modal-section-label">Informações Contábeis</div>
+              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <div className="form-group">
+                  <label className="form-label">Conta Contábil</label>
+                  <input className="form-input" value={form.contaContabil}
+                    onChange={(e) => set("contaContabil", e.target.value)} placeholder="1.1.01" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cód. Classificação DRE</label>
+                  <input className="form-input" type="number" value={form.codigoClassificacao}
+                    onChange={(e) => set("codigoClassificacao", e.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="check-row">
+            <label className="check-item">
               <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
-              Usar saldo no total
+              Incluir no saldo total
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+            <label className="check-item">
               <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
               Inativo
             </label>
           </div>
         </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave}>Salvar</button>
-        </div>
+
+        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Conta"} />
       </div>
     </div>
   );
 }
 
+// ─── Modal Plano de Contas ────────────────────────────────────────────────────
+
 export function ModalPlano() {
   const { editingItem, closeModal, planoCrud } = useGestor();
   const item = editingItem;
+
   const [form, setForm] = useState({
-    codigo: item?.codigo || "",
+    codigo:        item?.codigo        || "",
     classificacao: item?.classificacao || "RECEITA",
-    descricao: item?.descricao || "",
-    tipo: item?.tipo || "Receita",
-    natureza: item?.natureza || "Credito",
-    caixaBanco: item?.caixaBanco || "",
+    descricao:     item?.descricao     || "",
+    tipo:          item?.tipo          || "Receita",
+    natureza:      item?.natureza      || "Credito",
+    caixaBanco:    item?.caixaBanco    || "",
     contaContabil: item?.contaContabil || "",
-    inativo: item?.inativo || false,
-    usarSaldo: item?.usarSaldo !== false,
+    inativo:       item?.inativo       || false,
+    usarSaldo:     item?.usarSaldo     !== false,
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  const handleTipo = (v) => {
+    const nat = v === "Receita" ? "Credito" : "Debito";
+    setForm((p) => ({ ...p, tipo: v, classificacao: v.toUpperCase(), natureza: nat }));
+  };
+
   const handleSave = () => {
+    if (!form.descricao.trim()) return alert("Descrição obrigatória.");
     if (item?.id) planoCrud.update(item.id, form);
     else planoCrud.add({ ...form, id: generateId() });
     closeModal();
@@ -297,141 +372,384 @@ export function ModalPlano() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 480 }}>
-        <div className="modal-header">
-          <span className="modal-title">{item ? "Editar Plano" : "Novo Plano"}</span>
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={closeModal}>✕</button>
-        </div>
+      <div className="modal" style={{ maxWidth: 500 }}>
+        <Hdr onClose={closeModal} title={item?.id ? "Editar Plano" : "Novo Plano de Contas"} />
+
         <div className="modal-body">
-          <div className="form-grid">
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Descrição *</label>
+            <input className="form-input" value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              placeholder="Ex: Venda de Produtos" />
+          </div>
+
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="form-group">
-              <label className="form-label">Código</label>
-              <input className="form-input" value={form.codigo} onChange={(e) => set("codigo", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tipo</label>
-              <select className="form-select" value={form.tipo} onChange={(e) => { set("tipo", e.target.value); set("classificacao", e.target.value.toUpperCase()); }}>
-                <option>Receita</option><option>Custo</option><option>Despesa</option><option>Imposto</option>
+              <label className="form-label">Tipo *</label>
+              <select className="form-select" value={form.tipo} onChange={(e) => handleTipo(e.target.value)}>
+                <option>Receita</option>
+                <option>Custo</option>
+                <option>Despesa</option>
+                <option>Imposto</option>
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">Natureza</label>
               <select className="form-select" value={form.natureza} onChange={(e) => set("natureza", e.target.value)}>
-                <option>Credito</option><option>Debito</option>
+                <option>Credito</option>
+                <option>Debito</option>
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Conta Contábil</label>
-              <input className="form-input" value={form.contaContabil} onChange={(e) => set("contaContabil", e.target.value)} />
-            </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Descrição</label>
-              <input className="form-input" value={form.descricao} onChange={(e) => set("descricao", e.target.value)} />
-            </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Classificação</label>
-              <input className="form-input" value={form.classificacao} onChange={(e) => set("classificacao", e.target.value)} />
+          </div>
+
+          <div className="modal-section">
+            <div className="modal-section-label">Identificação Contábil</div>
+            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              <div className="form-group">
+                <label className="form-label">Código</label>
+                <input className="form-input" value={form.codigo}
+                  onChange={(e) => set("codigo", e.target.value)} placeholder="Ex: 1.1.001" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Conta Contábil</label>
+                <input className="form-input" value={form.contaContabil}
+                  onChange={(e) => set("contaContabil", e.target.value)} />
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label className="form-label">Classificação</label>
+                <input className="form-input" value={form.classificacao}
+                  onChange={(e) => set("classificacao", e.target.value)} />
+              </div>
             </div>
           </div>
-          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 16 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+
+          <div className="check-row">
+            <label className="check-item">
               <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
-              Usar saldo no DRE
+              Usar no DRE
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+            <label className="check-item">
               <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
               Inativo
             </label>
           </div>
         </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave}>Salvar</button>
-        </div>
+
+        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar"} />
       </div>
     </div>
   );
 }
 
-function useCadastroForm(item) {
-  return useState({
-    codigo: item?.codigo ?? "",
-    nome: item?.nome || "",
-    apelido: item?.apelido || "",
-    documento: item?.documento || "",
-    email: item?.email || "",
-    telefone: item?.telefone || "",
-    endereco: item?.endereco || "",
-    bairro: item?.bairro || "",
-    cidade: item?.cidade || "",
-    estado: item?.estado || "",
-    contato: item?.contato || "",
-    tipo: item?.tipo || "",
-    rgInscricao: item?.rgInscricao || "",
+// ─── Modal Cliente / Fornecedor ───────────────────────────────────────────────
+
+function CadastroModal({ title, item, onSave, onClose }) {
+  const [form, setForm] = useState({
+    codigo:     item?.codigo     ?? "",
+    nome:       item?.nome       || "",
+    apelido:    item?.apelido    || "",
+    tipo:       item?.tipo       || "",
+    documento:  item?.documento  || "",
+    rgInscricao:item?.rgInscricao|| "",
+    contato:    item?.contato    || "",
+    telefone:   item?.telefone   || "",
+    email:      item?.email      || "",
+    endereco:   item?.endereco   || "",
+    bairro:     item?.bairro     || "",
+    cidade:     item?.cidade     || "",
+    estado:     item?.estado     || "",
   });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.nome.trim()) return alert("Nome obrigatório.");
+    onSave({ ...form, codigo: form.codigo ? Number(form.codigo) : undefined });
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 600 }}>
+        <Hdr onClose={onClose} title={title} />
+
+        <div className="modal-body">
+          {/* Identificação */}
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">Nome / Razão Social *</label>
+              <input className="form-input" value={form.nome}
+                onChange={(e) => set("nome", e.target.value)} placeholder="Nome completo ou razão social" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Apelido</label>
+              <input className="form-input" value={form.apelido}
+                onChange={(e) => set("apelido", e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tipo</label>
+              <input className="form-input" value={form.tipo}
+                onChange={(e) => set("tipo", e.target.value)} placeholder="PF / PJ" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">CPF / CNPJ</label>
+              <input className="form-input" value={form.documento}
+                onChange={(e) => set("documento", e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">RG / Inscrição Estadual</label>
+              <input className="form-input" value={form.rgInscricao}
+                onChange={(e) => set("rgInscricao", e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Código</label>
+              <input className="form-input" type="number" value={form.codigo}
+                onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
+            </div>
+          </div>
+
+          {/* Contato */}
+          <div className="modal-section">
+            <div className="modal-section-label">Contato</div>
+            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+              <div className="form-group">
+                <label className="form-label">Responsável / Contato</label>
+                <input className="form-input" value={form.contato}
+                  onChange={(e) => set("contato", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Telefone</label>
+                <input className="form-input" value={form.telefone}
+                  onChange={(e) => set("telefone", e.target.value)} placeholder="(00) 00000-0000" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">E-mail</label>
+                <input className="form-input" type="email" value={form.email}
+                  onChange={(e) => set("email", e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Endereço */}
+          <div className="modal-section">
+            <div className="modal-section-label">Endereço</div>
+            <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label className="form-label">Logradouro</label>
+                <input className="form-input" value={form.endereco}
+                  onChange={(e) => set("endereco", e.target.value)} placeholder="Rua, número, complemento" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Bairro</label>
+                <input className="form-input" value={form.bairro}
+                  onChange={(e) => set("bairro", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Cidade</label>
+                <input className="form-input" value={form.cidade}
+                  onChange={(e) => set("cidade", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Estado (UF)</label>
+                <input className="form-input" value={form.estado}
+                  onChange={(e) => set("estado", e.target.value)} maxLength={2} placeholder="SP" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Ftr onClose={onClose} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Salvar"} />
+      </div>
+    </div>
+  );
 }
 
 export function ModalCliente() {
   const { editingItem, closeModal, clienteCrud } = useGestor();
   const item = editingItem;
-  const [form, setForm] = useCadastroForm(item);
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
-  const handleSave = () => {
-    if (!form.nome) return alert("Nome obrigatório.");
-    const data = { ...form, codigo: form.codigo ? Number(form.codigo) : undefined };
+  const handleSave = (data) => {
     if (item?.id) clienteCrud.update(item.id, data);
     else clienteCrud.add({ ...data, id: generateId(), codigo: data.codigo ?? Date.now() % 100000 });
     closeModal();
   };
-
-  return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 560 }}>
-        <div className="modal-header">
-          <span className="modal-title">{item ? "Editar Cliente" : "Novo Cliente"}</span>
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={closeModal}>✕</button>
-        </div>
-        <div className="modal-body">
-          <CadastroForm form={form} set={set} />
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave}>Salvar</button>
-        </div>
-      </div>
-    </div>
-  );
+  return <CadastroModal title={item?.id ? "Editar Cliente" : "Novo Cliente"} item={item} onSave={handleSave} onClose={closeModal} />;
 }
 
 export function ModalFornecedor() {
   const { editingItem, closeModal, fornecedorCrud } = useGestor();
   const item = editingItem;
-  const [form, setForm] = useCadastroForm(item);
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
-  const handleSave = () => {
-    if (!form.nome) return alert("Nome obrigatório.");
-    const data = { ...form, codigo: form.codigo ? Number(form.codigo) : undefined };
+  const handleSave = (data) => {
     if (item?.id) fornecedorCrud.update(item.id, data);
     else fornecedorCrud.add({ ...data, id: generateId(), codigo: data.codigo ?? Date.now() % 100000 });
     closeModal();
   };
+  return <CadastroModal title={item?.id ? "Editar Fornecedor" : "Novo Fornecedor"} item={item} onSave={handleSave} onClose={closeModal} />;
+}
+
+// ─── Modais Pessoa Física ─────────────────────────────────────────────────────
+
+export function ModalCategoriaPF() {
+  const { editingItem, closeModal, planoCrud } = useGestor();
+  const item = editingItem;
+
+  const [form, setForm] = useState({
+    codigo:        item?.codigo        || "",
+    descricao:     item?.descricao     || "",
+    tipo:          item?.tipo          || "Despesa",
+    classificacao: item?.classificacao || "DESPESA",
+    natureza:      item?.natureza      || "Debito",
+    caixaBanco:    "",
+    contaContabil: "",
+    inativo:       item?.inativo       || false,
+    usarSaldo:     item?.usarSaldo     !== false,
+  });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleTipo = (v) => setForm((p) => ({
+    ...p, tipo: v,
+    classificacao: v.toUpperCase(),
+    natureza: v === "Receita" ? "Credito" : "Debito",
+  }));
+
+  const handleSave = () => {
+    if (!form.descricao.trim()) return alert("Descrição obrigatória.");
+    const data = { ...form, classificacao: form.tipo.toUpperCase(), natureza: form.tipo === "Receita" ? "Credito" : "Debito" };
+    if (item?.id) planoCrud.update(item.id, data);
+    else planoCrud.add({ ...data, id: generateId() });
+    closeModal();
+  };
+
+  const tipoColor = form.tipo === "Receita" ? "#059669" : "#e11d48";
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 560 }}>
-        <div className="modal-header">
-          <span className="modal-title">{item ? "Editar Fornecedor" : "Novo Fornecedor"}</span>
-          <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={closeModal}>✕</button>
-        </div>
+      <div className="modal" style={{ maxWidth: 440 }}>
+        <Hdr onClose={closeModal} title={item?.id ? "Editar Categoria" : "Nova Categoria"} />
+
         <div className="modal-body">
-          <CadastroForm form={form} set={set} />
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Tipo *</label>
+            <div style={{ display: "flex", gap: 10 }}>
+              {["Receita", "Despesa"].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => handleTipo(t)}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: `2px solid ${form.tipo === t ? tipoColor : "var(--border)"}`,
+                    background: form.tipo === t ? (t === "Receita" ? "rgba(5,150,105,0.08)" : "rgba(225,29,72,0.08)") : "var(--surface)",
+                    color: form.tipo === t ? tipoColor : "var(--text2)",
+                    fontWeight: form.tipo === t ? 700 : 500,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {t === "Receita" ? "↑ Receita" : "↓ Despesa"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Nome da Categoria *</label>
+            <input className="form-input" value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              placeholder="Ex: Alimentação, Salário, Academia…" autoFocus />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Código (opcional)</label>
+            <input className="form-input" value={form.codigo}
+              onChange={(e) => set("codigo", e.target.value)} placeholder="Ex: 2.9" />
+          </div>
+
+          <div className="check-row">
+            <label className="check-item">
+              <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
+              Inativo (ocultar nas listas)
+            </label>
+          </div>
         </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleSave}>Salvar</button>
+
+        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Categoria"} />
+      </div>
+    </div>
+  );
+}
+
+export function ModalMeta() {
+  const { editingItem, closeModal, metaCrud } = useGestor();
+  const item = editingItem;
+
+  const [form, setForm] = useState({
+    descricao:  item?.descricao  || "",
+    valorAlvo:  item?.valorAlvo  ?? "",
+    valorAtual: item?.valorAtual ?? 0,
+    prazo:      item?.prazo      || "",
+  });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.descricao.trim()) return alert("Descrição obrigatória.");
+    if (!form.valorAlvo)        return alert("Valor alvo obrigatório.");
+    const data = { ...form, valorAlvo: parseFloat(form.valorAlvo), valorAtual: parseFloat(form.valorAtual) || 0 };
+    if (item?.id) metaCrud.update(item.id, data);
+    else metaCrud.add({ ...data, id: generateId() });
+    closeModal();
+  };
+
+  const pct = form.valorAlvo > 0 ? Math.min(((form.valorAtual || 0) / form.valorAlvo) * 100, 100) : 0;
+
+  return (
+    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+      <div className="modal" style={{ maxWidth: 460 }}>
+        <Hdr onClose={closeModal} title={item?.id ? "Editar Meta" : "Nova Meta de Poupança"} />
+
+        <div className="modal-body">
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Nome da Meta *</label>
+            <input className="form-input" value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              placeholder="Ex: Reserva de Emergência, Viagem, Carro…" autoFocus />
+          </div>
+
+          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="form-group">
+              <label className="form-label">Valor Alvo (R$) *</label>
+              <input className="form-input" type="number" step="0.01" min="0"
+                value={form.valorAlvo} onChange={(e) => set("valorAlvo", e.target.value)}
+                placeholder="0,00" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Já acumulado (R$)</label>
+              <input className="form-input" type="number" step="0.01" min="0"
+                value={form.valorAtual} onChange={(e) => set("valorAtual", e.target.value)}
+                placeholder="0,00" />
+            </div>
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">Prazo</label>
+              <input className="form-input" value={form.prazo}
+                onChange={(e) => set("prazo", e.target.value)} placeholder="Ex: Dez/2025 ou Dezembro de 2025" />
+            </div>
+          </div>
+
+          {/* Preview progresso */}
+          {form.valorAlvo > 0 && (
+            <div style={{ marginTop: 20, padding: "14px 16px", background: "var(--surface2)", borderRadius: 10, border: "1px solid var(--border-light)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", marginBottom: 8 }}>
+                <span>Progresso atual</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--accent)" }}>{pct.toFixed(0)}%</span>
+              </div>
+              <div className="progress-wrap">
+                <div className={`progress-fill ${pct >= 100 ? "green" : pct >= 50 ? "blue" : "purple"}`} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          )}
         </div>
+
+        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Meta"} />
       </div>
     </div>
   );

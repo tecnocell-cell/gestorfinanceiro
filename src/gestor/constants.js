@@ -13,6 +13,17 @@ export const CHART = {
 
 export const STORAGE_KEY = "gestor_financeiro_v2";
 
+export const NAV_ITEMS_FISICA = [
+  { id: "dashboard",   icon: "◉", label: "Dashboard"    },
+  { id: "lancamentos", icon: "↔", label: "Lançamentos"  },
+  { id: "categorias",  icon: "▤", label: "Categorias"   },
+  { id: "orcamento",   icon: "◎", label: "Orçamento"    },
+  { id: "metas",       icon: "◈", label: "Metas"        },
+  { id: "contas",      icon: "▦", label: "Contas"       },
+  { id: "relatorios",  icon: "▥", label: "Relatórios"   },
+  { id: "perfil",      icon: "⚙", label: "Perfil"       },
+];
+
 export const NAV_ITEMS = [
   { id: "dashboard", icon: "◉", label: "Dashboard" },
   { id: "lancamentos", icon: "↔", label: "Lançamentos" },

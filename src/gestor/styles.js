@@ -545,23 +545,23 @@ export const css = `
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.35);
+    background: rgba(15, 23, 42, 0.4);
     z-index: 200;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
-    backdrop-filter: blur(6px);
+    padding: 20px;
+    backdrop-filter: blur(8px);
   }
 
   .modal {
     background: var(--surface);
-    border-radius: 14px;
+    border-radius: 18px;
     width: 100%;
-    max-width: 620px;
-    max-height: 90vh;
+    max-width: 680px;
+    max-height: 92vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15,23,42,0.06);
     border: 1px solid var(--border-light);
   }
 
@@ -569,25 +569,133 @@ export const css = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 20px 28px 18px;
     border-bottom: 1px solid var(--border-light);
-    background: var(--surface2);
-    border-radius: 14px 14px 0 0;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+    border-radius: 18px 18px 0 0;
   }
 
-  .modal-title { font-size: 17px; font-weight: 700; color: var(--text); }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
 
-  .modal-body { padding: 18px 20px; }
+  .modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text3);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .modal-close:hover { background: var(--surface3); color: var(--text); }
+
+  .modal-body { padding: 24px 28px; }
+
+  .modal-section {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .modal-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
 
   .modal-footer {
-    padding: 12px 20px;
+    padding: 16px 28px;
     border-top: 1px solid var(--border-light);
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 10px;
     background: var(--surface2);
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 18px 18px;
+    position: sticky;
+    bottom: 0;
   }
+
+  /* ─── FORMS (global upgrade) ─── */
+  .form-grid { gap: 16px; }
+
+  .form-label {
+    font-size: 11px;
+    color: var(--text2);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 5px;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+  }
+
+  .form-input::placeholder { color: var(--text3); }
+
+  .form-textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+
+  .check-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border-light);
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .check-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* ─── BTN upgrade ─── */
+  .btn { padding: 9px 18px; font-size: 13.5px; border-radius: 10px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+  .btn-icon { padding: 7px; border-radius: 8px; }
 
   .empty-state { text-align: center; padding: 36px; color: var(--text3); }
 
@@ -654,4 +762,134 @@ export const css = `
     .nav-item { justify-content: center; padding: 8px; }
     .main { margin-left: 0; }
   }
+
+  /* ─── NAV PESSOA FÍSICA (8 itens) ─── */
+  .nav-list-pf {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    gap: 3px;
+    padding: 0 8px 4px;
+    overflow: hidden;
+  }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-wrap {
+    height: 8px;
+    background: var(--surface3);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+  .progress-fill.green  { background: var(--accent-bright); }
+  .progress-fill.amber  { background: #f59e0b; }
+  .progress-fill.red    { background: var(--danger); }
+  .progress-fill.blue   { background: var(--accent3); }
+  .progress-fill.purple { background: #7c3aed; }
+
+  /* ─── META CARD ─── */
+  .meta-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .meta-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .meta-title { font-weight: 600; font-size: 14px; }
+  .meta-values { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .meta-prazo { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* ─── PROFILE MANAGER ─── */
+  .profile-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .profile-item:hover { background: var(--surface2); }
+  .profile-item.active {
+    background: var(--accent-light);
+    border-color: rgba(13, 148, 136, 0.3);
+  }
+  .profile-item-name { font-weight: 600; font-size: 13px; }
+  .profile-item-sub  { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: var(--font-mono); }
+
+  /* PF / PJ badges */
+  .badge-pf { background: rgba(99,102,241,0.12); color: #4f46e5; }
+  .badge-pj { background: rgba(16,185,129,0.12); color: var(--green-dark); }
+
+  /* ─── ORÇAMENTO ─── */
+  .orcamento-row {
+    display: grid;
+    grid-template-columns: 1fr 130px 130px 130px 90px 80px;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+  }
+  .orcamento-row:last-child { border-bottom: none; }
+  .orcamento-header {
+    background: var(--surface2);
+    color: var(--text3);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+  .orcamento-input {
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 13px;
+    text-align: right;
+    font-family: var(--font-mono);
+  }
+  .orcamento-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-light); }
+
+  /* ─── SIDEBAR FOOTER COM PERFIL ─── */
+  .sidebar-footer-profile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .sidebar-footer-info { min-width: 0; flex: 1; }
+  .sidebar-footer-switch {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text2);
+    transition: background 0.15s, color 0.15s;
+  }
+  .sidebar-footer-switch:hover { background: var(--surface3); color: var(--accent); }
 `;
+
