@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { adminApi, authApi } from "../api.js";
+import { adminApi } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 
 // ─── Utilitários ─────────────────────────────────────────────────────────────
@@ -198,8 +198,49 @@ function ModalResetSenha({ user, onClose }) {
 }
 
 // ─── Painel Admin principal ───────────────────────────────────────────────────
-export default function AdminPage() {
-  const { user: adminUser, logout } = useAuth();
+function SuperAdminCard({ user }) {
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+      border: "1.5px solid #fde68a",
+      borderRadius: 14,
+      padding: "18px 22px",
+      marginBottom: 24,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 16,
+      flexWrap: "wrap",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+          background: "linear-gradient(135deg, #f59e0b, #d97706)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, boxShadow: "0 4px 14px rgba(245,158,11,0.35)",
+        }}>🛡</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#b45309", marginBottom: 4 }}>
+            Super Administrador
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#78350f", lineHeight: 1.2 }}>{user?.nome}</div>
+          <div style={{ fontSize: 13, color: "#92400e", marginTop: 2 }}>{user?.email}</div>
+        </div>
+      </div>
+      <div style={{
+        fontSize: 12, fontWeight: 700, color: "#065f46",
+        background: "#ecfdf5", border: "1px solid #a7f3d0",
+        borderRadius: 20, padding: "8px 14px", whiteSpace: "nowrap",
+      }}>
+        ✓ Conta protegida — não pode ser excluída ou desativada
+      </div>
+    </div>
+  );
+}
+
+// embedded=true → renderiza sem topbar própria (dentro do GestorApp)
+export default function AdminPage({ embedded = false }) {
+  const { user: adminUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -232,7 +273,11 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (u) => {
-    if (!confirm(`Excluir permanentemente a conta de ${u.nome} (${u.email})?\\nTodos os dados financeiros serão apagados!`)) return;
+    if (u.role === "admin") {
+      alert("Conta de super administrador não pode ser excluída.");
+      return;
+    }
+    if (!confirm(`Excluir permanentemente a conta de ${u.nome} (${u.email})?\nTodos os dados financeiros serão apagados!`)) return;
     try {
       await adminApi.deleteUser(u.id);
       setUsers(us => us.filter(x => x.id !== u.id));
@@ -253,26 +298,10 @@ export default function AdminPage() {
   const totalPF = tenants.filter(u => u.tipo_perfil === "fisica").length;
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f8fafc", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-      {/* Topbar admin */}
-      <div style={{ background:"linear-gradient(135deg,#10b981,#0d9488)", padding:"0 32px", display:"flex", alignItems:"center", justifyContent:"space-between", height:60, boxShadow:"0 2px 12px rgba(0,0,0,0.15)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <div style={{ width:34, height:34, borderRadius:9, background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"#fff" }}>GF</div>
-          <div>
-            <div style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Gestor Financeiro</div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>Painel do Administrador</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <span style={{ fontSize:13, color:"rgba(255,255,255,0.85)" }}>{adminUser?.nome || adminUser?.email}</span>
-          <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:20, background:"rgba(255,255,255,0.2)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)" }}>ADMIN</span>
-          <button onClick={logout} title="Sair" style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:8, color:"#fff", fontSize:13, cursor:"pointer", padding:"6px 12px", fontFamily:"inherit", fontWeight:600 }}>
-            Sair ⏏
-          </button>
-        </div>
-      </div>
+    <div style={{ background:"#f8fafc", fontFamily:"'Plus Jakarta Sans',sans-serif", minHeight: embedded ? "unset" : "100vh" }}>
 
-      <div style={{ maxWidth:1200, margin:"0 auto", padding:"32px 24px" }}>
+      <div style={{ maxWidth:"100%", padding: embedded ? "0" : "32px 24px" }}>
+        <SuperAdminCard user={adminUser} />
         {/* KPIs */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:28 }}>
           {[

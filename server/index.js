@@ -1,3 +1,7 @@
+// Carrega .env antes de tudo
+import { config } from "dotenv";
+config();
+
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
@@ -6,6 +10,7 @@ import { dirname, join } from "path";
 import { existsSync } from "fs";
 import { query } from "./db.js";
 import { authMiddleware, adminMiddleware, activeMiddleware, signToken } from "./middleware/auth.js";
+import { findUsuario, rejectProtectedAdmin } from "./adminGuard.js";
 import { buildSyncPayload } from "./lacusMap.js";
 import { createInitialState } from "./initialState.js";
 
@@ -16,7 +21,21 @@ const DIST = join(ROOT, "dist");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// CORS: em dev aceita o Vite (5173); em prod aceita a origem configurada
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // sem origin = curl / Postman / same-origin → OK
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS bloqueado para origem: ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "8mb" }));
 
 // ─── Servir React build (produção) ───────────────────────────────────────────
@@ -161,6 +180,9 @@ app.post("/api/admin/users", authMiddleware, adminMiddleware, async (req, res) =
 app.patch("/api/admin/users/:id/toggle", authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
+    const alvo = await findUsuario(query, id);
+    if (rejectProtectedAdmin(alvo, res, "desativada")) return;
+
     const { rows } = await query(
       "UPDATE usuarios SET ativo = NOT ativo WHERE id = $1 AND role != 'admin' RETURNING id, ativo",
       [id]
@@ -181,6 +203,9 @@ app.patch("/api/admin/users/:id/reset-password", authMiddleware, adminMiddleware
     return res.status(400).json({ error: "Senha mínima: 6 caracteres." });
 
   try {
+    const alvo = await findUsuario(query, id);
+    if (rejectProtectedAdmin(alvo, res, "alterada por terceiros")) return;
+
     const hash = await bcrypt.hash(nova_senha, 12);
     const { rows } = await query(
       "UPDATE usuarios SET senha_hash = $1 WHERE id = $2 AND role != 'admin' RETURNING id",
@@ -198,6 +223,12 @@ app.patch("/api/admin/users/:id/reset-password", authMiddleware, adminMiddleware
 app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
+    const alvo = await findUsuario(query, id);
+    if (rejectProtectedAdmin(alvo, res, "excluída")) return;
+    if (alvo.id === req.user.id) {
+      return res.status(403).json({ error: "Você não pode excluir a própria conta." });
+    }
+
     const { rows } = await query(
       "DELETE FROM usuarios WHERE id = $1 AND role != 'admin' RETURNING id",
       [id]
@@ -278,7 +309,7 @@ app.post("/api/sync", authMiddleware, activeMiddleware, async (req, res) => {
 
 // ─── SPA fallback (React Router) ─────────────────────────────────────────────
 if (existsSync(DIST)) {
-  app.get("*", (_req, res) => res.sendFile(join(DIST, "index.html")));
+  app.get("/{*path}", (_req, res) => res.sendFile(join(DIST, "index.html")));
 }
 
 app.listen(PORT, "0.0.0.0", () => {

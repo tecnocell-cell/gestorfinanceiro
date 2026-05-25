@@ -13,6 +13,9 @@ export function AuthProvider({ children }) {
     setLoading(true); setError(null);
     try {
       const data = await authApi.login(email, senha);
+      if (!data?.token || !data?.user) {
+        throw new Error("Resposta inválida do servidor.");
+      }
       tokenStorage.set(data.token);
       tokenStorage.setUser(data.user);
       setToken(data.token);
@@ -34,11 +37,12 @@ export function AuthProvider({ children }) {
 
   const clearError = useCallback(() => setError(null), []);
 
-  // Verifica se o usuário logado é admin do sistema
+  // Super admin = role admin (único que gerencia tenants)
   const isAdmin = user?.role === "admin";
+  const isSuperAdmin = isAdmin;
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, error, login, logout, clearError, isAdmin }}>
+    <AuthContext.Provider value={{ user, token, loading, error, login, logout, clearError, isAdmin, isSuperAdmin }}>
       {children}
     </AuthContext.Provider>
   );

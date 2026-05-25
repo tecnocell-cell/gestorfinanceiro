@@ -18,6 +18,7 @@
     "bcryptjs": "^2.4.3",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
     "odbc": "^2.5.0",

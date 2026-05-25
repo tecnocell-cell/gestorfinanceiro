@@ -1,6 +1,6 @@
-// Cliente HTTP — chama a API REST do Gestor Financeiro
-
-const BASE = "/api";
+// Em dev: VITE_API_URL = http://localhost:3001/api  (definido em .env.development)
+// Em prod: VITE_API_URL não existe → usa "/api" relativo (Express serve tudo)
+const BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("gestor_token");
@@ -18,26 +18,27 @@ async function request(path, options = {}) {
     });
   } catch {
     throw new Error(
-      "Servidor indisponível. Para uso local clique em 'Usar sem conta', " +
-      "ou inicie o backend com: npm run dev:all"
+      "Servidor indisponível. Inicie o backend com: npm run server"
     );
-  }
-
-  if (res.status === 401) {
-    localStorage.removeItem("gestor_token");
-    localStorage.removeItem("gestor_user");
-    window.location.reload();
-    return;
   }
 
   const data = await res.json().catch(() => ({}));
 
+  if (res.status === 401) {
+    // Login inválido: não limpa sessão nem recarrega a página
+    if (path === "/auth/login") {
+      throw new Error(data.error || "E-mail ou senha incorretos.");
+    }
+    const hadSession = !!localStorage.getItem("gestor_token");
+    localStorage.removeItem("gestor_token");
+    localStorage.removeItem("gestor_user");
+    if (hadSession) window.location.reload();
+    throw new Error(data.error || "Sessão expirada.");
+  }
+
   if (!res.ok) {
     if (res.status === 502 || res.status === 503) {
-      throw new Error(
-        "Servidor indisponível (502). Para uso local clique em 'Usar sem conta', " +
-        "ou inicie o backend com: npm run dev:all"
-      );
+      throw new Error("Servidor indisponível. Inicie o backend com: npm run server");
     }
     throw new Error(data.error || `HTTP ${res.status}`);
   }
@@ -62,20 +63,11 @@ export const stateApi = {
 
 // ─── Admin — gestão de tenants ────────────────────────────────────────────────
 export const adminApi = {
-  listUsers: () =>
-    request("/admin/users"),
-
-  createUser: (data) =>
-    request("/admin/users", { method: "POST", body: data }),
-
-  toggleUser: (id) =>
-    request(`/admin/users/${id}/toggle`, { method: "PATCH" }),
-
-  resetPassword: (id, nova_senha) =>
-    request(`/admin/users/${id}/reset-password`, { method: "PATCH", body: { nova_senha } }),
-
-  deleteUser: (id) =>
-    request(`/admin/users/${id}`, { method: "DELETE" }),
+  listUsers:     ()           => request("/admin/users"),
+  createUser:    (data)       => request("/admin/users", { method: "POST", body: data }),
+  toggleUser:    (id)         => request(`/admin/users/${id}/toggle`, { method: "PATCH" }),
+  resetPassword: (id, senha)  => request(`/admin/users/${id}/reset-password`, { method: "PATCH", body: { nova_senha: senha } }),
+  deleteUser:    (id)         => request(`/admin/users/${id}`, { method: "DELETE" }),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────
