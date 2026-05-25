@@ -1,0 +1,17 @@
+[Unit]
+Description=Gestor Financeiro API
+After=network.target
+
+[Service]
+Type=simple
+User=gestor
+Group=gestor
+WorkingDirectory=/opt/gestorfinanceiro
+Environment=NODE_ENV=production
+EnvironmentFile=-/opt/gestorfinanceiro/.env
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
