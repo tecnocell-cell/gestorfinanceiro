@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL 16 ──────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: gestor_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gestor_db
+      POSTGRES_USER: gestor
+      POSTGRES_PASSWORD: gestor123
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./server/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gestor -d gestor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gestor_net
+
+  # ── Aplicação Node.js + React ──────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gestor_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://gestor:gestor123@db:5432/gestor_db
+      DATABASE_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:-troque_essa_chave_por_algo_seguro_32chars}
+    ports:
+      - "3001:3001"
+    # Roda o seed antes de iniciar o servidor (só cria admin se banco estiver vazio)
+    command: sh -c "node server/seed.js && node server/index.js"
+    networks:
+      - gestor_net
+
+volumes:
+  db_data:
+    name: gestor_db_data
+
+networks:
+  gestor_net:
+    name: gestor_network

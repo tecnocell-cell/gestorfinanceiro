@@ -67,9 +67,30 @@ export function ModalLancamento() {
   const showEntrada = form.tipo === "Entrada" || form.tipo === "Transferencia";
   const showSaida   = form.tipo === "Saida"   || form.tipo === "Transferencia";
 
+  // Filtra categorias por tipo de lançamento
+  const categoriasFiltradas = planoContas.filter((p) => {
+    if (p.inativo) return false;
+    if (form.tipo === "Entrada")       return p.tipo === "Receita";
+    if (form.tipo === "Saida")         return p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
+    if (form.tipo === "Transferencia") return true;
+    return true;
+  });
+
+  // Reseta planoId se a categoria selecionada não existe mais no filtro
+  const handleTipoChange = (v) => {
+    const novaLista = planoContas.filter((p) => {
+      if (p.inativo) return false;
+      if (v === "Entrada")       return p.tipo === "Receita";
+      if (v === "Saida")         return p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
+      return true;
+    });
+    const planoValido = novaLista.some((p) => p.id === form.planoId);
+    setForm((prev) => ({ ...prev, tipo: v, planoId: planoValido ? prev.planoId : "" }));
+  };
+
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: isPF ? 500 : 680 }}>
+      <div className="modal" style={{ maxWidth: isPF ? 640 : 820 }}>
         <Hdr onClose={closeModal} title={item?.id ? "Editar Lançamento" : "Novo Lançamento"} />
 
         <div className="modal-body">
@@ -82,7 +103,7 @@ export function ModalLancamento() {
             </div>
             <div className="form-group">
               <label className="form-label">Tipo *</label>
-              <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
+              <select className="form-select" value={form.tipo} onChange={(e) => handleTipoChange(e.target.value)}>
                 <option value="Entrada">Entrada</option>
                 <option value="Saida">Saída</option>
                 <option value="Transferencia">Transferência</option>
@@ -127,8 +148,8 @@ export function ModalLancamento() {
               <label className="form-label">{isPF ? "Categoria *" : "Plano de Contas *"}</label>
               <select className="form-select" value={form.planoId} onChange={(e) => set("planoId", e.target.value)}>
                 <option value="">— Selecione —</option>
-                {planoContas.filter((p) => !p.inativo).map((p) => (
-                  <option key={p.id} value={p.id}>[{p.tipo}] {p.descricao}</option>
+                {categoriasFiltradas.map((p) => (
+                  <option key={p.id} value={p.id}>{p.descricao}</option>
                 ))}
               </select>
             </div>
@@ -261,7 +282,7 @@ export function ModalConta() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 520 }}>
+      <div className="modal" style={{ maxWidth: 660 }}>
         <Hdr onClose={closeModal} title={item?.id ? "Editar Conta" : "Nova Conta"} />
 
         <div className="modal-body">
@@ -372,7 +393,7 @@ export function ModalPlano() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 500 }}>
+      <div className="modal" style={{ maxWidth: 640 }}>
         <Hdr onClose={closeModal} title={item?.id ? "Editar Plano" : "Novo Plano de Contas"} />
 
         <div className="modal-body">
@@ -468,7 +489,7 @@ function CadastroModal({ title, item, onSave, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 600 }}>
+      <div className="modal" style={{ maxWidth: 780 }}>
         <Hdr onClose={onClose} title={title} />
 
         <div className="modal-body">
@@ -621,7 +642,7 @@ export function ModalCategoriaPF() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 440 }}>
+      <div className="modal" style={{ maxWidth: 580 }}>
         <Hdr onClose={closeModal} title={item?.id ? "Editar Categoria" : "Nova Categoria"} />
 
         <div className="modal-body">
@@ -704,7 +725,7 @@ export function ModalMeta() {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 460 }}>
+      <div className="modal" style={{ maxWidth: 580 }}>
         <Hdr onClose={closeModal} title={item?.id ? "Editar Meta" : "Nova Meta de Poupança"} />
 
         <div className="modal-body">

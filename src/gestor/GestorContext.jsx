@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   loadState,
   saveState,
@@ -23,11 +23,23 @@ import {
 } from "./finance.js";
 import { checkApiStatus, syncFromAccess } from "./importExport.js";
 import { mergeSyncPayload } from "./lacusSync.js";
+import { stateApi } from "./api.js";
+import { useAuth } from "./AuthContext.jsx";
 
 const GestorContext = createContext(null);
 
+const SAVE_DEBOUNCE_MS = 1500;
+
 export function GestorProvider({ children }) {
+  const { token } = useAuth();
+
+  // ── State (inicia do localStorage; se tiver token, sobrescreve com API) ────
   const [state, setState] = useState(loadState);
+  const [appLoading, setAppLoading] = useState(!!token);
+  const isFirstLoad = useRef(true);
+  const saveTimer = useRef(null);
+
+  // ── Filtros e UI ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("Todos");
   const [consiliadoFilter, setConsiliadoFilter] = useState("Todos");
@@ -39,17 +51,43 @@ export function GestorProvider({ children }) {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
-  const { company, contas, planoContas, lancamentos, clientes, fornecedores } = empresa;
-  const fechamentos  = empresa.fechamentos  || [];
-  const metas        = empresa.metas        || [];
-  const orcamentos   = empresa.orcamentos   || [];
-  const tipo         = empresa.tipo         || "juridica";
-  const pessoa       = empresa.pessoa       || null;
-  const filterPeriodo = state.filterPeriodo;
+  // ── Carrega estado da API quando autenticado ──────────────────────────────
+  useEffect(() => {
+    if (!token) { setAppLoading(false); return; }
+    setAppLoading(true);
+    stateApi
+      .fetch()
+      .then(({ dados }) => {
+        if (dados && Object.keys(dados).length > 0) {
+          setState(dados);
+        }
+      })
+      .catch((err) => console.warn("Falha ao carregar estado da API:", err.message))
+      .finally(() => {
+        setAppLoading(false);
+        isFirstLoad.current = false;
+      });
+  }, [token]);
 
-  useEffect(() => { saveState(state); }, [state]);
+  // ── Persiste estado (debounced) ───────────────────────────────────────────
+  useEffect(() => {
+    if (isFirstLoad.current) return;
 
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      if (token) {
+        stateApi.save(state).catch((err) =>
+          console.warn("Falha ao salvar estado na API:", err.message)
+        );
+      } else {
+        saveState(state);
+      }
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => clearTimeout(saveTimer.current);
+  }, [state, token]);
+
+  // ── Verificação da API Access (Lacus) ─────────────────────────────────────
   useEffect(() => {
     checkApiStatus().then((s) => setApiOnline(!!s.online));
     const t = setInterval(() => {
@@ -57,6 +95,16 @@ export function GestorProvider({ children }) {
     }, 30000);
     return () => clearInterval(t);
   }, []);
+
+  // ── Empresa ativa ─────────────────────────────────────────────────────────
+  const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
+  const { company, contas, planoContas, lancamentos, clientes, fornecedores } = empresa;
+  const fechamentos = empresa.fechamentos  || [];
+  const metas       = empresa.metas        || [];
+  const orcamentos  = empresa.orcamentos   || [];
+  const tipo        = empresa.tipo         || "juridica";
+  const pessoa      = empresa.pessoa       || null;
+  const filterPeriodo = state.filterPeriodo;
 
   const setFilterPeriodo = useCallback((updater) => {
     setState((s) => ({
@@ -144,11 +192,11 @@ export function GestorProvider({ children }) {
         codigo: data.codigo ? Number(data.codigo) : undefined,
         valor: parseFloat(data.valor),
         contaEntradaId: data.contaEntradaId || null,
-        contaSaidaId: data.contaSaidaId || null,
-        codigoDestino: ent?.codigo ?? data.codigoDestino ?? null,
-        codigoOrigem: sai?.codigo ?? data.codigoOrigem ?? null,
-        clienteId: data.clienteId || null,
-        fornecedorId: data.fornecedorId || null,
+        contaSaidaId:   data.contaSaidaId   || null,
+        codigoDestino:  ent?.codigo ?? data.codigoDestino ?? null,
+        codigoOrigem:   sai?.codigo ?? data.codigoOrigem  ?? null,
+        clienteId:      data.clienteId    || null,
+        fornecedorId:   data.fornecedorId || null,
       };
       if (editingItem?.id) {
         lancCrud.update(editingItem.id, payload);
@@ -156,10 +204,10 @@ export function GestorProvider({ children }) {
         const nums = lancamentos.map((l) => Number(l.codigo)).filter((n) => !Number.isNaN(n));
         lancCrud.add({
           ...payload,
-          id: generateId(),
-          codigo: payload.codigo ?? (nums.length ? Math.max(...nums) + 1 : 1),
-          lote: payload.lote || nextLote(lancamentos),
-          tipoOrigem: payload.tipoOrigem || "",
+          id:          generateId(),
+          codigo:      payload.codigo ?? (nums.length ? Math.max(...nums) + 1 : 1),
+          lote:        payload.lote || nextLote(lancamentos),
+          tipoOrigem:  payload.tipoOrigem  || "",
           tipoDestino: payload.tipoDestino || "",
         });
       }
@@ -201,59 +249,32 @@ export function GestorProvider({ children }) {
     }
   }, [company, empresa]);
 
+  // ── Dados calculados ──────────────────────────────────────────────────────
   const lancsFiltrados = useMemo(
-    () =>
-      [...filterLancamentos(lancamentos, {
-        ano: filterPeriodo.ano,
-        mes: filterPeriodo.mes,
-        tipo: tipoFilter,
-        search,
-        contaId: contaFilter || undefined,
-        consiliado: consiliadoFilter === "Sim" ? "Sim" : consiliadoFilter === "Nao" ? "Nao" : undefined,
-      })].reverse(),
+    () => [...filterLancamentos(lancamentos, {
+      ano: filterPeriodo.ano,
+      mes: filterPeriodo.mes,
+      tipo: tipoFilter,
+      search,
+      contaId: contaFilter || undefined,
+      consiliado: consiliadoFilter === "Sim" ? "Sim" : consiliadoFilter === "Nao" ? "Nao" : undefined,
+    })].reverse(),
     [lancamentos, filterPeriodo, tipoFilter, search, contaFilter, consiliadoFilter]
   );
 
-  const dreAtual = useMemo(
-    () => getDRE(lancamentos, planoContas, filterPeriodo.ano, filterPeriodo.mes),
-    [lancamentos, planoContas, filterPeriodo]
-  );
-
-  const mensal = useMemo(
-    () => getMensal(lancamentos, planoContas, filterPeriodo.ano),
-    [lancamentos, planoContas, filterPeriodo.ano]
-  );
-
-  const balancete = useMemo(
-    () => getBalancete(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes),
-    [lancamentos, planoContas, contas, filterPeriodo]
-  );
-
-  const fluxoCaixa = useMemo(
-    () => getFluxoCaixa(lancamentos, filterPeriodo.ano, filterPeriodo.mes),
-    [lancamentos, filterPeriodo]
-  );
+  const dreAtual   = useMemo(() => getDRE(lancamentos, planoContas, filterPeriodo.ano, filterPeriodo.mes),    [lancamentos, planoContas, filterPeriodo]);
+  const mensal     = useMemo(() => getMensal(lancamentos, planoContas, filterPeriodo.ano),                    [lancamentos, planoContas, filterPeriodo.ano]);
+  const balancete  = useMemo(() => getBalancete(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes), [lancamentos, planoContas, contas, filterPeriodo]);
+  const fluxoCaixa = useMemo(() => getFluxoCaixa(lancamentos, filterPeriodo.ano, filterPeriodo.mes),          [lancamentos, filterPeriodo]);
+  const consultaDRE = useMemo(() => getConsultaDRE(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes), [lancamentos, planoContas, contas, filterPeriodo]);
 
   const saldoContaFn = useCallback((id) => getSaldoConta(id, contas, lancamentos), [contas, lancamentos]);
-  const saldoTotalFn = useCallback(() => getSaldoTotal(contas, lancamentos), [contas, lancamentos]);
-
-  const consultaDRE = useMemo(
-    () => getConsultaDRE(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes),
-    [lancamentos, planoContas, contas, filterPeriodo]
-  );
-
-  const getDREByRangeFn = useCallback(
-    (from, to) => getDREByRange(lancamentos, planoContas, from, to),
-    [lancamentos, planoContas]
-  );
-
-  const getConsultaDREByRangeFn = useCallback(
-    (from, to) => getConsultaDREByRange(lancamentos, planoContas, contas, from, to),
-    [lancamentos, planoContas, contas]
-  );
+  const saldoTotalFn = useCallback(() => getSaldoTotal(contas, lancamentos),        [contas, lancamentos]);
+  const getDREByRangeFn = useCallback((from, to) => getDREByRange(lancamentos, planoContas, from, to), [lancamentos, planoContas]);
+  const getConsultaDREByRangeFn = useCallback((from, to) => getConsultaDREByRange(lancamentos, planoContas, contas, from, to), [lancamentos, planoContas, contas]);
 
   const value = {
-    state, setState,
+    state, setState, appLoading,
     empresa, tipo, pessoa,
     company, contas, planoContas, lancamentos, clientes, fornecedores,
     metas, orcamentos,

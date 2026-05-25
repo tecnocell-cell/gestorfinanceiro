@@ -2,6 +2,7 @@ import { useState } from "react";
 import { css } from "./styles.js";
 import { NAV_ITEMS, NAV_ITEMS_FISICA } from "./constants.js";
 import { useGestor } from "./GestorContext.jsx";
+import { useAuth } from "./AuthContext.jsx";
 import {
   ModalLancamento,
   ModalConta,
@@ -181,6 +182,17 @@ export default function GestorApp() {
   const [page, setPage] = useState("dashboard");
   const [showProfileManager, setShowProfileManager] = useState(false);
   const { empresa, tipo, pessoa, company, modalOpen, apiOnline } = useGestor();
+  const { user, token, logout } = useAuth();
+
+  const handleLogout = () => {
+    if (token) {
+      logout();
+    } else {
+      // modo local — limpa flag e recarrega
+      localStorage.removeItem("gestor_local_mode");
+      window.location.reload();
+    }
+  };
 
   const isPF = tipo === "fisica";
   const navItems = isPF ? NAV_ITEMS_FISICA : NAV_ITEMS;
@@ -233,6 +245,48 @@ export default function GestorApp() {
           </nav>
 
           <div className="sidebar-footer">
+            {/* Conta do usuário */}
+            {(user || !token) && (
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 12px",
+                background: "rgba(255,255,255,0.06)",
+                borderRadius: 8,
+                marginBottom: 8,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.9)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {token ? (user?.nome || user?.email || "Conta") : "💾 Modo Local"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 1 }}>
+                    {token ? "conta sincronizada" : "sem servidor"}
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title={token ? "Sair da conta" : "Voltar ao login"}
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    border: "none",
+                    borderRadius: 6,
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    padding: "4px 7px",
+                    lineHeight: 1,
+                    flexShrink: 0,
+                    marginLeft: 6,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.3)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                >
+                  ⏏
+                </button>
+              </div>
+            )}
+
+            {/* Perfil ativo */}
             <div className="sidebar-footer-profile">
               <div className="sidebar-footer-info">
                 <div className="sidebar-footer-name">{displayName}</div>
@@ -262,6 +316,16 @@ export default function GestorApp() {
                 className={`status-dot ${apiOnline ? "online" : "offline"}`}
                 title={apiOnline ? "API online" : "API offline"}
               />
+              {token && user && (
+                <span style={{ fontSize: 12, color: "#64748b", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {user.nome || user.email}
+                </span>
+              )}
+              {!token && (
+                <span style={{ fontSize: 11, color: "#94a3b8", background: "#f1f5f9", borderRadius: 6, padding: "2px 8px" }}>
+                  modo local
+                </span>
+              )}
               <span className="company-badge">{displayName}</span>
               <span className={`badge ${isPF ? "badge-pf" : "badge-pj"}`} style={{ fontSize: 10 }}>
                 {isPF ? "Pessoa Física" : "Pessoa Jurídica"}

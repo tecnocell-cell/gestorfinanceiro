@@ -558,7 +558,7 @@ export const css = `
     background: var(--surface);
     border-radius: 18px;
     width: 100%;
-    max-width: 680px;
+    max-width: 820px;
     max-height: 92vh;
     overflow-y: auto;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15,23,42,0.06);
