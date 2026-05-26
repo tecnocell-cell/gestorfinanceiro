@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
 import { fmtBRL, fmtPct, fmtDate, lancamentosComSaldoConta, contaPorCodigo, generateId } from "../finance.js";
+import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import {
@@ -56,6 +57,7 @@ export function DashboardPage() {
       <div className="toolbar">
         <PeriodToolbar />
       </div>
+      <RecorrenciaAlert />
       <div className="kpi-grid">
         <div className="kpi-card" style={{ "--kpi-color": "var(--accent)" }}>
           <div className="kpi-label">Receita Total</div>
@@ -191,7 +193,7 @@ export function LancamentosPage() {
         <div className="toolbar-left">
           <PeriodToolbar />
           <div className="search-wrap">
-            <span className="search-icon">⌕</span>
+            <span className="search-icon">?</span>
             <input className="search-input" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <select className="form-select" style={{ width: 160 }} value={contaFilter} onChange={(e) => setContaFilter(e.target.value)}>
@@ -248,7 +250,7 @@ export function LancamentosPage() {
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={(showSaldoCol || contaFilter) ? 12 : 11}><div className="empty-state"><div className="empty-icon">◯</div><div className="empty-text">Nenhum lançamento</div></div></td></tr>
+                <tr><td colSpan={(showSaldoCol || contaFilter) ? 12 : 11}><div className="empty-state"><div className="empty-icon">?</div><div className="empty-text">Nenhum lançamento</div></div></td></tr>
               )}
               {rows.map((l) => {
                 const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
@@ -257,23 +259,23 @@ export function LancamentosPage() {
                 const cli = clientes.find((c) => c.id === l.clienteId);
                 return (
                   <tr key={l.id}>
-                    <td className="td-mono">{l.codigo ?? "—"}</td>
+                    <td className="td-mono">{l.codigo ?? "?"}</td>
                     <td className="td-mono" style={{ fontSize: 12, color: "var(--text3)" }}>{l.lote}</td>
                     <td className="td-mono">{fmtDate(l.data)}</td>
-                    <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "—"}</td>
-                    <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
-                    <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "—"}</td>
-                    <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                    <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "?"}</td>
+                    <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "?" : "")}</td>
+                    <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "?"}</td>
+                    <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "?" : "")}</td>
                     <td className={l.tipo === "Entrada" ? "td-green" : "td-red"}>{fmtBRL(l.valor)}</td>
-                    {(showSaldoCol || contaFilter) && <td className="td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
+                    {(showSaldoCol || contaFilter) && <td className="td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "?"}</td>}
                     <td style={{ fontSize: 12, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {l.historico}{plano ? ` · ${plano.descricao}` : ""}{cli ? ` · ${cli.nome}` : ""}
                     </td>
                     <td>{l.exportado ? <span className="badge badge-blue">Sim</span> : <span className="badge badge-amber">Não</span>}</td>
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("lancamento", l)}>✎</button>
-                        <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) lancCrud.remove(l.id); }}>✕</button>
+                        <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("lancamento", l)}>?</button>
+                        <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) lancCrud.remove(l.id); }}>?</button>
                       </div>
                     </td>
                   </tr>
@@ -398,7 +400,7 @@ export function DREPage() {
         <>
           <div className="toolbar"><PeriodToolbar /></div>
           <div className="charts-grid">
-            <DRETable dre={dreAtual} planoContas={planoContas} label={`D.R.E. — ${filterPeriodo.mes ? MESES[parseInt(filterPeriodo.mes, 10) - 1] : "Acumulado"} ${filterPeriodo.ano}`} />
+            <DRETable dre={dreAtual} planoContas={planoContas} label={`D.R.E. ? ${filterPeriodo.mes ? MESES[parseInt(filterPeriodo.mes, 10) - 1] : "Acumulado"} ${filterPeriodo.ano}`} />
             <div className="card">
               <div className="card-title">Evolução Anual {filterPeriodo.ano}</div>
               <ResponsiveContainer width="100%" height={300}>
@@ -461,7 +463,7 @@ export function DREPage() {
           </div>
           {dreRange ? (
             <>
-              <DRETable dre={dreRange} planoContas={planoContas} label={`D.R.E. — ${fmtDate(rangeFrom)} a ${fmtDate(rangeTo)}`} />
+              <DRETable dre={dreRange} planoContas={planoContas} label={`D.R.E. ? ${fmtDate(rangeFrom)} a ${fmtDate(rangeTo)}`} />
               <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: 14 }}>
                 <div className="card-title" style={{ padding: "16px 20px 0" }}>Consulta D.R.E. no intervalo</div>
                 <div className="table-wrap">
@@ -503,26 +505,26 @@ export function DREPage() {
             <div className="card-title">Selecione os dois períodos para comparar</div>
             <div className="form-grid">
               <div className="form-group">
-                <label className="form-label">Período 1 — Ano</label>
+                <label className="form-label">Período 1 ? Ano</label>
                 <select className="form-select" value={comp1Ano} onChange={(e) => setComp1Ano(e.target.value)}>
                   {ANOS.map((y) => <option key={y}>{y}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Período 1 — Mês</label>
+                <label className="form-label">Período 1 ? Mês</label>
                 <select className="form-select" value={comp1Mes} onChange={(e) => setComp1Mes(e.target.value)}>
                   <option value="">Acumulado</option>
                   {MESES.map((m, i) => <option key={m} value={(i + 1).toString().padStart(2, "0")}>{m}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Período 2 — Ano</label>
+                <label className="form-label">Período 2 ? Ano</label>
                 <select className="form-select" value={comp2Ano} onChange={(e) => setComp2Ano(e.target.value)}>
                   {ANOS.map((y) => <option key={y}>{y}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Período 2 — Mês</label>
+                <label className="form-label">Período 2 ? Mês</label>
                 <select className="form-select" value={comp2Mes} onChange={(e) => setComp2Mes(e.target.value)}>
                   <option value="">Acumulado</option>
                   {MESES.map((m, i) => <option key={m} value={(i + 1).toString().padStart(2, "0")}>{m}</option>)}
@@ -618,15 +620,15 @@ export function ContasPage() {
                 <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : {}}>
                   <td className="td-mono">{c.codigo}</td>
                   <td>{c.nome}</td>
-                  <td style={{ fontSize: 12, color: "var(--text2)" }}>{c.apelido || "—"}</td>
+                  <td style={{ fontSize: 12, color: "var(--text2)" }}>{c.apelido || "?"}</td>
                   <td><span className={`badge ${c.tipo === "Banco" ? "badge-blue" : "badge-amber"}`}>{c.tipo}</span></td>
-                  <td className="td-mono" style={{ fontSize: 12 }}>{c.contaContabil || "—"}</td>
+                  <td className="td-mono" style={{ fontSize: 12 }}>{c.contaContabil || "?"}</td>
                   <td className="td-mono">{fmtBRL(c.saldoInicial)}</td>
                   <td className="td-green">{fmtBRL(getSaldoConta(c.id))}</td>
                   <td>{c.inativo ? <span className="badge badge-red">Inativo</span> : <span className="badge badge-green">Ativo</span>}</td>
                   <td>
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("conta", c)}>✎</button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>✕</button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("conta", c)}>?</button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>?</button>
                   </td>
                 </tr>
               ))}
@@ -659,10 +661,10 @@ export function PlanoContasPage() {
                   <td style={{ fontSize: 12, color: "var(--text2)" }}>{pc.classificacao}</td>
                   <td>{pc.descricao}</td>
                   <td><span className={`badge ${badgeColor(pc.tipo)}`}>{pc.tipo}</span></td>
-                  <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "—"}</td>
+                  <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "?"}</td>
                   <td>
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>✎</button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>✕</button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>?</button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>?</button>
                   </td>
                 </tr>
               ))}
@@ -691,7 +693,7 @@ export function ImpostosPage() {
         <div className="kpi-card" style={{ "--kpi-color": "#7c3aed" }}>
           <div className="kpi-label">Total Impostos (período)</div>
           <div className="kpi-value">{fmtBRL(dreAtual.impostos)}</div>
-          <div className="kpi-sub">{dreAtual.receitas > 0 ? fmtPct(dreAtual.impostos / dreAtual.receitas) : "—"} das receitas</div>
+          <div className="kpi-sub">{dreAtual.receitas > 0 ? fmtPct(dreAtual.impostos / dreAtual.receitas) : "?"} das receitas</div>
         </div>
         <div className="kpi-card" style={{ "--kpi-color": "var(--accent)" }}>
           <div className="kpi-label">LAIR (Antes dos Impostos)</div>
@@ -722,12 +724,12 @@ export function ImpostosPage() {
                     <td className="td-mono">{pc.codigo}</td>
                     <td>{pc.descricao}</td>
                     <td style={{ fontSize: 12, color: "var(--text2)" }}>{pc.classificacao}</td>
-                    <td className="td-mono" style={{ fontSize: 12 }}>{pc.contaContabil || "—"}</td>
+                    <td className="td-mono" style={{ fontSize: 12 }}>{pc.contaContabil || "?"}</td>
                     <td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(valor)}</td>
                     <td>{pc.inativo ? <span className="badge badge-red">Inativo</span> : <span className="badge badge-green">Ativo</span>}</td>
                     <td>
-                      <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>✎</button>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>✕</button>
+                      <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>?</button>
+                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>?</button>
                     </td>
                   </tr>
                 );
@@ -772,16 +774,16 @@ function CadastroTable({ items, onAdd, onEdit, onDelete, label }) {
               )}
               {items.map((x) => (
                 <tr key={x.id}>
-                  <td className="td-mono">{x.codigo ?? "—"}</td>
+                  <td className="td-mono">{x.codigo ?? "?"}</td>
                   <td>{x.nome}</td>
-                  <td>{x.apelido || "—"}</td>
-                  <td className="td-mono" style={{ fontSize: 12 }}>{x.documento || "—"}</td>
-                  <td>{x.cidade || "—"}</td>
-                  <td>{x.telefone || "—"}</td>
-                  <td>{x.email || "—"}</td>
+                  <td>{x.apelido || "?"}</td>
+                  <td className="td-mono" style={{ fontSize: 12 }}>{x.documento || "?"}</td>
+                  <td>{x.cidade || "?"}</td>
+                  <td>{x.telefone || "?"}</td>
+                  <td>{x.email || "?"}</td>
                   <td>
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => onEdit(x)}>✎</button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) onDelete(x.id); }}>✕</button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => onEdit(x)}>?</button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) onDelete(x.id); }}>?</button>
                   </td>
                 </tr>
               ))}
@@ -1026,8 +1028,8 @@ export function BalancetePage() {
                   <td className="td-mono">{l.codigo}</td>
                   <td>{l.descricao}</td>
                   <td><span className="badge badge-blue">{l.tipo}</span></td>
-                  <td className="td-mono">{l.debito ? fmtBRL(l.debito) : "—"}</td>
-                  <td className="td-mono">{l.credito ? fmtBRL(l.credito) : "—"}</td>
+                  <td className="td-mono">{l.debito ? fmtBRL(l.debito) : "?"}</td>
+                  <td className="td-mono">{l.credito ? fmtBRL(l.credito) : "?"}</td>
                   <td className="td-mono" style={{ color: l.saldo >= 0 ? "var(--accent)" : "var(--danger)" }}>{fmtBRL(l.saldo)}</td>
                 </tr>
               ))}
@@ -1110,7 +1112,7 @@ export function FechamentoPage() {
 
         <div style={{ marginTop: 16, padding: "14px 16px", background: "var(--surface2)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 10 }}>
-            Preview — {MESES[parseInt(formMes, 10) - 1]}/{formAno}
+            Preview ? {MESES[parseInt(formMes, 10) - 1]}/{formAno}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
             {[
@@ -1167,9 +1169,9 @@ export function FechamentoPage() {
                     <td className="td-mono" style={{ fontWeight: 700, color: (f.dreSnapshot?.lucroAposImpostos ?? f.dreSnapshot?.lucroLiquido) >= 0 ? "var(--accent)" : "var(--danger)" }}>
                       {fmtBRL(f.dreSnapshot?.lucroAposImpostos ?? f.dreSnapshot?.lucroLiquido)}
                     </td>
-                    <td style={{ fontSize: 12, color: "var(--text2)" }}>{f.observacao || "—"}</td>
+                    <td style={{ fontSize: 12, color: "var(--text2)" }}>{f.observacao || "?"}</td>
                     <td>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Remover fechamento?")) fechamentoCrud.remove(f.id); }}>✕</button>
+                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Remover fechamento?")) fechamentoCrud.remove(f.id); }}>?</button>
                     </td>
                   </tr>
                 );
@@ -1271,11 +1273,7 @@ export function RelatoriosPage() {
 }
 
 export function EmpresaPage() {
-  const {
-    company, state, setEmpresaField, switchEmpresa, addEmpresa,
-    syncAccess, syncing, syncError, apiOnline,
-  } = useGestor();
-  const [novaEmpresa, setNovaEmpresa] = useState("");
+  const { company, setEmpresaField } = useGestor();
 
   return (
     <div>
@@ -1287,8 +1285,7 @@ export function EmpresaPage() {
             ["razaoSocial", "Razão social"],
             ["cnpj", "CNPJ"],
             ["inscricaoEstadual", "Inscrição estadual"],
-            ["codigoDominio", "Código Domínio"],
-            ["codigoEmpresa", "Código empresa (Lacus)"],
+            ["codigoDominio", "Código Domínio (exportação contábil)"],
             ["dataFechamento", "Data fechamento"],
           ].map(([key, label]) => (
             <div className="form-group" key={key}>
@@ -1296,54 +1293,15 @@ export function EmpresaPage() {
               <input
                 className="form-input"
                 value={company[key] ?? ""}
-                onChange={(e) => setEmpresaField(key, key === "codigoDominio" || key === "codigoEmpresa" ? Number(e.target.value) : e.target.value)}
+                onChange={(e) => setEmpresaField(key, key === "codigoDominio" ? Number(e.target.value) : e.target.value)}
               />
             </div>
           ))}
-        <div className="form-grid" style={{ marginTop: 12 }}>
-          <div className="form-group">
-            <label className="form-label">Versão banco Lacus</label>
-            <input className="form-input" value={state.versaoBanco || "—"} readOnly />
-          </div>
-        </div>
         </div>
       </div>
-      <div className="card">
-        <div className="card-title">Banco Access (sincronização)</div>
-        <div className="form-grid">
-          <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-            <label className="form-label">Caminho do arquivo .mdb / .accdb</label>
-            <input className="form-input" value={company.caminhoBanco || ""} onChange={(e) => setEmpresaField("caminhoBanco", e.target.value)} placeholder="C:\\dados\\empresa.accdb" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Senha do banco</label>
-            <input className="form-input" type="password" value={company.senhaBanco || ""} onChange={(e) => setEmpresaField("senhaBanco", e.target.value)} />
-          </div>
-          <div className="form-group" style={{ alignSelf: "end" }}>
-            <button type="button" className="btn btn-primary" disabled={syncing || !apiOnline} onClick={syncAccess}>
-              {syncing ? "Sincronizando…" : "Sincronizar do Access"}
-            </button>
-          </div>
-        </div>
-        <p style={{ marginTop: 12, fontSize: 12, color: "var(--text2)" }}>
-          API: <span className={`status-dot ${apiOnline ? "online" : "offline"}`} />
-          {apiOnline ? "Online — servidor em localhost:3001" : "Offline — execute npm run server"}
-        </p>
-        {syncError && <p style={{ color: "var(--danger)", marginTop: 8, fontSize: 13 }}>{syncError}</p>}
-      </div>
-      <div className="card">
-        <div className="card-title">Multi-empresa</div>
-        <div className="form-group" style={{ marginBottom: 12 }}>
-          <label className="form-label">Empresa ativa</label>
-          <select className="form-select" value={state.empresaAtivaId} onChange={(e) => switchEmpresa(e.target.value)}>
-            {state.empresas.map((e) => <option key={e.id} value={e.id}>{e.nome || e.company?.nomeFantasia}</option>)}
-          </select>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input className="form-input" style={{ flex: 1, minWidth: 200 }} placeholder="Nome nova empresa" value={novaEmpresa} onChange={(e) => setNovaEmpresa(e.target.value)} />
-          <button type="button" className="btn btn-secondary" onClick={() => { if (novaEmpresa.trim()) { addEmpresa(novaEmpresa.trim()); setNovaEmpresa(""); } }}>Adicionar empresa</button>
-        </div>
-      </div>
+      <p style={{ marginTop: 12, fontSize: 12, color: "var(--muted-foreground)" }}>
+        Seus dados ficam salvos no PostgreSQL junto com a sua conta.
+      </p>
     </div>
   );
 }

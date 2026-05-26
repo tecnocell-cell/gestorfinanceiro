@@ -6,8 +6,17 @@ import {
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
 import { fmtBRL, fmtDate, getDRE, generateId, filterLancamentos } from "../finance.js";
+import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
+import PfPageShell from "../components/pf/PfPageShell.jsx";
+import { ContasPage } from "./Pages.jsx";
+import { getDueDate, getLancamentoSituacao } from "../pfDueDates.js";
+import {
+  LANCAMENTO_FILTER_OPTIONS,
+  labelFilterChip,
+  labelLancamentoTipo,
+} from "../profileLabels.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -49,14 +58,15 @@ export function DashboardPFPage() {
   }));
 
   return (
+    <PfPageShell pageId="dashboard">
     <div>
       <div className="toolbar"><PeriodToolbar /></div>
-
+      <RecorrenciaAlert />
       <div className="kpi-grid">
         <div className="kpi-card" style={{ "--kpi-color": "var(--accent)" }}>
           <div className="kpi-label">Receitas</div>
           <div className="kpi-value">{fmtBRL(dreAtual.receitas)}</div>
-          <div className="kpi-sub">Entradas no período</div>
+          <div className="kpi-sub">Receitas no período</div>
         </div>
         <div className="kpi-card" style={{ "--kpi-color": "var(--danger)" }}>
           <div className="kpi-label">Despesas</div>
@@ -119,6 +129,7 @@ export function DashboardPFPage() {
         </div>
       </div>
     </div>
+    </PfPageShell>
   );
 }
 
@@ -134,7 +145,16 @@ export function LancamentosPFPage() {
   const catMap = Object.fromEntries(planoContas.map((p) => [p.id, p.descricao]));
   const contaMap = Object.fromEntries(contas.map((c) => [c.id, c.apelido || c.nome]));
 
+  const statusInfo = {
+    entrada: { badge: "badge-blue", label: "Receita", valor: "td-blue" },
+    pago: { badge: "badge-green", label: "Quitada", valor: "td-green" },
+    vencida: { badge: "badge-red", label: "Vencida", valor: "td-red" },
+    proximo: { badge: "badge-amber", label: "A vencer", valor: "td-amber" },
+    pendente: { badge: "badge-amber", label: "Pendente", valor: "td-red" },
+  };
+
   return (
+    <PfPageShell pageId="lancamentos">
     <div>
       <div className="toolbar">
         <PeriodToolbar />
@@ -142,9 +162,9 @@ export function LancamentosPFPage() {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        {["Todos", "Entrada", "Saida", "Transferencia"].map((t) => (
+        {LANCAMENTO_FILTER_OPTIONS.map((t) => (
           <div key={t} className={`filter-chip${tipoFilter === t ? " active" : ""}`} onClick={() => setTipoFilter(t)}>
-            {t === "Saida" ? "Saída" : t}
+            {labelFilterChip(t, true)}
           </div>
         ))}
         <div className="search-wrap" style={{ marginLeft: "auto" }}>
@@ -159,6 +179,8 @@ export function LancamentosPFPage() {
             <thead>
               <tr>
                 <th>Data</th>
+                <th>Vencimento</th>
+                <th>Status</th>
                 <th>Tipo</th>
                 <th>Categoria</th>
                 <th>Conta</th>
@@ -169,13 +191,28 @@ export function LancamentosPFPage() {
             </thead>
             <tbody>
               {lancsFiltrados.length === 0 ? (
-                <tr><td colSpan={7} className="empty-state">Nenhum lançamento encontrado.</td></tr>
-              ) : lancsFiltrados.map((l) => (
-                <tr key={l.id}>
+                <tr><td colSpan={9} className="empty-state">Nenhum lançamento encontrado.</td></tr>
+              ) : lancsFiltrados.map((l) => {
+                const venc = getDueDate(l);
+                const situacao = getLancamentoSituacao(l);
+                const info = statusInfo[situacao];
+                const rowClass = info ? `lanc-row lanc-row-${situacao}` : "";
+                return (
+                <tr key={l.id} className={rowClass}>
                   <td className="td-mono">{fmtDate(l.data)}</td>
+                  <td className={`td-mono${situacao === "vencida" ? " td-red" : situacao === "proximo" ? " td-amber" : ""}`}>
+                    {l.tipo === "Saida" ? fmtDate(venc) : "—"}
+                  </td>
                   <td>
-                    <span className={`badge ${l.tipo === "Entrada" ? "badge-green" : l.tipo === "Transferencia" ? "badge-blue" : "badge-red"}`}>
-                      {l.tipo === "Saida" ? "Saída" : l.tipo}
+                    {l.tipo === "Saida" && info ? (
+                      <span className={`badge ${info.badge}`}>{info.label}</span>
+                    ) : l.tipo === "Entrada" ? (
+                      <span className="badge badge-blue">Receita</span>
+                    ) : "—"}
+                  </td>
+                  <td>
+                    <span className={`badge ${l.tipo === "Entrada" ? "badge-blue" : l.tipo === "Transferencia" ? "badge-blue" : "badge-red"}`}>
+                      {labelLancamentoTipo(l.tipo, true)}
                     </span>
                   </td>
                   <td>{catMap[l.planoId] || "—"}</td>
@@ -183,7 +220,7 @@ export function LancamentosPFPage() {
                     {l.contaEntradaId ? contaMap[l.contaEntradaId] : ""}
                     {l.contaSaidaId ? contaMap[l.contaSaidaId] : ""}
                   </td>
-                  <td className={l.tipo === "Entrada" ? "td-green" : "td-red"}>{fmtBRL(l.valor)}</td>
+                  <td className={info?.valor || (l.tipo === "Entrada" ? "td-blue" : "td-red")}>{fmtBRL(l.valor)}</td>
                   <td style={{ fontSize: 12, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.historico}</td>
                   <td>
                     <div style={{ display: "flex", gap: 4 }}>
@@ -192,12 +229,13 @@ export function LancamentosPFPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
       </div>
     </div>
+    </PfPageShell>
   );
 }
 
@@ -240,6 +278,7 @@ export function CategoriasPFPage() {
   );
 
   return (
+    <PfPageShell pageId="categorias">
     <div>
       <div className="toolbar">
         <div />
@@ -251,6 +290,7 @@ export function CategoriasPFPage() {
       <Section title="Receitas" items={receitas} color="var(--green-dark)" />
       <Section title="Despesas" items={despesas} color="var(--danger)" />
     </div>
+    </PfPageShell>
   );
 }
 
@@ -312,6 +352,7 @@ export function OrcamentoPage() {
   const fillClass = (pct) => pct >= 100 ? "red" : pct >= 80 ? "amber" : "green";
 
   return (
+    <PfPageShell pageId="orcamento">
     <div>
       <div className="toolbar">
         <PeriodToolbar />
@@ -384,6 +425,7 @@ export function OrcamentoPage() {
         )}
       </div>
     </div>
+    </PfPageShell>
   );
 }
 
@@ -406,6 +448,7 @@ export function MetasPage() {
   };
 
   return (
+    <PfPageShell pageId="metas">
     <div>
       <div className="toolbar">
         <div />
@@ -483,6 +526,7 @@ export function MetasPage() {
         </div>
       )}
     </div>
+    </PfPageShell>
   );
 }
 
@@ -529,6 +573,7 @@ export function RelatoriosPFPage() {
   };
 
   return (
+    <PfPageShell pageId="relatorios">
     <div>
       <div className="toolbar">
         <PeriodToolbar />
@@ -596,6 +641,7 @@ export function RelatoriosPFPage() {
         </div>
       </div>
     </div>
+    </PfPageShell>
   );
 }
 
@@ -615,6 +661,7 @@ export function PerfilPFPage() {
   };
 
   return (
+    <PfPageShell pageId="perfil">
     <div>
       <div className="card">
         <div className="card-title">Dados Pessoais</div>
@@ -639,5 +686,16 @@ export function PerfilPFPage() {
         </div>
       </div>
     </div>
+    </PfPageShell>
+  );
+}
+
+// ─── Contas PF ────────────────────────────────────────────────────────────────
+
+export function ContasPFPage() {
+  return (
+    <PfPageShell pageId="contas">
+      <ContasPage />
+    </PfPageShell>
   );
 }

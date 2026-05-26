@@ -1,5 +1,3 @@
-// Em dev: VITE_API_URL = http://localhost:3001/api  (definido em .env.development)
-// Em prod: VITE_API_URL não existe → usa "/api" relativo (Express serve tudo)
 const BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request(path, options = {}) {
@@ -24,7 +22,7 @@ async function request(path, options = {}) {
 
   const data = await res.json().catch(() => ({}));
 
-  if (res.status === 401) {
+  if (res.status === 401 || (res.status === 403 && path === "/auth/login")) {
     // Login inválido: não limpa sessão nem recarrega a página
     if (path === "/auth/login") {
       throw new Error(data.error || "E-mail ou senha incorretos.");
@@ -51,6 +49,17 @@ export const authApi = {
   login: (email, senha) =>
     request("/auth/login", { method: "POST", body: { email, senha } }),
 
+  me: () => request("/auth/me"),
+
+  register: (data) =>
+    request("/auth/register", { method: "POST", body: data }),
+
+  verify: (data) =>
+    request("/auth/verify", { method: "POST", body: data }),
+
+  resendCode: (data) =>
+    request("/auth/resend-code", { method: "POST", body: data }),
+
   changePassword: (senha_atual, nova_senha) =>
     request("/auth/change-password", { method: "PATCH", body: { senha_atual, nova_senha } }),
 };
@@ -61,6 +70,11 @@ export const stateApi = {
   save:  (state) => request("/state", { method: "PUT", body: { dados: state } }),
 };
 
+/** Saúde do backend PostgreSQL (Express) */
+export const healthApi = {
+  status: () => request("/status"),
+};
+
 // ─── Admin — gestão de tenants ────────────────────────────────────────────────
 export const adminApi = {
   listUsers:     ()           => request("/admin/users"),
@@ -68,6 +82,18 @@ export const adminApi = {
   toggleUser:    (id)         => request(`/admin/users/${id}/toggle`, { method: "PATCH" }),
   resetPassword: (id, senha)  => request(`/admin/users/${id}/reset-password`, { method: "PATCH", body: { nova_senha: senha } }),
   deleteUser:    (id)         => request(`/admin/users/${id}`, { method: "DELETE" }),
+  getUserState:          (id)        => request(`/admin/users/${id}/state`),
+  saveUserState:         (id, dados) => request(`/admin/users/${id}/state`, { method: "PUT", body: { dados } }),
+  getUserRecorrencias:   (id)        => request(`/admin/users/${id}/recorrencias`),
+};
+
+// ─── Recorrências ─────────────────────────────────────────────────────────────
+export const recorrenciasApi = {
+  list:   ()         => request("/recorrencias"),
+  create: (data)     => request("/recorrencias", { method: "POST", body: data }),
+  update: (id, data) => request(`/recorrencias/${id}`, { method: "PATCH", body: data }),
+  remove: (id)       => request(`/recorrencias/${id}`, { method: "DELETE" }),
+  gerar:  (id)       => request(`/recorrencias/${id}/gerar`, { method: "POST" }),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────

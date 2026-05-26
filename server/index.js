@@ -11,8 +11,11 @@ import { existsSync } from "fs";
 import { query } from "./db.js";
 import { authMiddleware, adminMiddleware, activeMiddleware, signToken } from "./middleware/auth.js";
 import { findUsuario, rejectProtectedAdmin } from "./adminGuard.js";
-import { buildSyncPayload } from "./lacusMap.js";
-import { createInitialState } from "./initialState.js";
+import { createInitialState, normalizeStateForUser } from "./initialState.js";
+import { runMigrations } from "./migrate.js";
+import { registerAuthRoutes } from "./authPublic.js";
+import { isAccountVerified } from "./verification.js";
+import { recorrenciasRouter } from "./routes/recorrencias.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -56,12 +59,21 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const { rows } = await query(
-      "SELECT id, email, nome, senha_hash, role, ativo FROM usuarios WHERE email = $1",
+      `SELECT id, email, nome, senha_hash, role, ativo, tipo_perfil, nome_perfil,
+              email_verificado, telefone_verificado
+       FROM usuarios WHERE email = $1`,
       [email.toLowerCase()]
     );
     const user = rows[0];
     if (!user || !(await bcrypt.compare(senha, user.senha_hash))) {
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    }
+    if (!isAccountVerified(user)) {
+      return res.status(403).json({
+        error: "Confirme seu cadastro com o código enviado por e-mail ou SMS.",
+        needs_verification: true,
+        email: user.email,
+      });
     }
     if (!user.ativo) {
       return res.status(403).json({ error: "Conta desativada. Entre em contato com o administrador." });
@@ -73,11 +85,45 @@ app.post("/api/auth/login", async (req, res) => {
     const token = signToken({ id: user.id, email: user.email, role: user.role });
     res.json({
       token,
-      user: { id: user.id, email: user.email, nome: user.nome, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        nome: user.nome,
+        role: user.role,
+        tipo_perfil: user.tipo_perfil || "juridica",
+        nome_perfil: user.nome_perfil || user.nome,
+      },
     });
   } catch (err) {
     console.error("login:", err.message);
     res.status(500).json({ error: "Erro interno ao autenticar." });
+  }
+});
+
+registerAuthRoutes(app);
+
+// ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
+app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
+  try {
+    const { rows } = await query(
+      "SELECT id, email, nome, role, ativo, tipo_perfil, nome_perfil FROM usuarios WHERE id = $1",
+      [req.user.id]
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        nome: user.nome,
+        role: user.role,
+        tipo_perfil: user.tipo_perfil || "juridica",
+        nome_perfil: user.nome_perfil || user.nome,
+      },
+    });
+  } catch (err) {
+    console.error("auth/me:", err.message);
+    res.status(500).json({ error: "Erro ao carregar perfil." });
   }
 });
 
@@ -88,14 +134,54 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       "SELECT dados FROM estados WHERE usuario_id = $1",
       [req.user.id]
     );
-    if (!rows.length) {
-      await query(
-        "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-        [req.user.id, JSON.stringify({})]
+
+    const loadProfile = async () => {
+      const { rows: userRows } = await query(
+        "SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1",
+        [req.user.id]
       );
-      return res.json({ dados: {} });
+      const u = userRows[0];
+      return {
+        profile: {
+          tipo_perfil: u?.tipo_perfil || "juridica",
+          nome_perfil: u?.nome_perfil || u?.nome,
+          nome: u?.nome,
+        },
+        state: createInitialState(u?.tipo_perfil || "juridica", u?.nome_perfil || u?.nome || "Perfil"),
+      };
+    };
+
+    const isValid = (dados) => dados && Array.isArray(dados.empresas) && dados.empresas.length > 0;
+
+    if (!rows.length) {
+      const { profile, state: initialState } = await loadProfile();
+      await query(
+        "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2)",
+        [req.user.id, JSON.stringify(initialState)]
+      );
+      return res.json({ dados: initialState, profile });
     }
-    res.json({ dados: rows[0].dados });
+
+    const dados = rows[0].dados;
+    if (!isValid(dados)) {
+      const { profile, state: initialState } = await loadProfile();
+      await query(
+        `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
+        [req.user.id, JSON.stringify(initialState)]
+      );
+      return res.json({ dados: initialState, profile });
+    }
+
+    const { profile } = await loadProfile();
+    const normalized = normalizeStateForUser(dados, profile);
+    if (JSON.stringify(normalized) !== JSON.stringify(dados)) {
+      await query(
+        `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
+        [req.user.id, JSON.stringify(normalized)]
+      );
+    }
+
+    res.json({ dados: normalized, profile });
   } catch (err) {
     console.error("get state:", err.message);
     res.status(500).json({ error: "Erro ao carregar estado." });
@@ -107,12 +193,25 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
   if (!dados) return res.status(400).json({ error: "Campo 'dados' obrigatório." });
 
   try {
+    const { rows: userRows } = await query(
+      "SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1",
+      [req.user.id]
+    );
+    const u = userRows[0];
+    const profile = {
+      tipo_perfil: u?.tipo_perfil || "juridica",
+      nome_perfil: u?.nome_perfil || u?.nome,
+      nome: u?.nome,
+    };
+    const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
+    const toSave = isValid(dados) ? normalizeStateForUser(dados, profile) : dados;
+
     await query(
       `INSERT INTO estados (usuario_id, dados)
        VALUES ($1, $2)
        ON CONFLICT (usuario_id)
        DO UPDATE SET dados = $2, updated_at = NOW()`,
-      [req.user.id, JSON.stringify(dados)]
+      [req.user.id, JSON.stringify(toSave)]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -155,8 +254,11 @@ app.post("/api/admin/users", authMiddleware, adminMiddleware, async (req, res) =
     const perfil = nome_perfil || nome;
 
     const { rows } = await query(
-      `INSERT INTO usuarios (email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil)
-       VALUES ($1, $2, $3, 'user', true, $4, $5)
+      `INSERT INTO usuarios (
+         email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil,
+         email_verificado, telefone_verificado
+       )
+       VALUES ($1, $2, $3, 'user', true, $4, $5, true, false)
        RETURNING id, email, nome, role, ativo, tipo_perfil, nome_perfil, created_at`,
       [email.toLowerCase(), hash, nome, tipo_perfil, perfil]
     );
@@ -219,6 +321,44 @@ app.patch("/api/admin/users/:id/reset-password", authMiddleware, adminMiddleware
   }
 });
 
+// Estado de um tenant (super admin entra na conta)
+app.get("/api/admin/users/:id/state", authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const alvo = await findUsuario(query, id);
+    if (rejectProtectedAdmin(alvo, res, "acessada")) return;
+
+    const { rows } = await query(
+      "SELECT dados FROM estados WHERE usuario_id = $1",
+      [id]
+    );
+    if (!rows.length) return res.json({ dados: {} });
+
+    const profile = {
+      tipo_perfil: alvo.tipo_perfil || "juridica",
+      nome_perfil: alvo.nome_perfil || alvo.nome,
+      nome: alvo.nome,
+    };
+    const dados = rows[0].dados;
+    const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
+    if (!isValid(dados)) {
+      const initialState = createInitialState(profile.tipo_perfil, profile.nome_perfil || profile.nome || "Perfil");
+      return res.json({ dados: initialState, profile });
+    }
+    res.json({ dados: normalizeStateForUser(dados, profile), profile });
+  } catch (err) {
+    console.error("admin/user state GET:", err.message);
+    res.status(500).json({ error: "Erro ao carregar estado do cliente." });
+  }
+});
+
+app.put("/api/admin/users/:id/state", authMiddleware, adminMiddleware, async (_req, res) => {
+  return res.status(403).json({
+    error: "O administrador só pode visualizar a conta do cliente, não alterar os dados.",
+    view_only: true,
+  });
+});
+
 // Deleta tenant e todos os dados
 app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
@@ -238,6 +378,26 @@ app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, 
   } catch (err) {
     console.error("delete user:", err.message);
     res.status(500).json({ error: "Erro ao excluir usuário." });
+  }
+});
+
+// ─── Recorrências (despesas e receitas fixas) ─────────────────────────────────
+app.use("/api/recorrencias", recorrenciasRouter);
+
+// Admin: lê recorrências de um tenant (somente leitura, modo impersonation)
+app.get("/api/admin/users/:id/recorrencias", authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await query(
+      `SELECT * FROM recorrencias WHERE usuario_id = $1
+       ORDER BY CASE status WHEN 'ativa' THEN 0 WHEN 'pausada' THEN 1 ELSE 2 END,
+                proxima_data ASC`,
+      [id]
+    );
+    res.json({ recorrencias: rows });
+  } catch (err) {
+    console.error("admin/recorrencias:", err.message);
+    res.status(500).json({ error: "Erro ao listar recorrências do cliente." });
   }
 });
 
@@ -263,57 +423,24 @@ app.patch("/api/auth/change-password", authMiddleware, async (req, res) => {
   }
 });
 
-// ─── Sync Microsoft Access (legado) ──────────────────────────────────────────
-let odbcModule = null;
-async function getOdbc() {
-  if (odbcModule) return odbcModule;
-  try { odbcModule = await import("odbc"); return odbcModule; } catch { return null; }
-}
-
-async function queryTable(conn, table) {
-  try { return await conn.query(`SELECT * FROM [${table}]`); } catch { return []; }
-}
-
-const SYNC_TABLES = [
-  { key: "contas",       table: "BC_Contas" },
-  { key: "plano",        table: "BC_Classificacao_DRE" },
-  { key: "empresa",      table: "BC_Cadastro_Empresa" },
-  { key: "clientes",     table: "BC_Cadastro_Clientes" },
-  { key: "fornecedores", table: "BC_Cadastro_Fornecedores" },
-  { key: "lancamentos",  table: "BC_Lancamentos" },
-  { key: "versao",       table: "TB_Versao_Banco_dados" },
-];
-
-app.post("/api/sync", authMiddleware, activeMiddleware, async (req, res) => {
-  const { path: dbPath, password } = req.body || {};
-  if (!dbPath) return res.status(400).json({ error: "Informe o caminho do banco Access." });
-
-  const odbc = await getOdbc();
-  if (!odbc?.connect) {
-    return res.status(503).json({ error: "Driver ODBC não disponível neste servidor." });
-  }
-
-  const connStr = `Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=${dbPath}${password ? `;PWD=${password}` : ""};`;
-  let conn;
-  try {
-    conn = await odbc.connect(connStr);
-    const raw = {};
-    for (const { key, table } of SYNC_TABLES) raw[key] = await queryTable(conn, table);
-    res.json(buildSyncPayload(raw));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  } finally {
-    if (conn) try { await conn.close(); } catch {}
-  }
-});
-
 // ─── SPA fallback (React Router) ─────────────────────────────────────────────
 if (existsSync(DIST)) {
   app.get("/{*path}", (_req, res) => res.sendFile(join(DIST, "index.html")));
 }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`\n✅ Gestor Financeiro API rodando em http://0.0.0.0:${PORT}`);
-  console.log(`   Banco: ${process.env.DATABASE_URL ? "PostgreSQL (env)" : "PostgreSQL (padrão local)"}`);
-  console.log(`   Modo:  ${process.env.NODE_ENV || "development"}\n`);
-});
+async function start() {
+  try {
+    console.log("Aplicando migrations…");
+    await runMigrations();
+  } catch (err) {
+    console.error("Migrations:", err.message);
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`\n✅ Gestor Financeiro API rodando em http://0.0.0.0:${PORT}`);
+    console.log(`   Banco: ${process.env.DATABASE_URL ? "PostgreSQL (env)" : "PostgreSQL (padrão local)"}`);
+    console.log(`   Modo:  ${process.env.NODE_ENV || "development"}\n`);
+  });
+}
+
+start();
