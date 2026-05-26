@@ -143,7 +143,17 @@ export function GestorProvider({ children }) {
   }, []);
 
   const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
-  const { company, contas, planoContas, lancamentos, clientes, fornecedores } = empresa;
+  const { company, contas, planoContas, clientes, fornecedores } = empresa;
+
+  // Retrocompatibilidade: normaliza tipo "Despesa"→"Saida" e "Receita"→"Entrada"
+  // (lançamentos gerados por recorrências antigas usavam os tipos errados)
+  const lancamentos = useMemo(
+    () => (empresa.lancamentos || []).map((l) =>
+      l.tipo === "Despesa" ? { ...l, tipo: "Saida" } :
+      l.tipo === "Receita" ? { ...l, tipo: "Entrada" } : l
+    ),
+    [empresa.lancamentos]
+  );
   const fechamentos = empresa.fechamentos  || [];
   const metas       = empresa.metas        || [];
   const orcamentos  = empresa.orcamentos   || [];
