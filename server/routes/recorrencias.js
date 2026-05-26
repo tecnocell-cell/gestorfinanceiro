@@ -12,9 +12,19 @@ router.use(authMiddleware, activeMiddleware);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Normaliza qualquer formato de data (Date object, ISO timestamp, YYYY-MM-DD) para YYYY-MM-DD */
+function toDateStr(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  const s = String(val);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s;
+}
+
 /** Calcula a próxima data de vencimento com base na periodicidade */
 function calcProximaData(periodicidade, dataAtual) {
-  const d = new Date(dataAtual + "T00:00:00");
+  const key = toDateStr(dataAtual);
+  const d = new Date(key + "T00:00:00");
   if (periodicidade === "mensal")  d.setMonth(d.getMonth() + 1);
   else if (periodicidade === "semanal") d.setDate(d.getDate() + 7);
   else if (periodicidade === "anual")  d.setFullYear(d.getFullYear() + 1);

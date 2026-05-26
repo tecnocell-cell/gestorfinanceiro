@@ -507,14 +507,16 @@ export default function RecorrenciasPage() {
       recorrenciaId,          // campo opcional — retrocompatível
     };
 
-    // 1. Adiciona lançamento ao JSONB
+    // 1. Adiciona lançamento ao JSONB (operação principal — não pode falhar silenciosamente)
     lancCrud.add(lancamento);
-
-    // 2. Avança proxima_data no backend
-    await gerar(gerarTarget.id);
 
     // 3. Salva o estado JSONB imediatamente
     setTimeout(() => flushStateSave().catch(() => {}), 50);
+
+    // 2. Avança proxima_data no backend (não-bloqueante: se falhar, lançamento já foi criado)
+    gerar(gerarTarget.id).catch((err) => {
+      console.warn("Não foi possível avançar proxima_data:", err.message);
+    });
   };
 
   const handleToggleStatus = async (rec) => {
