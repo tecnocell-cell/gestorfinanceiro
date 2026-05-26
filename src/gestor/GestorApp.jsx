@@ -111,7 +111,7 @@ export default function GestorApp() {
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
             <img
-              src="/centerflow-logo-white.png?v=4"
+              src="/centerflow-logo-white.svg"
               alt="CenterFlow"
               className="sidebar-brand-logo"
               width={188}

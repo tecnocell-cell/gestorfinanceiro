@@ -178,7 +178,7 @@ export default function RegisterPage({ onLogin, onVerified }) {
         <div className="login-card register-card">
           <div className="login-header">
             <img
-              src="/centerflow-logo-white.png?v=4"
+              src="/centerflow-logo-white.svg"
               alt="CenterFlow"
               className="login-brand-logo"
               width={200}

@@ -324,13 +324,25 @@ export const nextLote = (lancamentos) => {
 /**
  * Computes the display status of a lançamento for Contas a Pagar/Receber.
  * "atrasado" is NEVER persisted — only computed here on the client.
- *  l.status:    "pendente" | "pago"  (undefined → "pago" fallback for old records)
+ *
+ * Priority:
+ *  1. l.status ("pendente" | "pago") — set explicitly by ContasAPagarPage actions
+ *  2. l.pago (boolean) — set by the modal form on create/edit
+ *  3. Fallback: pendente (so new records always appear in "Em Aberto")
+ *
  *  l.vencimento: optional date string (undefined → falls back to l.data)
  */
 export const getStatusLancamento = (l) => {
-  const s = l.status ?? "pago";
-  if (s === "pago") return "pago";
   const hoje = new Date().toISOString().slice(0, 10);
   const venc = l.vencimento ?? l.data;
+
+  // 1. Explicit status field (set by marcarPago / marcarPendente)
+  if (l.status === "pago") return "pago";
+  if (l.status === "pendente") return venc < hoje ? "atrasado" : "pendente";
+
+  // 2. Boolean pago field (set by the modal on save)
+  if (l.pago === true) return "pago";
+
+  // 3. No status info at all → treat as pendente (show in Em Aberto)
   return venc < hoje ? "atrasado" : "pendente";
 };
