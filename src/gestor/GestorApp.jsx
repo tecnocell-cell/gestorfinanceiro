@@ -7,8 +7,11 @@ import {
   ModalLancamento, ModalConta, ModalPlano,
   ModalCliente, ModalFornecedor, ModalCategoriaPF, ModalMeta,
 } from "./components/Modals.jsx";
-import AdminPanel from "./pages/AdminPage.jsx";
-import RecorrenciasPage from "./pages/RecorrenciasPage.jsx";
+import AdminPanel        from "./pages/AdminPage.jsx";
+import RecorrenciasPage  from "./pages/RecorrenciasPage.jsx";
+// Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
+import DashboardV2Page   from "./pages/DashboardV2Page.jsx";
+import DashboardPFV2Page from "./pages/DashboardPFV2Page.jsx";
 
 // ─── Páginas PJ ───────────────────────────────────────────────────────────────
 import {
@@ -25,7 +28,8 @@ import {
 import PfDueAlert from "./components/pf/PfDueAlert.jsx";
 
 const PAGE_MAP_PJ = {
-  dashboard: DashboardPage, lancamentos: LancamentosPage, recorrencias: RecorrenciasPage,
+  // dashboard → V2 premium. Rollback: trocar DashboardV2Page por DashboardPage
+  dashboard: DashboardV2Page, lancamentos: LancamentosPage, recorrencias: RecorrenciasPage,
   dre: DREPage, contas: ContasPage, plano: PlanoContasPage, impostos: ImpostosPage,
   clientes: ClientesPage, fornecedores: FornecedoresPage,
   importacoes: ImportacoesPage, conciliacao: ConciliacaoPage,
@@ -34,7 +38,8 @@ const PAGE_MAP_PJ = {
 };
 
 const PAGE_MAP_PF = {
-  dashboard: DashboardPFPage, lancamentos: LancamentosPFPage,
+  // dashboard → V2 premium. Rollback: trocar DashboardPFV2Page por DashboardPFPage
+  dashboard: DashboardPFV2Page, lancamentos: LancamentosPFPage,
   recorrencias: RecorrenciasPage,
   categorias: CategoriasPFPage, orcamento: OrcamentoPage,
   metas: MetasPage, contas: ContasPFPage,
