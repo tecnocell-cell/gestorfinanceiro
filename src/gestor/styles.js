@@ -2815,4 +2815,361 @@ export const css = `
     transform: scale(1.15);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--foreground) 20%, transparent);
   }
+
+  /* ─── Fase 5b — Conexões Bancárias / Open Finance ────────────────────────── */
+
+  .of-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Hero */
+  .of-hero {
+    background:
+      radial-gradient(ellipse at 70% 0%,  oklch(0.28 0.08 260 / 0.30) 0%, transparent 60%),
+      radial-gradient(ellipse at 10% 100%, oklch(0.25 0.06 145 / 0.20) 0%, transparent 50%),
+      linear-gradient(155deg, oklch(0.17 0.04 200) 0%, oklch(0.14 0.03 220) 60%, oklch(0.12 0.025 155) 100%);
+    padding: 2rem 2rem 2.5rem;
+    border-radius: var(--radius-xl);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .of-hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -40px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.45 0.12 260 / 0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .of-hero-inner { position: relative; z-index: 1; max-width: 680px; }
+
+  .of-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: oklch(0.75 0.12 260);
+    background: oklch(1 0 0 / 0.08);
+    border: 1px solid oklch(1 0 0 / 0.14);
+    padding: 4px 12px;
+    border-radius: 99px;
+    margin-bottom: 14px;
+  }
+  .of-hero-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: oklch(0.97 0.005 150);
+    letter-spacing: -0.02em;
+    margin: 0 0 10px;
+    line-height: 1.2;
+  }
+  .of-hero-sub {
+    font-size: 14px;
+    color: oklch(0.72 0.025 180);
+    line-height: 1.6;
+    margin: 0 0 18px;
+    max-width: 560px;
+  }
+  .of-hero-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .of-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: oklch(0.85 0.03 200);
+    background: oklch(1 0 0 / 0.08);
+    border: 1px solid oklch(1 0 0 / 0.12);
+    padding: 4px 10px;
+    border-radius: 99px;
+  }
+
+  /* Seções */
+  .of-section {
+    margin-bottom: 28px;
+  }
+  .of-section-alt {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 20px 22px;
+  }
+  .of-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+  .of-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+    margin-bottom: 4px;
+    letter-spacing: -0.005em;
+  }
+  .of-section-sub {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+  }
+  .of-interesse-count {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--success-fg);
+    background: var(--success-soft);
+    padding: 1px 8px;
+    border-radius: 99px;
+  }
+
+  /* Grid de bancos */
+  .of-bancos-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  /* Card de banco */
+  .of-banco-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .of-banco-card:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-2px);
+  }
+  .of-banco-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .of-banco-sigla {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .of-badge-breve {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: oklch(0.50 0.09 75);
+    background: oklch(0.96 0.05 85);
+    border: 1px solid oklch(0.88 0.08 80);
+    padding: 2px 7px;
+    border-radius: 99px;
+  }
+  .of-banco-nome {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .of-banco-desc {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  /* Botão Avise-me */
+  .of-aviso-btn {
+    width: 100%;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--foreground);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    font-family: var(--font-sans);
+    font-weight: 600;
+  }
+  .of-aviso-btn:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: color-mix(in oklab, var(--primary) 25%, transparent);
+  }
+  .of-aviso-btn-done {
+    background: var(--success-soft) !important;
+    border-color: color-mix(in oklab, var(--success) 30%, transparent) !important;
+    color: var(--success-fg) !important;
+    cursor: default !important;
+  }
+
+  /* Roadmap */
+  .of-roadmap {
+    display: flex;
+    gap: 0;
+  }
+  .of-roadmap-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    text-align: center;
+    position: relative;
+  }
+  .of-roadmap-dot-wrap {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .of-roadmap-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--muted-foreground);
+    flex-shrink: 0;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .of-roadmap-dot.done {
+    background: var(--success);
+    border-color: var(--success-fg);
+  }
+  .of-roadmap-line {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    right: -50%;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+  .of-roadmap-content { padding: 0 8px; }
+  .of-roadmap-fase {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .of-roadmap-data { font-size: 10px; color: var(--muted-foreground); }
+  .of-roadmap-titulo {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--foreground);
+    margin-bottom: 4px;
+  }
+  .of-roadmap-desc {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+
+  /* Grid de importação manual */
+  .of-import-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .of-import-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: var(--shadow-card);
+    min-height: 160px;
+  }
+  .of-import-icon { font-size: 26px; }
+  .of-import-titulo {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .of-import-desc {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+    flex: 1;
+  }
+  .of-import-dica {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-family: var(--font-mono);
+  }
+  .of-import-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    line-height: 1.5;
+  }
+
+  /* Rodapé de segurança */
+  .of-footer-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: color-mix(in oklab, var(--info-soft) 60%, var(--surface-2));
+    border: 1px solid color-mix(in oklab, var(--info) 18%, var(--border));
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    line-height: 1.55;
+    margin-top: 4px;
+  }
+
+  /* Responsividade */
+  @media (max-width: 900px) {
+    .of-bancos-grid { grid-template-columns: repeat(2, 1fr); }
+    .of-import-grid { grid-template-columns: 1fr 1fr; }
+    .of-roadmap     { flex-direction: column; gap: 16px; }
+    .of-roadmap-dot-wrap { width: auto; justify-content: flex-start; gap: 12px; }
+    .of-roadmap-line { display: none; }
+    .of-roadmap-item { flex-direction: row; text-align: left; align-items: flex-start; gap: 0; }
+    .of-roadmap-content { text-align: left; }
+  }
+  @media (max-width: 540px) {
+    .of-bancos-grid { grid-template-columns: 1fr 1fr; }
+    .of-import-grid { grid-template-columns: 1fr; }
+    .of-hero        { padding: 1.25rem 1.25rem 1.75rem; border-radius: var(--radius-lg); }
+    .of-hero-title  { font-size: 20px; }
+  }
 `;

@@ -29,8 +29,9 @@ export const NAV_ITEMS_FISICA = [
   { id: "orcamento",    icon: "◎", label: "Orçamento"      },
   { id: "metas",        icon: "◈", label: "Metas"          },
   { id: "contas",       icon: "▦", label: "Contas"         },
-  { id: "relatorios",   icon: "▥", label: "Relatórios"     },
-  { id: "perfil",       icon: "⚙", label: "Perfil"         },
+  { id: "relatorios",   icon: "▥", label: "Relatórios"        },
+  { id: "open-finance", icon: "⇌", label: "Conexões"          },
+  { id: "perfil",       icon: "⚙", label: "Perfil"            },
 ];
 
 export const NAV_ITEMS = [
@@ -48,6 +49,7 @@ export const NAV_ITEMS = [
   { id: "conciliacao",  icon: "≈", label: "Conciliação"    },
   { id: "balancete",    icon: "☰", label: "Balancete"      },
   { id: "fechamento",   icon: "⊛", label: "Fechamento"     },
-  { id: "relatorios",   icon: "▥", label: "Relatórios"     },
-  { id: "empresa",      icon: "⚙", label: "Empresa"        },
+  { id: "relatorios",   icon: "▥", label: "Relatórios"        },
+  { id: "open-finance", icon: "⇌", label: "Conexões"          },
+  { id: "empresa",      icon: "⚙", label: "Empresa"           },
 ];

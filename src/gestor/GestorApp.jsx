@@ -9,7 +9,8 @@ import {
 } from "./components/Modals.jsx";
 import AdminPanel        from "./pages/AdminPage.jsx";
 import RecorrenciasPage  from "./pages/RecorrenciasPage.jsx";
-import ContasAPagarPage  from "./pages/ContasAPagarPage.jsx";
+import ContasAPagarPage       from "./pages/ContasAPagarPage.jsx";
+import ConexoesBancariasPage  from "./pages/ConexoesBancariasPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
 import DashboardV2Page   from "./pages/DashboardV2Page.jsx";
 import DashboardPFV2Page from "./pages/DashboardPFV2Page.jsx";
@@ -36,7 +37,8 @@ const PAGE_MAP_PJ = {
   clientes: ClientesPage, fornecedores: FornecedoresPage,
   importacoes: ImportacoesPage, conciliacao: ConciliacaoPage,
   balancete: BalancetePage, fechamento: FechamentoPage,
-  relatorios: RelatoriosPage, empresa: EmpresaPage,
+  relatorios: RelatoriosPage, "open-finance": ConexoesBancariasPage,
+  empresa: EmpresaPage,
 };
 
 const PAGE_MAP_PF = {
@@ -46,7 +48,8 @@ const PAGE_MAP_PF = {
   "contas-pagar": ContasAPagarPage,
   categorias: CategoriasPFPage, orcamento: OrcamentoPage,
   metas: MetasPage, contas: ContasPFPage,
-  relatorios: RelatoriosPFPage, perfil: PerfilPFPage,
+  relatorios: RelatoriosPFPage, "open-finance": ConexoesBancariasPage,
+  perfil: PerfilPFPage,
 };
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
