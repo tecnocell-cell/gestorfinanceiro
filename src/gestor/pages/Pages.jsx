@@ -22,6 +22,7 @@ import {
   marcarExportadosDominio,
 } from "../importExport.js";
 import { nextLote } from "../finance.js";
+import { DEFAULT_CATS_PJ } from "../defaultCategories.js";
 
 function PeriodToolbar() {
   const { filterPeriodo, setFilterPeriodo } = useGestor();
@@ -644,27 +645,45 @@ export function PlanoContasPage() {
   const { planoContas, openModal, planoCrud } = useGestor();
   const badgeColor = (tipo) => tipo === "Receita" ? "badge-green" : tipo === "Custo" ? "badge-red" : tipo === "Imposto" ? "badge-blue" : "badge-amber";
 
+  const importarSugestoes = () => {
+    const existentes = new Set(planoContas.map((p) => p.descricao.toLowerCase().trim()));
+    const novas = DEFAULT_CATS_PJ.filter((c) => !existentes.has(c.descricao.toLowerCase().trim()));
+    if (!novas.length) return alert("Todas as categorias sugeridas já existem.");
+    if (!window.confirm(`Adicionar ${novas.length} categoria(s) sugerida(s)?`)) return;
+    novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), caixaBanco: "", contaContabil: "" }));
+  };
+
   return (
     <div>
       <div className="toolbar">
-        <div />
+        <button type="button" className="btn btn-secondary btn-sm" onClick={importarSugestoes} title="Adiciona categorias padrão sugeridas">
+          ✦ Sugestões
+        </button>
         <button type="button" className="btn btn-primary" onClick={() => openModal("plano")}>+ Nova Conta</button>
       </div>
       <div className="card" style={{ padding: 0 }}>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Classif.</th><th>Descrição</th><th>Tipo</th><th>Natureza</th><th></th></tr></thead>
+            <thead><tr><th style={{ width: 36 }}>Ícone</th><th>Código</th><th>Descrição</th><th>Tipo</th><th>Natureza</th><th></th></tr></thead>
             <tbody>
               {planoContas.map((pc) => (
                 <tr key={pc.id}>
+                  <td style={{ textAlign: "center" }}>
+                    {pc.icone ? (
+                      <span className="cat-icone" style={{ background: pc.cor || "var(--muted)", fontSize: 14 }}>
+                        {pc.icone}
+                      </span>
+                    ) : (
+                      <span className="cat-icone cat-icone-empty">◼</span>
+                    )}
+                  </td>
                   <td className="td-mono">{pc.codigo}</td>
-                  <td style={{ fontSize: 12, color: "var(--text2)" }}>{pc.classificacao}</td>
                   <td>{pc.descricao}</td>
                   <td><span className={`badge ${badgeColor(pc.tipo)}`}>{pc.tipo}</span></td>
                   <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "?"}</td>
                   <td>
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>?</button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>?</button>
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>✎</button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>✕</button>
                   </td>
                 </tr>
               ))}

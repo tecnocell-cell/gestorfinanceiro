@@ -1,8 +1,86 @@
 import { useState } from "react";
 import { generateId } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
+import { isLancamentoPago } from "../pfDueDates.js";
+import {
+  lancamentoTipoOptions,
+  contaFieldLabels,
+  labelLancamentoTipo,
+  isPerfilFisica,
+} from "../profileLabels.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// ── Seletor de ícone / emoji ──────────────────────────────────────────────────
+
+const EMOJI_LIST = [
+  "🏠","🚗","🍔","💊","📚","🎭","🛍️","✈️","💪","🐾",
+  "💰","📈","💳","🏦","🤝","📦","🔧","📊","🎓","🌿",
+  "👗","💻","📱","☕","🎵","🛒","🎮","💡","🌍","⚡",
+  "🏥","📮","🎁","🎯","🔑","🏋️","👥","🎬","🍷","🐕",
+  "🐈","🌺","🎪","🍷","🚀","🎀","📺","🎻","🌮","🏄",
+];
+
+function IconePicker({ value, onChange }) {
+  return (
+    <div className="icone-picker">
+      {EMOJI_LIST.map((e) => (
+        <button
+          key={e}
+          type="button"
+          className={`icone-btn${value === e ? " active" : ""}`}
+          onClick={() => onChange(e)}
+          title={e}
+        >{e}</button>
+      ))}
+    </div>
+  );
+}
+
+// ── Seletor de cor ────────────────────────────────────────────────────────────
+
+const CORES = [
+  { label: "Verde",     v: "oklch(0.55 0.14 150)" },
+  { label: "Esmeralda", v: "oklch(0.55 0.18 163)" },
+  { label: "Ciano",     v: "oklch(0.60 0.13 195)" },
+  { label: "Azul",      v: "oklch(0.52 0.17 240)" },
+  { label: "Índigo",    v: "oklch(0.52 0.18 270)" },
+  { label: "Roxo",      v: "oklch(0.52 0.18 280)" },
+  { label: "Rosa",      v: "oklch(0.58 0.20 330)" },
+  { label: "Vermelho",  v: "oklch(0.58 0.22 27)"  },
+  { label: "Laranja",   v: "oklch(0.65 0.18 50)"  },
+  { label: "Âmbar",     v: "oklch(0.70 0.15 75)"  },
+  { label: "Cinza",     v: "oklch(0.55 0.01 0)"   },
+  { label: "Ardósia",   v: "oklch(0.50 0.03 220)" },
+];
+
+function CorPicker({ value, onChange }) {
+  return (
+    <div className="cor-picker">
+      {CORES.map((c) => (
+        <button
+          key={c.v}
+          type="button"
+          className={`cor-btn${value === c.v ? " active" : ""}`}
+          style={{ background: c.v }}
+          title={c.label}
+          onClick={() => onChange(c.v)}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Preview de categoria ───────────────────────────────────────────────────────
+
+function CatPreview({ icone, cor, descricao }) {
+  if (!icone && !cor) return null;
+  return (
+    <span className="cat-icone" style={{ background: cor || "var(--muted)", fontSize: 16 }}>
+      {icone || "◼"}
+    </span>
+  );
+}
 
 const Hdr = ({ onClose, title }) => (
   <div className="modal-header">
@@ -31,14 +109,21 @@ export function ModalLancamento() {
     editingItem, contas, planoContas, clientes, fornecedores,
     closeModal, saveLancamento, lancamentos, tipo,
   } = useGestor();
-  const isPF = tipo === "fisica";
+  const isPF = isPerfilFisica(tipo);
+  const contaLabels = contaFieldLabels(isPF);
+  const tipoOptions = lancamentoTipoOptions(isPF);
   const item = editingItem;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const initVenc = item?.vencimento || item?.data || todayIso;
+  const initTipo = item?.tipo || "Entrada";
 
   const [form, setForm] = useState({
     codigo:       item?.codigo        ?? "",
     lote:         item?.lote          || "",
-    data:         item?.data          || new Date().toISOString().slice(0, 10),
-    tipo:         item?.tipo          || "Entrada",
+    data:         item?.data          || todayIso,
+    vencimento:   initVenc,
+    pago:         item?.pago ?? (item ? isLancamentoPago(item) : initTipo !== "Saida"),
+    tipo:         initTipo,
     contaEntradaId: item?.contaEntradaId || "",
     contaSaidaId: item?.contaSaidaId  || "",
     planoId:      item?.planoId       || "",
@@ -70,22 +155,39 @@ export function ModalLancamento() {
   // Filtra categorias por tipo de lançamento
   const categoriasFiltradas = planoContas.filter((p) => {
     if (p.inativo) return false;
-    if (form.tipo === "Entrada")       return p.tipo === "Receita";
-    if (form.tipo === "Saida")         return p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
+    if (form.tipo === "Entrada") return p.tipo === "Receita";
+    if (form.tipo === "Saida") {
+      return isPF
+        ? p.tipo === "Despesa"
+        : p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
+    }
     if (form.tipo === "Transferencia") return true;
+    return true;
+  });
+
+  const filterPlanoByTipo = (v) => planoContas.filter((p) => {
+    if (p.inativo) return false;
+    if (v === "Entrada") return p.tipo === "Receita";
+    if (v === "Saida") {
+      return isPF
+        ? p.tipo === "Despesa"
+        : p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
+    }
     return true;
   });
 
   // Reseta planoId se a categoria selecionada não existe mais no filtro
   const handleTipoChange = (v) => {
-    const novaLista = planoContas.filter((p) => {
-      if (p.inativo) return false;
-      if (v === "Entrada")       return p.tipo === "Receita";
-      if (v === "Saida")         return p.tipo === "Despesa" || p.tipo === "Custo" || p.tipo === "Imposto";
-      return true;
-    });
+    const novaLista = filterPlanoByTipo(v);
     const planoValido = novaLista.some((p) => p.id === form.planoId);
-    setForm((prev) => ({ ...prev, tipo: v, planoId: planoValido ? prev.planoId : "" }));
+    const isSaida = v === "Saida";
+    setForm((prev) => ({
+      ...prev,
+      tipo: v,
+      planoId: planoValido ? prev.planoId : "",
+      vencimento: prev.vencimento || prev.data,
+      pago: isSaida ? prev.pago : true,
+    }));
   };
 
   return (
@@ -104,9 +206,9 @@ export function ModalLancamento() {
             <div className="form-group">
               <label className="form-label">Tipo *</label>
               <select className="form-select" value={form.tipo} onChange={(e) => handleTipoChange(e.target.value)}>
-                <option value="Entrada">Entrada</option>
-                <option value="Saida">Saída</option>
-                <option value="Transferencia">Transferência</option>
+                {tipoOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
@@ -116,13 +218,48 @@ export function ModalLancamento() {
             </div>
           </div>
 
+          {isPF && form.tipo === "Saida" && (
+            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Vencimento</label>
+                <input
+                  className="form-input"
+                  type="date"
+                  value={form.vencimento}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm((p) => ({
+                      ...p,
+                      vencimento: v,
+                      pago: v <= todayIso ? p.pago : false,
+                    }));
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Pagamento</label>
+                <label className="check-item" style={{ marginTop: 8 }}>
+                  <input type="checkbox" checked={!!form.pago} onChange={(e) => set("pago", e.target.checked)} />
+                  Conta já paga
+                </label>
+                {!form.pago && (
+                  <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
+                    Você será avisado 3 dias antes do vencimento.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── Contas ── */}
           <div className="modal-section">
-            <div className="modal-section-label">{isPF ? "Conta" : "Contas Financeiras"}</div>
+            <div className="modal-section-label">{contaLabels.section}</div>
             <div className="form-grid" style={{ gridTemplateColumns: showEntrada && showSaida ? "1fr 1fr" : "1fr" }}>
               {showEntrada && (
                 <div className="form-group">
-                  <label className="form-label">Conta de Entrada</label>
+                  <label className="form-label">
+                    {form.tipo === "Transferencia" ? contaLabels.origem : contaLabels.entrada}
+                  </label>
                   <select className="form-select" value={form.contaEntradaId} onChange={(e) => set("contaEntradaId", e.target.value)}>
                     <option value="">— Selecione —</option>
                     {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
@@ -131,7 +268,9 @@ export function ModalLancamento() {
               )}
               {showSaida && (
                 <div className="form-group">
-                  <label className="form-label">Conta de Saída</label>
+                  <label className="form-label">
+                    {form.tipo === "Transferencia" ? contaLabels.destino : contaLabels.saida}
+                  </label>
                   <select className="form-select" value={form.contaSaidaId} onChange={(e) => set("contaSaidaId", e.target.value)}>
                     <option value="">— Selecione —</option>
                     {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
@@ -244,7 +383,7 @@ export function ModalLancamento() {
 
 export function ModalConta() {
   const { editingItem, closeModal, contaCrud, tipo } = useGestor();
-  const isPF = tipo === "fisica";
+  const isPF = isPerfilFisica(tipo);
   const item = editingItem;
 
   const [form, setForm] = useState({
@@ -376,6 +515,9 @@ export function ModalPlano() {
     contaContabil: item?.contaContabil || "",
     inativo:       item?.inativo       || false,
     usarSaldo:     item?.usarSaldo     !== false,
+    // Phase 5 — optional visual fields (retrocompatível)
+    icone:         item?.icone         || "",
+    cor:           item?.cor           || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -441,6 +583,26 @@ export function ModalPlano() {
                 <input className="form-input" value={form.classificacao}
                   onChange={(e) => set("classificacao", e.target.value)} />
               </div>
+            </div>
+          </div>
+
+          {/* ── Fase 5: Ícone + Cor ─────────────────────────────────────── */}
+          <div className="modal-section">
+            <div className="modal-section-label">Visual (opcional)</div>
+            <div className="form-group" style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <label className="form-label" style={{ margin: 0 }}>Ícone</label>
+                {form.icone && (
+                  <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18 }}>
+                    {form.icone}
+                  </span>
+                )}
+              </div>
+              <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Cor</label>
+              <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
             </div>
           </div>
 
@@ -621,6 +783,9 @@ export function ModalCategoriaPF() {
     contaContabil: "",
     inativo:       item?.inativo       || false,
     usarSaldo:     item?.usarSaldo     !== false,
+    // Phase 5 — optional visual fields (retrocompatível)
+    icone:         item?.icone         || "",
+    cor:           item?.cor           || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -684,6 +849,26 @@ export function ModalCategoriaPF() {
             <label className="form-label">Código (opcional)</label>
             <input className="form-input" value={form.codigo}
               onChange={(e) => set("codigo", e.target.value)} placeholder="Ex: 2.9" />
+          </div>
+
+          {/* ── Fase 5: Ícone + Cor ─────────────────────────────────────── */}
+          <div className="modal-section">
+            <div className="modal-section-label">Visual (opcional)</div>
+            <div className="form-group" style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <label className="form-label" style={{ margin: 0 }}>Ícone</label>
+                {form.icone && (
+                  <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18 }}>
+                    {form.icone}
+                  </span>
+                )}
+              </div>
+              <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Cor</label>
+              <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
+            </div>
           </div>
 
           <div className="check-row">

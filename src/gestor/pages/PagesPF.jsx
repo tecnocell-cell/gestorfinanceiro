@@ -17,6 +17,7 @@ import {
   labelFilterChip,
   labelLancamentoTipo,
 } from "../profileLabels.js";
+import { DEFAULT_CATS_PF } from "../defaultCategories.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -246,19 +247,40 @@ export function CategoriasPFPage() {
   const receitas = planoContas.filter((p) => !p.inativo && p.tipo === "Receita");
   const despesas = planoContas.filter((p) => !p.inativo && p.tipo === "Despesa");
 
+  // ── Sugestões de categorias padrão ────────────────────────────────────────
+  const importarSugestoes = () => {
+    const existentes = new Set(planoContas.map((p) => p.descricao.toLowerCase().trim()));
+    const novas = DEFAULT_CATS_PF.filter((c) => !existentes.has(c.descricao.toLowerCase().trim()));
+    if (!novas.length) return alert("Todas as categorias sugeridas já existem.");
+    if (!window.confirm(`Adicionar ${novas.length} categoria(s) sugerida(s)?`)) return;
+    novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), codigo: "", contaContabil: "", caixaBanco: "" }));
+  };
+
+  // ── Tabela de categorias com ícone + cor ──────────────────────────────────
   const Section = ({ title, items, color }) => (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-title" style={{ color }}>{title}</div>
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th>Código</th><th>Descrição</th><th>Tipo</th><th></th></tr>
+            <tr><th style={{ width: 36 }}>Ícone</th><th>Descrição</th><th>Tipo</th><th></th></tr>
           </thead>
           <tbody>
             {items.map((p) => (
               <tr key={p.id}>
-                <td className="td-mono">{p.codigo}</td>
-                <td style={{ fontWeight: 500 }}>{p.descricao}</td>
+                <td style={{ textAlign: "center" }}>
+                  {p.icone ? (
+                    <span className="cat-icone" style={{ background: p.cor || "var(--muted)", fontSize: 15 }}>
+                      {p.icone}
+                    </span>
+                  ) : (
+                    <span className="cat-icone cat-icone-empty">◼</span>
+                  )}
+                </td>
+                <td style={{ fontWeight: 500 }}>
+                  {p.descricao}
+                  {p.codigo && <span className="td-mono" style={{ marginLeft: 8, fontSize: 11, color: "var(--muted-foreground)" }}>{p.codigo}</span>}
+                </td>
                 <td><span className={`badge ${p.tipo === "Receita" ? "badge-green" : "badge-red"}`}>{p.tipo}</span></td>
                 <td>
                   <div style={{ display: "flex", gap: 4 }}>
@@ -281,7 +303,14 @@ export function CategoriasPFPage() {
     <PfPageShell pageId="categorias">
     <div>
       <div className="toolbar">
-        <div />
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={importarSugestoes}
+          title="Adiciona categorias padrão sugeridas que ainda não existem"
+        >
+          ✦ Sugestões
+        </button>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => openModal("categoria-pf", { tipo: "Receita" })}>+ Receita</button>
           <button className="btn btn-primary btn-sm" onClick={() => openModal("categoria-pf", { tipo: "Despesa" })}>+ Despesa</button>

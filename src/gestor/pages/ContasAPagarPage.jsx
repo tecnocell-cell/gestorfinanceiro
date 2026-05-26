@@ -166,7 +166,7 @@ export default function ContasAPagarPage() {
     lancCrud.update(id, { vencimento: newDate });
   }, [lancCrud, viewOnly]);
 
-  const getCategoria = (l) => planoContas.find((p) => p.id === l.planoId)?.descricao || "—";
+  const getPlano = (l) => planoContas.find((p) => p.id === l.planoId);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -312,8 +312,21 @@ export default function ContasAPagarPage() {
                       </td>
 
                       {/* Categoria */}
-                      <td className="cp-td-ellipsis" style={{ maxWidth: 130 }} title={getCategoria(l)}>
-                        {getCategoria(l)}
+                      <td className="cp-td-ellipsis" style={{ maxWidth: 160 }}>
+                        {(() => {
+                          const pl = getPlano(l);
+                          if (!pl) return <span style={{ color: "var(--muted-foreground)" }}>—</span>;
+                          return (
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }} title={pl.descricao}>
+                              {pl.icone && (
+                                <span className="cat-icone" style={{ background: pl.cor || "var(--muted)", fontSize: 13 }}>
+                                  {pl.icone}
+                                </span>
+                              )}
+                              {pl.descricao}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Tipo */}

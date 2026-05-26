@@ -2728,4 +2728,91 @@ export const css = `
     .cp-kpi-grid  { grid-template-columns: 1fr 1fr; }
     .cp-kpi-value { font-size: 16px; }
   }
+
+  /* ─── Fase 5 — Categorias com ícone e cor ────────────────────────────────── */
+
+  /* Chip de ícone da categoria — badge colorido com emoji */
+  .cat-icone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    line-height: 1;
+    font-size: 14px;
+    /* cor vem via style inline */
+  }
+  .cat-icone-empty {
+    background: var(--muted) !important;
+    color: var(--muted-foreground);
+    font-size: 10px;
+    opacity: 0.45;
+  }
+
+  /* Seletor de ícone (emoji picker) */
+  .icone-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .icone-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+    padding: 0;
+  }
+  .icone-btn:hover {
+    background: var(--accent);
+    transform: scale(1.15);
+  }
+  .icone-btn.active {
+    border-color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    transform: scale(1.1);
+  }
+
+  /* Seletor de cor (swatches) */
+  .cor-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .cor-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+    outline: none;
+    padding: 0;
+    /* background vem via style inline */
+  }
+  .cor-btn:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px color-mix(in oklab, currentColor 30%, transparent);
+  }
+  .cor-btn.active {
+    border-color: var(--foreground);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--foreground) 20%, transparent);
+  }
 `;

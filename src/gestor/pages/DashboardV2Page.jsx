@@ -79,18 +79,19 @@ function PeriodToolbar() {
   );
 }
 
-// ─── Legenda customizada para o Pie ──────────────────────────────────────────
+// ─── Legenda customizada para o Pie (aceita icone via categoriasData) ────────
 
-const PieLegend = memo(function PieLegend({ payload }) {
+const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   if (!payload?.length) return null;
+  const iconeMap = Object.fromEntries((categoriasData || []).map((c) => [c.name, c.icone]));
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 8, fontSize: 11 }}>
       {payload.map((p) => (
         <div key={p.value} style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, display: "inline-block", flexShrink: 0 }} />
-          <span style={{ color: "var(--muted-foreground)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          <span style={{ color: "var(--muted-foreground)", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 title={p.value}>
-            {p.value}
+            {iconeMap[p.value] ? `${iconeMap[p.value]} ` : ""}{p.value}
           </span>
         </div>
       ))}
@@ -136,9 +137,10 @@ export default function DashboardV2Page() {
       );
   }, [recorrencias]);
 
-  // Despesas por categoria (top 6 no período selecionado)
+  // Despesas por categoria (top 6 no período) — inclui cor e ícone da categoria
   const categoriasData = useMemo(() => {
     const h = {};
+    const meta = {}; // name → { fill, icone }
     for (const l of lancamentos) {
       const d = new Date(l.data + "T00:00:00");
       if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) continue;
@@ -149,9 +151,10 @@ export default function DashboardV2Page() {
 
       const nome = plano.descricao;
       h[nome] = (h[nome] || 0) + l.valor;
+      if (!meta[nome]) meta[nome] = { fill: plano.cor, icone: plano.icone };
     }
     return Object.entries(h)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value, ...meta[name] }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
@@ -327,12 +330,12 @@ export default function DashboardV2Page() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {categoriasData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    {categoriasData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill || PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(v) => fmtBRL(v)} />
-                  <Legend content={<PieLegend />} />
+                  <Legend content={(props) => <PieLegend {...props} categoriasData={categoriasData} />} />
                 </PieChart>
               </ResponsiveContainer>
             )}

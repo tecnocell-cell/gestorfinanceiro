@@ -74,10 +74,11 @@ function PeriodToolbar() {
   );
 }
 
-// ─── Legenda customizada para Pie ─────────────────────────────────────────────
+// ─── Legenda customizada para Pie (aceita icone via payload entry) ────────────
 
-const PieLegend = memo(function PieLegend({ payload }) {
+const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   if (!payload?.length) return null;
+  const iconeMap = Object.fromEntries((categoriasData || []).map((c) => [c.name, c.icone]));
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 8, fontSize: 11 }}>
       {payload.map((p) => (
@@ -88,10 +89,10 @@ const PieLegend = memo(function PieLegend({ payload }) {
           }} />
           <span style={{
             color: "var(--muted-foreground)",
-            maxWidth: 100, overflow: "hidden",
+            maxWidth: 110, overflow: "hidden",
             textOverflow: "ellipsis", whiteSpace: "nowrap",
           }} title={p.value}>
-            {p.value}
+            {iconeMap[p.value] ? `${iconeMap[p.value]} ` : ""}{p.value}
           </span>
         </div>
       ))}
@@ -139,9 +140,10 @@ export default function DashboardPFV2Page() {
     [mensal]
   );
 
-  // Despesas por categoria (top 6 no período)
+  // Despesas por categoria (top 6 no período) — inclui cor e ícone da categoria
   const categoriasData = useMemo(() => {
     const h = {};
+    const meta = {}; // name → { fill, icone }
     for (const l of lancamentos) {
       const d = new Date(l.data + "T00:00:00");
       if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) continue;
@@ -151,9 +153,10 @@ export default function DashboardPFV2Page() {
       if (!plano || plano.tipo === "Receita") continue;
 
       h[plano.descricao] = (h[plano.descricao] || 0) + l.valor;
+      if (!meta[plano.descricao]) meta[plano.descricao] = { fill: plano.cor, icone: plano.icone };
     }
     return Object.entries(h)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value, ...meta[name] }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
@@ -305,12 +308,12 @@ export default function DashboardPFV2Page() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {categoriasData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    {categoriasData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill || PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(v) => fmtBRL(v)} />
-                  <Legend content={<PieLegend />} />
+                  <Legend content={(props) => <PieLegend {...props} categoriasData={categoriasData} />} />
                 </PieChart>
               </ResponsiveContainer>
             )}
