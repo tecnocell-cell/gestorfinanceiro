@@ -30,7 +30,7 @@ function PeriodToolbar() {
     <div className="period-selector">
       <span style={{ color: "var(--text2)", fontSize: 13 }}>Período:</span>
       <select value={filterPeriodo.ano} onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}>
-        {["2022", "2023", "2024", "2025", "2026"].map((y) => <option key={y}>{y}</option>)}
+        {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => <option key={y}>{y}</option>)}
       </select>
       <select value={filterPeriodo.mes} onChange={(e) => setFilterPeriodo((p) => ({ ...p, mes: e.target.value }))}>
         <option value="">Todos os meses</option>
@@ -650,7 +650,7 @@ export function PlanoContasPage() {
     const novas = DEFAULT_CATS_PJ.filter((c) => !existentes.has(c.descricao.toLowerCase().trim()));
     if (!novas.length) return alert("Todas as categorias sugeridas já existem.");
     if (!window.confirm(`Adicionar ${novas.length} categoria(s) sugerida(s)?`)) return;
-    novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), caixaBanco: "", contaContabil: "" }));
+    novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), codigo: "", caixaBanco: "", contaContabil: "" }));
   };
 
   return (
@@ -747,8 +747,8 @@ export function ImpostosPage() {
                     <td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(valor)}</td>
                     <td>{pc.inativo ? <span className="badge badge-red">Inativo</span> : <span className="badge badge-green">Ativo</span>}</td>
                     <td>
-                      <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>?</button>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>?</button>
+                      <button type="button" className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("plano", pc)}>✎</button>
+                      <button type="button" className="btn btn-danger btn-sm btn-icon" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>✕</button>
                     </td>
                   </tr>
                 );
@@ -1114,7 +1114,7 @@ export function FechamentoPage() {
           <div className="form-group">
             <label className="form-label">Ano</label>
             <select className="form-select" value={formAno} onChange={(e) => setFormAno(e.target.value)}>
-              {["2022", "2023", "2024", "2025", "2026"].map((y) => <option key={y}>{y}</option>)}
+              {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => <option key={y}>{y}</option>)}
             </select>
           </div>
           <div className="form-group">

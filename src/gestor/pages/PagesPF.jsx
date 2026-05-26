@@ -27,7 +27,7 @@ function PeriodToolbar() {
     <div className="period-selector">
       <span style={{ color: "var(--text2)", fontSize: 13 }}>Período:</span>
       <select value={filterPeriodo.ano} onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}>
-        {["2022", "2023", "2024", "2025", "2026"].map((y) => <option key={y}>{y}</option>)}
+        {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => <option key={y}>{y}</option>)}
       </select>
       <select value={filterPeriodo.mes} onChange={(e) => setFilterPeriodo((p) => ({ ...p, mes: e.target.value }))}>
         <option value="">Todos os meses</option>

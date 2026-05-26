@@ -250,7 +250,7 @@ export default function ContasAPagarPage() {
             value={filterPeriodo.ano}
             onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}
           >
-            {["2023", "2024", "2025", "2026", "2027"].map((y) => (
+            {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => (
               <option key={y}>{y}</option>
             ))}
           </select>
