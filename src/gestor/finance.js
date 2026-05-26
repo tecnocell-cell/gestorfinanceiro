@@ -7,9 +7,23 @@ export const fmtBRL = (v) =>
 
 export const fmtPct = (v) => `${((v || 0) * 100).toFixed(1)}%`;
 
+/** Normaliza DATE do Postgres (string ISO, Date ou YYYY-MM-DD). */
+export const toDateKey = (d) => {
+  if (!d) return "";
+  if (typeof d === "string") {
+    const m = d.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : "";
+  }
+  if (d instanceof Date && !Number.isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
+  }
+  return "";
+};
+
 export const fmtDate = (d) => {
-  if (!d) return "—";
-  return new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
+  const key = toDateKey(d);
+  if (!key) return "—";
+  return new Date(key + "T00:00:00").toLocaleDateString("pt-BR");
 };
 
 export const getSaldoConta = (contaId, contas, lancamentos) => {

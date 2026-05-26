@@ -22,23 +22,31 @@ async function request(path, options = {}) {
 
   const data = await res.json().catch(() => ({}));
 
+  const apiError = (() => {
+    const raw = data.error ?? data.message ?? "";
+    if (raw === "invalid_credentials") {
+      return "E-mail ou senha incorretos. Outro serviço pode estar usando a porta 3001 — use apenas npm run dev:all no Gestor.";
+    }
+    return typeof raw === "string" && raw ? raw : "";
+  })();
+
   if (res.status === 401 || (res.status === 403 && path === "/auth/login")) {
     // Login inválido: não limpa sessão nem recarrega a página
     if (path === "/auth/login") {
-      throw new Error(data.error || "E-mail ou senha incorretos.");
+      throw new Error(apiError || "E-mail ou senha incorretos.");
     }
     const hadSession = !!localStorage.getItem("gestor_token");
     localStorage.removeItem("gestor_token");
     localStorage.removeItem("gestor_user");
     if (hadSession) window.location.reload();
-    throw new Error(data.error || "Sessão expirada.");
+    throw new Error(apiError || "Sessão expirada.");
   }
 
   if (!res.ok) {
     if (res.status === 502 || res.status === 503) {
       throw new Error("Servidor indisponível. Inicie o backend com: npm run server");
     }
-    throw new Error(data.error || `HTTP ${res.status}`);
+    throw new Error(apiError || `HTTP ${res.status}`);
   }
 
   return data;

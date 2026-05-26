@@ -177,8 +177,13 @@ export default function RegisterPage({ onLogin, onVerified }) {
       <div className="login-page">
         <div className="login-card register-card">
           <div className="login-header">
-            <div className="login-brand">CenterTech · SaaS</div>
-            <div className="login-logo">CT</div>
+            <img
+              src="/centerflow-logo-white.png?v=4"
+              alt="CenterFlow"
+              className="login-brand-logo"
+              width={200}
+              height={48}
+            />
             <h1 className="login-title">{meta.title}</h1>
             <p className="login-subtitle">{meta.sub}</p>
           </div>

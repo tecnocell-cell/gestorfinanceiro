@@ -37,6 +37,10 @@ import {
   Landmark,
   FileSpreadsheet,
   PenLine,
+  Trash2,
+  Pause,
+  Play,
+  CircleCheck,
 } from "lucide-react";
 
 /** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
@@ -104,4 +108,8 @@ export {
   Landmark,
   FileSpreadsheet,
   PenLine,
+  Trash2,
+  Pause,
+  Play,
+  CircleCheck,
 };

@@ -18,6 +18,7 @@ import {
   labelLancamentoTipo,
 } from "../profileLabels.js";
 import { DEFAULT_CATS_PF } from "../defaultCategories.js";
+import { PenLine, Trash2 } from "../components/icons.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -223,10 +224,14 @@ export function LancamentosPFPage() {
                   </td>
                   <td className={info?.valor || (l.tipo === "Entrada" ? "td-blue" : "td-red")}>{fmtBRL(l.valor)}</td>
                   <td style={{ fontSize: 12, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.historico}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("lancamento", l)}>✎</button>
-                      <button className="btn btn-danger btn-sm btn-icon" onClick={() => lancCrud.remove(l.id)}>✕</button>
+                  <td className="table-actions-cell">
+                    <div className="table-actions-inline">
+                      <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>
+                        <PenLine size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                      <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir lançamento" onClick={() => lancCrud.remove(l.id)}>
+                        <Trash2 size={14} strokeWidth={2} aria-hidden />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -282,10 +287,14 @@ export function CategoriasPFPage() {
                   {p.codigo && <span className="td-mono" style={{ marginLeft: 8, fontSize: 11, color: "var(--muted-foreground)" }}>{p.codigo}</span>}
                 </td>
                 <td><span className={`badge ${p.tipo === "Receita" ? "badge-green" : "badge-red"}`}>{p.tipo}</span></td>
-                <td>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("categoria-pf", p)}>✎</button>
-                    <button className="btn btn-danger btn-sm btn-icon" onClick={() => planoCrud.remove(p.id)}>✕</button>
+                <td className="table-actions-cell">
+                  <div className="table-actions-inline">
+                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar categoria" onClick={() => openModal("categoria-pf", p)}>
+                      <PenLine size={14} strokeWidth={2} aria-hidden />
+                    </button>
+                    <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir categoria" onClick={() => planoCrud.remove(p.id)}>
+                      <Trash2 size={14} strokeWidth={2} aria-hidden />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -495,9 +504,13 @@ export function MetasPage() {
             <div key={m.id} className="meta-card">
               <div className="meta-card-header">
                 <div className="meta-title">{m.descricao}</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openModal("meta", m)}>✎</button>
-                  <button className="btn btn-danger btn-sm btn-icon" onClick={() => metaCrud.remove(m.id)}>✕</button>
+                <div className="table-actions-inline">
+                  <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar meta" onClick={() => openModal("meta", m)}>
+                    <PenLine size={14} strokeWidth={2} aria-hidden />
+                  </button>
+                  <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir meta" onClick={() => metaCrud.remove(m.id)}>
+                    <Trash2 size={14} strokeWidth={2} aria-hidden />
+                  </button>
                 </div>
               </div>
               <div className="meta-values">

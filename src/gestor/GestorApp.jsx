@@ -110,14 +110,13 @@ export default function GestorApp() {
 
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
-            <div className="brand-row">
-              <div className="brand-mark">{isPF ? "PF" : "CT"}</div>
-              <div>
-                <div className="brand-tag">CenterTech</div>
-                <h1>Gestor<br />{isPF ? "Pessoal" : "Financeiro"}</h1>
-                <p>{isPF ? "Finanças · v2.0" : "SaaS · v2.0"}</p>
-              </div>
-            </div>
+            <img
+              src="/centerflow-logo-white.png?v=4"
+              alt="CenterFlow"
+              className="sidebar-brand-logo"
+              width={188}
+              height={44}
+            />
           </div>
 
           {/* ── SUPER ADMIN — abre por padrão para role=admin ───── */}

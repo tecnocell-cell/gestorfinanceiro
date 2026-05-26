@@ -7,14 +7,17 @@
 import { useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
-import { fmtBRL, fmtDate, generateId } from "../finance.js";
+import { fmtBRL, fmtDate, generateId, toDateKey } from "../finance.js";
+import { PenLine, Trash2, Pause, Play, CircleCheck } from "../components/icons.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 function calcProximaDataLocal(periodicidade, dataAtual) {
-  const d = new Date(dataAtual + "T00:00:00");
+  const key = toDateKey(dataAtual);
+  if (!key) return hoje();
+  const d = new Date(key + "T00:00:00");
   if (periodicidade === "mensal")  d.setMonth(d.getMonth() + 1);
   else if (periodicidade === "semanal") d.setDate(d.getDate() + 7);
   else if (periodicidade === "anual")  d.setFullYear(d.getFullYear() + 1);
@@ -35,6 +38,7 @@ function classProxima(data) {
 
 function labelProxima(data) {
   const dias = diasAteVencimento(data);
+  if (Number.isNaN(dias)) return "—";
   if (dias < 0)  return `${fmtDate(data)} (${Math.abs(dias)}d atraso)`;
   if (dias === 0) return "Hoje";
   if (dias === 1) return "Amanhã";
@@ -65,7 +69,7 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
           descricao:     recorrencia.descricao,
           valor:         String(recorrencia.valor),
           periodicidade: recorrencia.periodicidade,
-          proxima_data:  recorrencia.proxima_data,
+          proxima_data:  toDateKey(recorrencia.proxima_data) || hoje(),
           conta_id:      recorrencia.conta_id  || "",
           plano_id:      recorrencia.plano_id  || "",
           status:        recorrencia.status,
@@ -652,41 +656,50 @@ export default function RecorrenciasPage() {
                   </td>
 
                   {/* Ações */}
-                  <td>
-                    <div className="admin-actions">
+                  <td className="table-actions-cell">
+                    <div className="rec-actions table-actions-inline">
                       {!viewOnly && r.status === "ativa" && (
                         <button
-                          className="btn btn-xs btn-primary"
+                          type="button"
+                          className="btn btn-sm btn-primary rec-btn-gerar"
                           title="Gerar lançamento agora"
                           onClick={() => setGerarTarget(r)}
                         >
-                          ✔ Gerar
+                          <CircleCheck size={14} strokeWidth={2} aria-hidden />
+                          <span>Gerar</span>
                         </button>
                       )}
                       {!viewOnly && (
                         <>
                           <button
-                            className="btn btn-xs btn-secondary"
-                            title="Editar"
+                            type="button"
+                            className="btn btn-sm btn-secondary btn-icon"
+                            title="Editar recorrência"
                             onClick={() => setEditTarget(r)}
                           >
-                            ✏
+                            <PenLine size={14} strokeWidth={2} aria-hidden />
                           </button>
                           {r.status !== "encerrada" && (
                             <button
-                              className={`btn btn-xs ${r.status === "ativa" ? "btn-secondary" : "btn-primary"}`}
-                              title={r.status === "ativa" ? "Pausar" : "Reativar"}
+                              type="button"
+                              className={`btn btn-sm btn-icon ${r.status === "ativa" ? "btn-secondary" : "btn-primary"}`}
+                              title={r.status === "ativa" ? "Pausar recorrência" : "Reativar recorrência"}
                               onClick={() => handleToggleStatus(r)}
                             >
-                              {r.status === "ativa" ? "⏸" : "▶"}
+                              {r.status === "ativa" ? (
+                                <Pause size={14} strokeWidth={2} aria-hidden />
+                              ) : (
+                                <Play size={14} strokeWidth={2} aria-hidden />
+                              )}
                             </button>
                           )}
                           <button
-                            className="btn btn-xs btn-danger"
+                            type="button"
+                            className="btn btn-sm btn-danger btn-icon"
                             title="Excluir recorrência"
                             onClick={() => handleDelete(r)}
                           >
-                            🗑
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
                           </button>
                         </>
                       )}

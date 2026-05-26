@@ -22,9 +22,13 @@ export default function LoginPage({ onRegister }) {
       <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-brand">CenterTech · SaaS</div>
-          <div className="login-logo">CT</div>
-          <h1 className="login-title">Gestor Financeiro</h1>
+          <img
+            src="/centerflow-logo-white.png?v=4"
+            alt="CenterFlow"
+            className="login-brand-logo"
+            width={220}
+            height={52}
+          />
           <p className="login-subtitle">Entre com suas credenciais de acesso</p>
         </div>
 
