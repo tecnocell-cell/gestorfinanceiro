@@ -15,37 +15,38 @@ export const css = `
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
 
-    --background: oklch(0.99 0.002 145);
-    --foreground: oklch(0.24 0.018 160);
-    --surface: oklch(0.985 0.002 145);
-    --surface-2: oklch(0.972 0.003 150);
+    --background: oklch(0.985 0.004 240);
+    --foreground: oklch(0.16 0.020 252);
+    --surface: oklch(0.978 0.005 238);
+    --surface-2: oklch(0.962 0.007 236);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.22 0.02 160);
+    --card-foreground: oklch(0.16 0.020 252);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.22 0.02 160);
+    --popover-foreground: oklch(0.16 0.020 252);
 
-    --primary: oklch(0.34 0.07 155);
-    --primary-foreground: oklch(0.985 0.003 145);
-    --secondary: oklch(0.96 0.008 150);
-    --secondary-foreground: oklch(0.24 0.05 155);
-    --muted: oklch(0.965 0.006 150);
-    --muted-foreground: oklch(0.5 0.015 155);
-    --accent: oklch(0.93 0.03 150);
-    --accent-foreground: oklch(0.24 0.05 155);
+    --primary: oklch(0.46 0.190 252);
+    --primary-foreground: oklch(0.99 0.004 240);
+    --secondary: oklch(0.955 0.012 236);
+    --secondary-foreground: oklch(0.24 0.09 250);
+    --muted: oklch(0.960 0.008 236);
+    --muted-foreground: oklch(0.48 0.025 248);
+    --accent: oklch(0.930 0.022 236);
+    --accent-foreground: oklch(0.24 0.09 250);
     --destructive: oklch(0.577 0.225 27.325);
     --destructive-foreground: oklch(0.985 0.003 145);
-    --border: oklch(0.925 0.004 150);
-    --input: oklch(0.91 0.005 150);
-    --ring: oklch(0.42 0.08 155);
+    --border: oklch(0.912 0.010 236);
+    --input: oklch(0.900 0.012 234);
+    --ring: oklch(0.54 0.200 252);
 
-    --forest-900: oklch(0.24 0.05 155);
-    --forest-800: oklch(0.29 0.05 155);
-    --forest-700: oklch(0.34 0.07 155);
-    --forest-600: oklch(0.42 0.08 155);
-    --forest-500: oklch(0.52 0.11 150);
-    --forest-100: oklch(0.94 0.04 150);
-    --forest-50: oklch(0.97 0.02 150);
-    --indicator: oklch(0.72 0.16 145);
+    /* Blue palette — replaces forest green throughout the UI */
+    --forest-900: oklch(0.18 0.055 254);
+    --forest-800: oklch(0.26 0.080 252);
+    --forest-700: oklch(0.46 0.190 252);
+    --forest-600: oklch(0.54 0.200 250);
+    --forest-500: oklch(0.62 0.195 248);
+    --forest-100: oklch(0.94 0.028 242);
+    --forest-50:  oklch(0.966 0.014 242);
+    --indicator:  oklch(0.64 0.210 252);
     --gold: oklch(0.72 0.12 80);
 
     --success: oklch(0.55 0.14 150);
@@ -57,29 +58,30 @@ export const css = `
     --danger: oklch(0.58 0.22 27);
     --danger-fg: oklch(0.40 0.18 27);
     --danger-soft: oklch(0.96 0.04 22);
-    --info: oklch(0.60 0.13 230);
-    --info-fg: oklch(0.38 0.11 230);
-    --info-soft: oklch(0.95 0.03 230);
+    --info: oklch(0.55 0.15 248);
+    --info-fg: oklch(0.34 0.12 248);
+    --info-soft: oklch(0.94 0.030 240);
 
-    --chart-1: oklch(0.42 0.08 155);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-1: oklch(0.46 0.19 252);
+    --chart-2: oklch(0.56 0.14 184);
+    --chart-3: oklch(0.44 0.12 220);
     --chart-4: oklch(0.72 0.12 80);
     --chart-5: oklch(0.769 0.188 70.08);
 
-    --shadow-card: 0 1px 2px color-mix(in oklab, var(--forest-900) 6%, transparent);
-    --shadow-elevated: 0 4px 12px color-mix(in oklab, var(--forest-900) 10%, transparent),
-                       0 1px 2px color-mix(in oklab, var(--forest-900) 6%, transparent);
-    --shadow-pop: 0 12px 32px color-mix(in oklab, var(--forest-900) 18%, transparent),
-                  0 2px 6px color-mix(in oklab, var(--forest-900) 8%, transparent);
+    --shadow-card: 0 1px 3px color-mix(in oklab, oklch(0.20 0.06 252) 8%, transparent),
+                   0 1px 2px color-mix(in oklab, oklch(0.20 0.06 252) 4%, transparent);
+    --shadow-elevated: 0 4px 14px color-mix(in oklab, oklch(0.20 0.06 252) 10%, transparent),
+                       0 1px 4px color-mix(in oklab, oklch(0.20 0.06 252) 6%, transparent);
+    --shadow-pop: 0 12px 36px color-mix(in oklab, oklch(0.20 0.06 252) 16%, transparent),
+                  0 2px 8px color-mix(in oklab, oklch(0.20 0.06 252) 8%, transparent);
 
     --sidebar: var(--forest-900);
-    --sidebar-foreground: oklch(0.985 0.003 145);
+    --sidebar-foreground: oklch(0.96 0.008 240);
     --sidebar-primary: var(--indicator);
-    --sidebar-primary-foreground: var(--forest-900);
-    --sidebar-accent: color-mix(in oklab, white 6%, var(--forest-900));
-    --sidebar-accent-foreground: oklch(0.985 0.003 145);
-    --sidebar-border: color-mix(in oklab, black 30%, transparent);
+    --sidebar-primary-foreground: oklch(0.14 0.04 252);
+    --sidebar-accent: color-mix(in oklab, white 7%, var(--forest-900));
+    --sidebar-accent-foreground: oklch(0.96 0.008 240);
+    --sidebar-border: color-mix(in oklab, black 28%, transparent);
     --sidebar-ring: var(--indicator);
     --sidebar-width: 248px;
 
@@ -110,29 +112,29 @@ export const css = `
   }
 
   .dark {
-    --background: oklch(0.16 0.02 160);
-    --foreground: oklch(0.97 0.005 150);
-    --surface: oklch(0.18 0.02 160);
-    --surface-2: oklch(0.21 0.02 160);
-    --card: oklch(0.21 0.02 160);
-    --card-foreground: oklch(0.97 0.005 150);
-    --primary: oklch(0.72 0.16 145);
-    --primary-foreground: oklch(0.18 0.04 155);
-    --muted: oklch(0.27 0.03 155);
-    --muted-foreground: oklch(0.7 0.02 155);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 14%);
+    --background: oklch(0.14 0.025 252);
+    --foreground: oklch(0.96 0.008 240);
+    --surface: oklch(0.16 0.028 250);
+    --surface-2: oklch(0.19 0.030 250);
+    --card: oklch(0.19 0.030 250);
+    --card-foreground: oklch(0.96 0.008 240);
+    --primary: oklch(0.68 0.195 252);
+    --primary-foreground: oklch(0.12 0.04 254);
+    --muted: oklch(0.24 0.035 250);
+    --muted-foreground: oklch(0.68 0.022 245);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 13%);
     --ring: var(--indicator);
     --success-soft: oklch(0.30 0.06 150);
     --warning-soft: oklch(0.32 0.08 75);
     --danger-soft: oklch(0.32 0.10 27);
-    --info-soft: oklch(0.30 0.08 230);
-    --shadow-card: 0 1px 2px rgba(0,0,0,0.35);
-    --shadow-elevated: 0 4px 14px rgba(0,0,0,0.45);
-    --shadow-pop: 0 12px 36px rgba(0,0,0,0.55);
-    --sidebar: oklch(0.14 0.02 160);
-    --sidebar-accent: color-mix(in oklab, white 5%, oklch(0.14 0.02 160));
-    --sidebar-border: rgba(255,255,255,0.08);
+    --info-soft: oklch(0.28 0.08 248);
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.40);
+    --shadow-elevated: 0 4px 14px rgba(0,0,0,0.50);
+    --shadow-pop: 0 12px 36px rgba(0,0,0,0.60);
+    --sidebar: oklch(0.10 0.035 256);
+    --sidebar-accent: color-mix(in oklab, white 5%, oklch(0.10 0.035 256));
+    --sidebar-border: rgba(255,255,255,0.07);
     --bg: var(--surface);
   }
 
@@ -1187,7 +1189,7 @@ export const css = `
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--forest-600) 15%, transparent);
   }
 
-  /* ─── LOGIN (rn-hero-forest + card) ─── */
+  /* ─── LOGIN (rn-hero-blue + card) ─── */
   .login-page {
     min-height: 100%;
     height: 100%;
@@ -1196,7 +1198,10 @@ export const css = `
     justify-content: center;
     padding: 20px 24px;
     overflow: hidden;
-    background: var(--surface);
+    background:
+      radial-gradient(ellipse at 70% 20%, oklch(0.54 0.20 252 / 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse at 20% 80%, oklch(0.44 0.16 248 / 0.06) 0%, transparent 50%),
+      var(--surface);
     box-sizing: border-box;
   }
 
@@ -2058,9 +2063,9 @@ export const css = `
 
   .dash-hero {
     background:
-      radial-gradient(ellipse at 80% 0%, oklch(0.28 0.07 200 / 0.35) 0%, transparent 55%),
-      radial-gradient(ellipse at 10% 100%, oklch(0.25 0.06 145 / 0.25) 0%, transparent 50%),
-      linear-gradient(160deg, oklch(0.17 0.04 165) 0%, oklch(0.14 0.03 195) 55%, oklch(0.12 0.025 155) 100%);
+      radial-gradient(ellipse at 80% 0%, oklch(0.55 0.16 258 / 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse at 10% 100%, oklch(0.38 0.10 248 / 0.20) 0%, transparent 50%),
+      linear-gradient(160deg, oklch(0.36 0.13 252) 0%, oklch(0.28 0.10 258) 55%, oklch(0.24 0.07 255) 100%);
     padding: 1.5rem 1.5rem 2.5rem;
     position: relative;
     overflow: hidden;
@@ -2073,7 +2078,7 @@ export const css = `
     top: -80px; right: -60px;
     width: 400px; height: 400px;
     border-radius: 50%;
-    background: radial-gradient(circle, oklch(0.40 0.10 160 / 0.12) 0%, transparent 70%);
+    background: radial-gradient(circle, oklch(0.65 0.20 252 / 0.14) 0%, transparent 70%);
     pointer-events: none;
   }
   .dash-hero::after {
@@ -2081,7 +2086,7 @@ export const css = `
     position: absolute;
     bottom: 0; left: 0; right: 0;
     height: 60px;
-    background: linear-gradient(to bottom, transparent, oklch(0.14 0.03 195 / 0.6));
+    background: linear-gradient(to bottom, transparent, oklch(0.24 0.07 255 / 0.55));
     pointer-events: none;
   }
 
@@ -2099,16 +2104,16 @@ export const css = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: oklch(0.65 0.05 145);
+    color: oklch(0.75 0.06 240);
   }
 
-  /* Period selector no hero (sobrescreve cores para fundo escuro) */
+  /* Period selector no hero (sobrescreve cores para fundo escuro/azul) */
   .dash-hero .period-selector { background: transparent; gap: 8px; }
-  .dash-hero .period-selector span { color: oklch(0.60 0.03 145); font-size: 12px; }
+  .dash-hero .period-selector span { color: oklch(0.70 0.04 240); font-size: 12px; }
   .dash-hero .period-selector select {
-    background: oklch(1 0 0 / 0.07);
-    border: 1px solid oklch(1 0 0 / 0.14);
-    color: oklch(0.93 0.015 145);
+    background: oklch(1 0 0 / 0.10);
+    border: 1px solid oklch(1 0 0 / 0.18);
+    color: oklch(0.95 0.008 240);
     font-size: 12px;
     padding: 5px 10px;
     border-radius: var(--radius-md);
@@ -2119,11 +2124,11 @@ export const css = `
   }
   .dash-hero .period-selector select:hover,
   .dash-hero .period-selector select:focus {
-    background: oklch(1 0 0 / 0.12);
-    border-color: oklch(1 0 0 / 0.25);
+    background: oklch(1 0 0 / 0.16);
+    border-color: oklch(1 0 0 / 0.28);
     outline: none;
   }
-  .dash-hero .period-selector select option { background: oklch(0.18 0.04 165); color: #fff; }
+  .dash-hero .period-selector select option { background: oklch(0.22 0.07 252); color: #fff; }
 
   /* ── KPI Grid ────────────────────────────────────────────────────────────── */
 
@@ -2135,14 +2140,14 @@ export const css = `
     z-index: 1;
   }
 
-  /* ── KPI Card — glass sobre escuro ──────────────────────────────────────── */
+  /* ── KPI Card — glass sobre fundo azul ──────────────────────────────────── */
 
   .kpi-v2 {
-    background: oklch(1 0 0 / 0.06);
-    backdrop-filter: blur(16px) saturate(1.5);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-    border: 1px solid oklch(1 0 0 / 0.11);
-    border-top-color: oklch(1 0 0 / 0.18);
+    background: oklch(1 0 0 / 0.10);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid oklch(1 0 0 / 0.14);
+    border-top-color: oklch(1 0 0 / 0.22);
     border-radius: 14px;
     padding: 16px 18px 14px;
     display: flex;
@@ -2154,9 +2159,9 @@ export const css = `
     overflow: hidden;
   }
   .kpi-v2:hover {
-    background: oklch(1 0 0 / 0.10);
+    background: oklch(1 0 0 / 0.16);
     transform: translateY(-3px);
-    box-shadow: 0 12px 40px oklch(0 0 0 / 0.25);
+    box-shadow: 0 12px 40px oklch(0.14 0.05 252 / 0.35);
   }
   /* Linha brilhante no topo do card */
   .kpi-v2::before {
@@ -2164,36 +2169,36 @@ export const css = `
     position: absolute;
     top: 0; left: 10%; right: 10%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.25), transparent);
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.30), transparent);
   }
 
   .kpi-v2-icon {
     font-size: 18px;
     margin-bottom: 6px;
-    opacity: 0.85;
+    opacity: 0.90;
   }
   .kpi-v2-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.09em;
-    color: oklch(0.62 0.03 145);
+    color: oklch(0.78 0.06 240);
   }
   .kpi-v2-value {
     font-size: 22px;
     font-weight: 800;
-    color: oklch(0.96 0.008 145);
+    color: oklch(0.97 0.004 240);
     font-family: 'JetBrains Mono', monospace;
     line-height: 1.15;
     letter-spacing: -0.02em;
   }
-  .kpi-v2-value.success { color: oklch(0.82 0.14 145); }
-  .kpi-v2-value.danger  { color: oklch(0.80 0.14 25); }
-  .kpi-v2-value.warning { color: oklch(0.83 0.14 75); }
+  .kpi-v2-value.success { color: oklch(0.86 0.16 150); }
+  .kpi-v2-value.danger  { color: oklch(0.84 0.14 25); }
+  .kpi-v2-value.warning { color: oklch(0.86 0.16 75); }
 
   .kpi-v2-sub {
     font-size: 10px;
-    color: oklch(0.55 0.025 145);
+    color: oklch(0.68 0.04 240);
     margin-top: 1px;
     white-space: nowrap;
     overflow: hidden;
@@ -2210,9 +2215,9 @@ export const css = `
     margin-top: 5px;
     width: fit-content;
   }
-  .kpi-v2-trend.up      { background: oklch(0.4 0.12 145 / 0.25); color: oklch(0.78 0.14 145); }
-  .kpi-v2-trend.down    { background: oklch(0.4 0.12 25  / 0.25); color: oklch(0.78 0.14 25); }
-  .kpi-v2-trend.neutral { background: oklch(0.4 0    0   / 0.20); color: oklch(0.70 0    0); }
+  .kpi-v2-trend.up      { background: oklch(0.45 0.14 150 / 0.30); color: oklch(0.84 0.16 150); }
+  .kpi-v2-trend.down    { background: oklch(0.45 0.14 25  / 0.30); color: oklch(0.84 0.16 25); }
+  .kpi-v2-trend.neutral { background: oklch(1 0 0 / 0.18);          color: oklch(0.80 0    0); }
 
   /* ── Seção clara (charts) ─────────────────────────────────────────────────── */
 
@@ -2331,16 +2336,16 @@ export const css = `
     font-family: 'JetBrains Mono', monospace;
     flex-shrink: 0;
   }
-  .dash-account-balance.positive { color: var(--accent); }
+  .dash-account-balance.positive { color: var(--success-fg); }
   .dash-account-balance.negative { color: oklch(0.55 0.18 25); }
 
   /* ── Skeleton loading ────────────────────────────────────────────────────── */
 
   .skeleton-pulse {
     background: linear-gradient(90deg,
-      oklch(1 0 0 / 0.08) 25%,
-      oklch(1 0 0 / 0.14) 50%,
-      oklch(1 0 0 / 0.08) 75%
+      oklch(1 0 0 / 0.10) 25%,
+      oklch(1 0 0 / 0.18) 50%,
+      oklch(1 0 0 / 0.10) 75%
     );
     background-size: 200% 100%;
     animation: skeleton-wave 1.5s ease-in-out infinite;
@@ -2403,8 +2408,8 @@ export const css = `
 
   /* Alert de recorrências no dashboard */
   .recorrencia-alert {
-    background: oklch(0.995 0.008 145);
-    border: 1px solid oklch(0.88 0.04 145);
+    background: oklch(0.988 0.010 240);
+    border: 1px solid oklch(0.88 0.04 240);
     border-left: 4px solid var(--primary);
     border-radius: var(--radius-lg);
     padding: 14px 18px;
@@ -2827,9 +2832,9 @@ export const css = `
   /* Hero */
   .of-hero {
     background:
-      radial-gradient(ellipse at 70% 0%,  oklch(0.28 0.08 260 / 0.30) 0%, transparent 60%),
-      radial-gradient(ellipse at 10% 100%, oklch(0.25 0.06 145 / 0.20) 0%, transparent 50%),
-      linear-gradient(155deg, oklch(0.17 0.04 200) 0%, oklch(0.14 0.03 220) 60%, oklch(0.12 0.025 155) 100%);
+      radial-gradient(ellipse at 70% 0%,  oklch(0.55 0.16 262 / 0.25) 0%, transparent 60%),
+      radial-gradient(ellipse at 10% 100%, oklch(0.38 0.10 248 / 0.18) 0%, transparent 50%),
+      linear-gradient(155deg, oklch(0.34 0.12 255) 0%, oklch(0.26 0.09 262) 60%, oklch(0.22 0.06 258) 100%);
     padding: 2rem 2rem 2.5rem;
     border-radius: var(--radius-xl);
     margin-bottom: 24px;
@@ -2865,14 +2870,14 @@ export const css = `
   .of-hero-title {
     font-size: 26px;
     font-weight: 800;
-    color: oklch(0.97 0.005 150);
+    color: oklch(0.97 0.005 240);
     letter-spacing: -0.02em;
     margin: 0 0 10px;
     line-height: 1.2;
   }
   .of-hero-sub {
     font-size: 14px;
-    color: oklch(0.72 0.025 180);
+    color: oklch(0.74 0.030 240);
     line-height: 1.6;
     margin: 0 0 18px;
     max-width: 560px;
