@@ -71,7 +71,9 @@ app.post("/api/auth/login", async (req, res) => {
     if (!user || !(await bcrypt.compare(senha, user.senha_hash))) {
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
-    if (!isAccountVerified(user)) {
+    // Se o admin ativou a conta manualmente (ativo=true), dispensa verificação de e-mail/SMS.
+    // Só exige código se o usuário ainda não verificou E o admin não liberou.
+    if (!isAccountVerified(user) && !user.ativo) {
       return res.status(403).json({
         error: "Confirme seu cadastro com o código enviado por e-mail ou SMS.",
         needs_verification: true,
