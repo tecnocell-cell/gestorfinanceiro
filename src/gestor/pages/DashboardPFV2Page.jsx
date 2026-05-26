@@ -104,23 +104,31 @@ export default function DashboardPFV2Page() {
     return String(v).slice(0, 10);
   };
 
+  // Total de recorrências ativas
+  const recAtivas = useMemo(
+    () => recorrencias.filter((r) => r.status === "ativa"),
+    [recorrencias]
+  );
+
+  // Quantas vencem nos próximos 7 dias (urgentes)
   const recProximas = useMemo(() => {
     if (!recorrencias.length) return [];
     const limite = em7Str();
-    return recorrencias.filter((r) => r.status === "ativa" && toKey(r.proxima_data) <= limite);
-  }, [recorrencias]);
+    return recAtivas.filter((r) => toKey(r.proxima_data) <= limite);
+  }, [recorrencias, recAtivas]);
 
+  // Fluxo previsto: soma TODAS as recorrências ativas (inclui atrasadas com data passada)
+  // que caem nos próximos 30 dias OU que estão com proxima_data no passado (gerar falhou)
   const fluxoPrevisto = useMemo(() => {
-    if (!recorrencias.length) return 0;
-    const hoje  = hojeStr();
+    if (!recAtivas.length) return 0;
     const limite = em30Str();
-    return recorrencias
-      .filter((r) => r.status === "ativa" && toKey(r.proxima_data) >= hoje && toKey(r.proxima_data) <= limite)
+    return recAtivas
+      .filter((r) => toKey(r.proxima_data) <= limite)
       .reduce(
         (acc, r) => acc + (r.tipo === "Receita" ? parseFloat(r.valor) : -parseFloat(r.valor)),
         0
       );
-  }, [recorrencias]);
+  }, [recAtivas]);
 
   // Dados para o gráfico bar (usa a mesma forma do DashboardPFPage original)
   const mensalData = useMemo(
@@ -143,7 +151,7 @@ export default function DashboardPFV2Page() {
       return `Atenção: déficit de ${fmtBRL(Math.abs(saldoMes))} no período. Vale revisar despesas e recorrências dos próximos dias.`;
     }
     if (recProximas.length > 0) {
-      return `${recProximas.length} recorrência(s) vencem em até 7 dias. Confira A Pagar/Receber para não perder prazos.`;
+      return `${recProximas.length} recorrência(s) vencem esta semana. Confira A Pagar/Receber para não perder prazos.`;
     }
     return `Período saudável com saldo de ${fmtBRL(saldoMes)}. Receitas ${fmtBRL(dreAtual.receitas)} e despesas ${fmtBRL(dreAtual.despesas)}.`;
   }, [dreAtual, saldoMes, recProximas.length]);
@@ -213,8 +221,11 @@ export default function DashboardPFV2Page() {
     {
       icon: Repeat,
       label: "Recorrências",
-      value: recLoading ? "—" : recProximas.length.toString(),
-      sub: recLoading ? "Carregando…" : recProximas.length > 0 ? "Vencendo em 7 dias" : "Em dia",
+      value: recLoading ? "—" : recAtivas.length.toString(),
+      sub: recLoading ? "Carregando…"
+        : recProximas.length > 0
+          ? `${recProximas.length} vencendo esta semana`
+          : "Todas em dia",
       valueClass: recProximas.length > 0 ? "warning" : "",
       tone: "warning",
     },
