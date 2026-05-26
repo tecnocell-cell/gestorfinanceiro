@@ -8,7 +8,9 @@ import { fmtBRL, fmtDate } from "../finance.js";
 
 const hoje       = () => new Date().toISOString().slice(0, 10);
 const em7Dias    = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
-const isAtrasada = (data) => data < hoje();
+// Normaliza Date object do Postgres ou ISO timestamp para YYYY-MM-DD
+const toKey      = (v) => { if (!v) return ""; if (v instanceof Date) return v.toISOString().slice(0, 10); return String(v).slice(0, 10); };
+const isAtrasada = (data) => toKey(data) < hoje();
 
 export default function RecorrenciaAlert({ onIrParaRecorrencias }) {
   const { recorrencias, loading, error } = useRecorrencias();
@@ -18,7 +20,7 @@ export default function RecorrenciaAlert({ onIrParaRecorrencias }) {
 
   const limite = em7Dias();
   const vencendo = recorrencias.filter(
-    (r) => r.status === "ativa" && r.proxima_data <= limite
+    (r) => r.status === "ativa" && toKey(r.proxima_data) <= limite
   );
 
   if (vencendo.length === 0) return null;

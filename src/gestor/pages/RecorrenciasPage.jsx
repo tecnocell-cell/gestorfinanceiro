@@ -486,18 +486,21 @@ export default function RecorrenciasPage() {
     const nums = lancamentos.map((l) => Number(l.codigo)).filter((n) => !isNaN(n));
     const nextCodigo = nums.length ? Math.max(...nums) + 1 : 1;
 
+    // Converte tipo da recorrência ("Receita"/"Despesa") para tipo do lançamento ("Entrada"/"Saida")
+    const tipoLanc = tipo === "Receita" ? "Entrada" : "Saida";
+
     const lancamento = {
       id:             generateId(),
       codigo:         nextCodigo,
       lote:           `REC-${recorrenciaId.slice(0, 6)}`,
       data,
-      tipo,
+      tipo:           tipoLanc,
       historico,
       valor:          parseFloat(valor),
-      contaEntradaId: tipo === "Receita" ? contaId  : null,
-      contaSaidaId:   tipo === "Despesa" ? contaId  : null,
-      codigoDestino:  tipo === "Receita" ? (conta?.codigo ?? null) : null,
-      codigoOrigem:   tipo === "Despesa" ? (conta?.codigo ?? null) : null,
+      contaEntradaId: tipoLanc === "Entrada" ? contaId : null,
+      contaSaidaId:   tipoLanc === "Saida"   ? contaId : null,
+      codigoDestino:  tipoLanc === "Entrada" ? (conta?.codigo ?? null) : null,
+      codigoOrigem:   tipoLanc === "Saida"   ? (conta?.codigo ?? null) : null,
       planoId:        planoId || null,
       clienteId:      null,
       fornecedorId:   null,

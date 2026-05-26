@@ -97,10 +97,17 @@ export default function DashboardPFV2Page() {
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
   const saldoMes   = dreAtual.receitas - dreAtual.despesas;
 
+  // Normaliza proxima_data do Postgres (Date object ou ISO timestamp) para YYYY-MM-DD
+  const toKey = (v) => {
+    if (!v) return "";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v).slice(0, 10);
+  };
+
   const recProximas = useMemo(() => {
     if (!recorrencias.length) return [];
     const limite = em7Str();
-    return recorrencias.filter((r) => r.status === "ativa" && r.proxima_data <= limite);
+    return recorrencias.filter((r) => r.status === "ativa" && toKey(r.proxima_data) <= limite);
   }, [recorrencias]);
 
   const fluxoPrevisto = useMemo(() => {
@@ -108,7 +115,7 @@ export default function DashboardPFV2Page() {
     const hoje  = hojeStr();
     const limite = em30Str();
     return recorrencias
-      .filter((r) => r.status === "ativa" && r.proxima_data >= hoje && r.proxima_data <= limite)
+      .filter((r) => r.status === "ativa" && toKey(r.proxima_data) >= hoje && toKey(r.proxima_data) <= limite)
       .reduce(
         (acc, r) => acc + (r.tipo === "Receita" ? parseFloat(r.valor) : -parseFloat(r.valor)),
         0
