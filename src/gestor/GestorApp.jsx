@@ -28,6 +28,7 @@ import {
   OrcamentoPage, MetasPage, RelatoriosPFPage, PerfilPFPage, ContasPFPage,
 } from "./pages/PagesPF.jsx";
 import PfDueAlert from "./components/pf/PfDueAlert.jsx";
+import { NavIcon, Shield, Menu, LogOut, Eye } from "./components/icons.jsx";
 
 const PAGE_MAP_PJ = {
   // dashboard → V2 premium. Rollback: trocar DashboardV2Page por DashboardPage
@@ -133,7 +134,7 @@ export default function GestorApp() {
                 onClick={goToAdmin}
                 onKeyDown={e => e.key === "Enter" && goToAdmin()}
               >
-                <span style={{ fontSize: 18 }}>🛡</span>
+                <span className="admin-nav-icon" aria-hidden><Shield size={18} strokeWidth={1.75} /></span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>Painel Admin</div>
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 1 }}>Clientes · Tenants · SaaS</div>
@@ -170,8 +171,8 @@ export default function GestorApp() {
                   onClick={() => goTo(n.id)}
                   onKeyDown={e => e.key === "Enter" && goTo(n.id)}
                   role="button" tabIndex={0}>
-                  <span className="nav-icon">{n.icon}</span>
-                  <span>{n.label}</span>
+                  <span className="nav-icon"><NavIcon name={n.id} /></span>
+                  <span className="nav-label">{n.label}</span>
                 </div>
               ))}
             </div>
@@ -191,7 +192,9 @@ export default function GestorApp() {
                       : `${user?.email || ""} · ${isPF ? "Pessoa Física" : "Pessoa Jurídica"}`}
                 </div>
               </div>
-              <button className="btn-logout" onClick={logout} title="Sair da conta">⏏</button>
+              <button type="button" className="btn-logout" onClick={logout} title="Sair da conta" aria-label="Sair">
+                <LogOut size={16} strokeWidth={1.75} />
+              </button>
             </div>
           </div>
         </aside>
@@ -204,7 +207,7 @@ export default function GestorApp() {
                 className="menu-toggle"
                 onClick={() => setSidebarOpen(v => !v)}
                 aria-label="Abrir menu"
-              >☰</button>
+              ><Menu size={20} strokeWidth={1.75} /></button>
               <span className="topbar-title">{pageLabel}</span>
             </div>
             <div className="topbar-right">
@@ -215,7 +218,8 @@ export default function GestorApp() {
               {impersonatingUser && (
                 <>
                   <span className="company-badge badge-view-only" title="Somente leitura">
-                    👁 {impersonatingUser.nome_perfil || impersonatingUser.nome}
+                    <Eye size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: -2 }} />
+                    {impersonatingUser.nome_perfil || impersonatingUser.nome}
                   </span>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={goToAdmin}>
                     Voltar ao admin

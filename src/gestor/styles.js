@@ -1,6 +1,6 @@
 /**
- * Gestor Financeiro — Design system alinhado a globals.css (RuralNext / OKLCH)
- * Tokens institucionais · Inter + JetBrains Mono · sidebar forest · cards rn-*
+ * Gestor Financeiro — Design system RuralNext / CenterOS (OKLCH)
+ * Tokens alinhados a globals.css · Inter + JetBrains Mono · forest · rn-*
  */
 export const css = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -15,38 +15,38 @@ export const css = `
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
 
-    --background: oklch(0.985 0.004 240);
-    --foreground: oklch(0.16 0.020 252);
-    --surface: oklch(0.978 0.005 238);
-    --surface-2: oklch(0.962 0.007 236);
+    /* Tokens institucionais — globals.css (RuralNext / CenterOS) */
+    --background: oklch(0.99 0.002 145);
+    --foreground: oklch(0.24 0.018 160);
+    --surface: oklch(0.985 0.002 145);
+    --surface-2: oklch(0.972 0.003 150);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.16 0.020 252);
+    --card-foreground: oklch(0.22 0.02 160);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.16 0.020 252);
+    --popover-foreground: oklch(0.22 0.02 160);
 
-    --primary: oklch(0.46 0.190 252);
-    --primary-foreground: oklch(0.99 0.004 240);
-    --secondary: oklch(0.955 0.012 236);
-    --secondary-foreground: oklch(0.24 0.09 250);
-    --muted: oklch(0.960 0.008 236);
-    --muted-foreground: oklch(0.48 0.025 248);
-    --accent: oklch(0.930 0.022 236);
-    --accent-foreground: oklch(0.24 0.09 250);
+    --primary: oklch(0.34 0.07 155);
+    --primary-foreground: oklch(0.985 0.003 145);
+    --secondary: oklch(0.96 0.008 150);
+    --secondary-foreground: oklch(0.24 0.05 155);
+    --muted: oklch(0.965 0.006 150);
+    --muted-foreground: oklch(0.5 0.015 155);
+    --accent: oklch(0.93 0.03 150);
+    --accent-foreground: oklch(0.24 0.05 155);
     --destructive: oklch(0.577 0.225 27.325);
     --destructive-foreground: oklch(0.985 0.003 145);
-    --border: oklch(0.912 0.010 236);
-    --input: oklch(0.900 0.012 234);
-    --ring: oklch(0.54 0.200 252);
+    --border: oklch(0.925 0.004 150);
+    --input: oklch(0.91 0.005 150);
+    --ring: oklch(0.42 0.08 155);
 
-    /* Blue palette — replaces forest green throughout the UI */
-    --forest-900: oklch(0.18 0.055 254);
-    --forest-800: oklch(0.26 0.080 252);
-    --forest-700: oklch(0.46 0.190 252);
-    --forest-600: oklch(0.54 0.200 250);
-    --forest-500: oklch(0.62 0.195 248);
-    --forest-100: oklch(0.94 0.028 242);
-    --forest-50:  oklch(0.966 0.014 242);
-    --indicator:  oklch(0.64 0.210 252);
+    --forest-900: oklch(0.24 0.05 155);
+    --forest-800: oklch(0.29 0.05 155);
+    --forest-700: oklch(0.34 0.07 155);
+    --forest-600: oklch(0.42 0.08 155);
+    --forest-500: oklch(0.52 0.11 150);
+    --forest-100: oklch(0.94 0.04 150);
+    --forest-50: oklch(0.97 0.02 150);
+    --indicator: oklch(0.72 0.16 145);
     --gold: oklch(0.72 0.12 80);
 
     --success: oklch(0.55 0.14 150);
@@ -58,30 +58,38 @@ export const css = `
     --danger: oklch(0.58 0.22 27);
     --danger-fg: oklch(0.40 0.18 27);
     --danger-soft: oklch(0.96 0.04 22);
-    --info: oklch(0.55 0.15 248);
-    --info-fg: oklch(0.34 0.12 248);
-    --info-soft: oklch(0.94 0.030 240);
+    --info: oklch(0.60 0.13 230);
+    --info-fg: oklch(0.38 0.11 230);
+    --info-soft: oklch(0.95 0.03 230);
 
-    --chart-1: oklch(0.46 0.19 252);
-    --chart-2: oklch(0.56 0.14 184);
-    --chart-3: oklch(0.44 0.12 220);
+    --chart-1: oklch(0.42 0.08 155);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.72 0.12 80);
     --chart-5: oklch(0.769 0.188 70.08);
 
-    --shadow-card: 0 1px 3px color-mix(in oklab, oklch(0.20 0.06 252) 8%, transparent),
-                   0 1px 2px color-mix(in oklab, oklch(0.20 0.06 252) 4%, transparent);
-    --shadow-elevated: 0 4px 14px color-mix(in oklab, oklch(0.20 0.06 252) 10%, transparent),
-                       0 1px 4px color-mix(in oklab, oklch(0.20 0.06 252) 6%, transparent);
-    --shadow-pop: 0 12px 36px color-mix(in oklab, oklch(0.20 0.06 252) 16%, transparent),
-                  0 2px 8px color-mix(in oklab, oklch(0.20 0.06 252) 8%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in oklab, var(--forest-900) 6%, transparent);
+    --shadow-elevated: 0 4px 12px color-mix(in oklab, var(--forest-900) 10%, transparent),
+                       0 1px 2px color-mix(in oklab, var(--forest-900) 6%, transparent);
+    --shadow-pop: 0 12px 32px color-mix(in oklab, var(--forest-900) 18%, transparent),
+                  0 2px 6px color-mix(in oklab, var(--forest-900) 8%, transparent);
+    --shadow-float:
+      0 1px 2px color-mix(in oklab, var(--forest-900) 6%, transparent),
+      0 4px 14px color-mix(in oklab, var(--forest-900) 10%, transparent),
+      0 16px 36px -8px color-mix(in oklab, var(--forest-900) 14%, transparent);
 
     --sidebar: var(--forest-900);
-    --sidebar-foreground: oklch(0.96 0.008 240);
+    --sidebar-foreground: oklch(0.985 0.003 145);
+    --sidebar-muted: color-mix(in oklab, var(--sidebar-foreground) 58%, transparent);
     --sidebar-primary: var(--indicator);
-    --sidebar-primary-foreground: oklch(0.14 0.04 252);
-    --sidebar-accent: color-mix(in oklab, white 7%, var(--forest-900));
-    --sidebar-accent-foreground: oklch(0.96 0.008 240);
-    --sidebar-border: color-mix(in oklab, black 28%, transparent);
+    --sidebar-primary-foreground: var(--forest-900);
+    --sidebar-accent: color-mix(in oklab, white 6%, var(--forest-900));
+    --sidebar-accent-foreground: oklch(0.985 0.003 145);
+    --sidebar-hover: color-mix(in oklab, white 8%, var(--forest-900));
+    --sidebar-active-bg: color-mix(in oklab, var(--indicator) 14%, transparent);
+    --sidebar-active-accent: var(--indicator);
+    --sidebar-border: color-mix(in oklab, black 30%, transparent);
+    --sidebar-border-subtle: color-mix(in oklab, black 22%, transparent);
     --sidebar-ring: var(--indicator);
     --sidebar-width: 248px;
 
@@ -112,29 +120,30 @@ export const css = `
   }
 
   .dark {
-    --background: oklch(0.14 0.025 252);
-    --foreground: oklch(0.96 0.008 240);
-    --surface: oklch(0.16 0.028 250);
-    --surface-2: oklch(0.19 0.030 250);
-    --card: oklch(0.19 0.030 250);
-    --card-foreground: oklch(0.96 0.008 240);
-    --primary: oklch(0.68 0.195 252);
-    --primary-foreground: oklch(0.12 0.04 254);
-    --muted: oklch(0.24 0.035 250);
-    --muted-foreground: oklch(0.68 0.022 245);
-    --border: oklch(1 0 0 / 9%);
-    --input: oklch(1 0 0 / 13%);
+    --background: oklch(0.16 0.02 160);
+    --foreground: oklch(0.97 0.005 150);
+    --surface: oklch(0.18 0.02 160);
+    --surface-2: oklch(0.21 0.02 160);
+    --card: oklch(0.21 0.02 160);
+    --card-foreground: oklch(0.97 0.005 150);
+    --primary: oklch(0.72 0.16 145);
+    --primary-foreground: oklch(0.18 0.04 155);
+    --muted: oklch(0.27 0.03 155);
+    --muted-foreground: oklch(0.7 0.02 155);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 14%);
     --ring: var(--indicator);
     --success-soft: oklch(0.30 0.06 150);
     --warning-soft: oklch(0.32 0.08 75);
     --danger-soft: oklch(0.32 0.10 27);
-    --info-soft: oklch(0.28 0.08 248);
-    --shadow-card: 0 1px 2px rgba(0,0,0,0.40);
-    --shadow-elevated: 0 4px 14px rgba(0,0,0,0.50);
-    --shadow-pop: 0 12px 36px rgba(0,0,0,0.60);
-    --sidebar: oklch(0.10 0.035 256);
-    --sidebar-accent: color-mix(in oklab, white 5%, oklch(0.10 0.035 256));
-    --sidebar-border: rgba(255,255,255,0.07);
+    --info-soft: oklch(0.30 0.08 230);
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.35);
+    --shadow-elevated: 0 4px 14px rgba(0,0,0,0.45);
+    --shadow-pop: 0 12px 36px rgba(0,0,0,0.55);
+    --sidebar: oklch(0.14 0.02 160);
+    --sidebar-foreground: oklch(0.97 0.005 150);
+    --sidebar-accent: color-mix(in oklab, white 5%, oklch(0.14 0.02 160));
+    --sidebar-border: rgba(255,255,255,0.08);
     --bg: var(--surface);
   }
 
@@ -186,16 +195,25 @@ export const css = `
     inset: 0;
     background: color-mix(in oklab, var(--forest-900) 55%, transparent);
     backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     z-index: 199;
     animation: rn-fade-in 0.15s ease-out;
   }
 
-  /* ─── SIDEBAR (rn-admin-sidebar) ─── */
+  /* ─── SIDEBAR — institucional forest (globals / rn-admin-sidebar) ─── */
   .sidebar {
+    position: relative;
     width: var(--sidebar-width);
     height: 100vh;
     flex-shrink: 0;
-    background-color: var(--sidebar);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--forest-800) 92%, var(--forest-900)) 0%,
+      var(--sidebar) 38%,
+      color-mix(in oklab, black 8%, var(--forest-900)) 100%
+    );
+    backdrop-filter: blur(10px) saturate(1.08);
+    -webkit-backdrop-filter: blur(10px) saturate(1.08);
     color: var(--sidebar-foreground);
     border-right: 1px solid var(--sidebar-border);
     display: flex;
@@ -229,6 +247,7 @@ export const css = `
     justify-content: center;
     flex-shrink: 0;
     letter-spacing: -0.03em;
+    box-shadow: var(--shadow-card);
   }
 
   .sidebar-logo h1 {
@@ -241,7 +260,7 @@ export const css = `
 
   .sidebar-logo p {
     font-size: 10px;
-    color: color-mix(in oklab, var(--sidebar-foreground) 55%, transparent);
+    color: var(--sidebar-muted);
     margin-top: 2px;
     font-weight: 500;
   }
@@ -281,11 +300,12 @@ export const css = `
   .admin-nav-btn:hover { background: color-mix(in oklab, var(--gold) 14%, transparent); }
   .admin-nav-btn.active {
     background: color-mix(in oklab, var(--sidebar-primary) 18%, transparent);
-    border-color: color-mix(in oklab, var(--sidebar-primary) 40%, transparent);
+    border-color: color-mix(in oklab, var(--sidebar-primary) 35%, transparent);
     color: var(--sidebar-primary);
+    box-shadow: none;
   }
   .admin-nav-title { font-size: 13px; font-weight: 600; line-height: 1.2; }
-  .admin-nav-sub { font-size: 10px; color: color-mix(in oklab, var(--sidebar-foreground) 50%, transparent); margin-top: 2px; }
+  .admin-nav-sub { font-size: 10px; color: var(--sidebar-muted); margin-top: 2px; }
   .admin-nav-btn.active .admin-nav-sub { color: color-mix(in oklab, var(--sidebar-primary) 70%, transparent); }
 
   .gestor-link-btn {
@@ -302,8 +322,8 @@ export const css = `
     transition: background-color 0.15s;
   }
   .gestor-link-btn:hover { background: color-mix(in oklab, white 10%, var(--forest-900)); }
-  .gestor-link-btn-title { font-size: 13px; font-weight: 600; }
-  .gestor-link-btn-sub { font-size: 10px; color: color-mix(in oklab, var(--sidebar-foreground) 50%, transparent); margin-top: 2px; }
+  .gestor-link-btn-title { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+  .gestor-link-btn-sub { font-size: 10px; color: var(--sidebar-muted); margin-top: 2px; font-weight: 500; }
 
   .sidebar-divider {
     height: 1px;
@@ -348,47 +368,70 @@ export const css = `
   }
 
   .nav-item {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 0.5rem;
-    min-height: 32px;
+    gap: 10px;
+    padding: 8px 10px;
+    min-height: 38px;
     flex-shrink: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 500;
-    color: color-mix(in oklab, var(--sidebar-foreground) 75%, transparent);
-    transition: background-color 0.15s, color 0.15s;
-    line-height: 1.2;
+    color: color-mix(in oklab, var(--sidebar-foreground) 78%, transparent);
+    line-height: 1.25;
     border: 1px solid transparent;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
   }
   .nav-item:hover {
     background: var(--sidebar-accent);
-    color: var(--sidebar-accent-foreground);
+    color: var(--sidebar-foreground);
+    border-color: color-mix(in oklab, white 8%, transparent);
   }
   .nav-item.active {
-    background: color-mix(in oklab, var(--sidebar-primary) 15%, transparent);
+    background: var(--sidebar-active-bg);
     color: var(--sidebar-primary);
     font-weight: 600;
-    border-color: color-mix(in oklab, var(--sidebar-primary) 25%, transparent);
+    border-color: color-mix(in oklab, var(--sidebar-primary) 22%, transparent);
+    box-shadow: none;
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 18px;
+    border-radius: 0 2px 2px 0;
+    background: var(--sidebar-primary);
   }
 
   .nav-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: var(--radius-sm);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
     background: color-mix(in oklab, white 5%, transparent);
     flex-shrink: 0;
-    transition: background-color 0.15s;
+    color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .nav-item:hover .nav-icon {
+    color: color-mix(in oklab, var(--sidebar-foreground) 88%, transparent);
   }
   .nav-item.active .nav-icon {
-    background: color-mix(in oklab, var(--sidebar-primary) 20%, transparent);
+    background: color-mix(in oklab, var(--sidebar-primary) 22%, transparent);
     color: var(--sidebar-primary);
+  }
+  .admin-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .nav-item span:last-child {
@@ -401,7 +444,7 @@ export const css = `
     flex-shrink: 0;
     padding: 0.625rem 0.75rem 0.75rem;
     border-top: 1px solid var(--sidebar-border);
-    background: color-mix(in oklab, black 12%, transparent);
+    background: color-mix(in oklab, black 10%, transparent);
   }
 
   .sidebar-user-card {
@@ -424,7 +467,7 @@ export const css = `
   }
   .sidebar-user-role {
     font-size: 10px;
-    color: color-mix(in oklab, var(--sidebar-foreground) 50%, transparent);
+    color: var(--sidebar-muted);
     margin-top: 2px;
   }
 
@@ -477,15 +520,15 @@ export const css = `
     width: 28px;
     height: 28px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--sidebar-border);
+    border: 1px solid var(--sidebar-border-subtle);
     background: var(--sidebar-accent);
     cursor: pointer;
     font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
-    transition: background-color 0.15s;
+    color: var(--sidebar-muted);
+    transition: background-color 0.18s var(--ease-out), color 0.18s var(--ease-out);
   }
   .sidebar-footer-switch:hover {
     background: color-mix(in oklab, white 10%, var(--forest-900));
@@ -500,14 +543,16 @@ export const css = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: var(--surface);
+    background: var(--background);
   }
 
   .topbar {
     flex-shrink: 0;
     height: 56px;
-    background: var(--card);
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    background: color-mix(in oklab, var(--card) 92%, transparent);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -543,7 +588,8 @@ export const css = `
     font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.25rem);
     font-weight: 600;
     color: var(--foreground);
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -613,16 +659,16 @@ export const css = `
   .card {
     background-color: var(--card);
     color: var(--card-foreground);
-    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
     border-radius: var(--radius-lg);
-    padding: 1.125rem 1.25rem;
+    padding: 1.25rem 1.375rem;
     box-shadow: var(--shadow-card);
     margin-bottom: 14px;
-    transition: box-shadow 0.15s, border-color 0.15s;
+    transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
   }
   .card:hover {
     box-shadow: var(--shadow-elevated);
-    border-color: color-mix(in oklab, var(--forest-600) 25%, transparent);
+    border-color: color-mix(in oklab, var(--border) 100%, var(--forest-600) 6%);
   }
 
   .card-title {
@@ -643,28 +689,28 @@ export const css = `
   }
 
   .kpi-card {
-    background: var(--card);
+    background: linear-gradient(145deg, color-mix(in oklab, var(--forest-50) 50%, var(--card)) 0%, var(--card) 55%);
     border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
-    padding: 0.875rem 1rem;
-    min-height: 118px;
+    padding: 1rem 1.125rem;
+    min-height: 110px;
     position: relative;
     overflow: hidden;
-    transition: box-shadow 0.15s, transform 0.15s;
+    transition: box-shadow 0.15s, border-color 0.15s;
     border-left: 3px solid var(--kpi-color, var(--forest-700));
   }
   .kpi-card:hover {
     box-shadow: var(--shadow-elevated);
-    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--border) 100%, var(--forest-600) 8%);
   }
 
   .kpi-label {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted-foreground);
+    letter-spacing: 0.08em;
+    color: color-mix(in oklab, var(--muted-foreground) 92%, transparent);
   }
 
   .kpi-value {
@@ -692,7 +738,7 @@ export const css = `
   .table-wrap {
     overflow-x: auto;
     border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
     background: var(--card);
     box-shadow: var(--shadow-card);
   }
@@ -711,9 +757,11 @@ export const css = `
     white-space: nowrap;
   }
 
-  tbody tr { transition: background-color 0.12s; }
+  tbody tr:nth-child(even) td {
+    background: color-mix(in oklab, var(--muted) 40%, var(--card));
+  }
   tbody tr:hover td {
-    background: color-mix(in oklab, var(--forest-50) 50%, var(--card)) !important;
+    background: color-mix(in oklab, var(--forest-50) 65%, var(--card)) !important;
   }
   tbody tr.lanc-row td:first-child {
     box-shadow: inset 3px 0 0 transparent;
@@ -735,11 +783,12 @@ export const css = `
   }
   tbody tr.lanc-row-proximo td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
   tbody td {
-    padding: 0.875rem 1rem;
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
-    color: color-mix(in oklab, var(--foreground) 90%, transparent);
+    padding: 1rem 1.125rem;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+    color: color-mix(in oklab, var(--foreground) 92%, transparent);
     background: var(--card);
     vertical-align: middle;
+    line-height: 1.45;
   }
   tbody tr:last-child td { border-bottom: none; }
 
@@ -752,12 +801,14 @@ export const css = `
   .badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
-    padding: 0.125rem 0.5rem;
+    gap: 0.35rem;
+    padding: 0.2rem 0.625rem;
     font-size: 11px;
-    font-weight: 500;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
+    font-weight: 600;
+    border-radius: 999px;
+    font-family: var(--font-sans);
+    letter-spacing: 0.01em;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 12%, transparent);
   }
   .badge-green { background: var(--success-soft); color: var(--success-fg); }
   .badge-red { background: var(--danger-soft); color: var(--danger-fg); }
@@ -1189,7 +1240,7 @@ export const css = `
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--forest-600) 15%, transparent);
   }
 
-  /* ─── LOGIN (rn-hero-blue + card) ─── */
+  /* ─── LOGIN (CenterOS — surface + card relevo) ─── */
   .login-page {
     min-height: 100%;
     height: 100%;
@@ -1198,10 +1249,7 @@ export const css = `
     justify-content: center;
     padding: 20px 24px;
     overflow: hidden;
-    background:
-      radial-gradient(ellipse at 70% 20%, oklch(0.54 0.20 252 / 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse at 20% 80%, oklch(0.44 0.16 248 / 0.06) 0%, transparent 50%),
-      var(--surface);
+    background: var(--surface);
     box-sizing: border-box;
   }
 
@@ -1329,9 +1377,11 @@ export const css = `
     font-size: 13px;
     margin-bottom: 18px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
+    line-height: 1.45;
   }
+  .login-error svg { flex-shrink: 0; margin-top: 1px; }
 
   .login-submit {
     width: 100%;
@@ -1493,16 +1543,23 @@ export const css = `
   .register-canal-pick .profile-item {
     flex: 1;
     margin-bottom: 0;
+    flex-direction: row;
     justify-content: center;
-    gap: 4px;
-    padding: 0.4375rem 0.5rem;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 0.625rem;
     font-size: 12px;
   }
   .register-canal-pick .profile-item:disabled {
     opacity: 0.55;
     cursor: default;
   }
-  .register-type-icon { font-size: 15px; line-height: 1; }
+  .register-type-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
 
   .register-senha-row {
     display: grid;
@@ -1693,12 +1750,11 @@ export const css = `
     border-radius: var(--radius-lg);
     padding: 1.125rem 1.25rem;
     box-shadow: var(--shadow-card);
-    transition: box-shadow 0.15s, transform 0.15s;
-    border-top: 2px solid var(--admin-kpi-color, var(--forest-700));
+    transition: box-shadow 0.15s, border-color 0.15s;
+    border-left: 3px solid var(--admin-kpi-color, var(--forest-700));
   }
   .admin-kpi:hover {
     box-shadow: var(--shadow-elevated);
-    transform: translateY(-1px);
   }
 
   .admin-table-wrap {
@@ -1802,16 +1858,55 @@ export const css = `
   }
 
   .chart-tooltip {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 12px 16px;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    background: color-mix(in oklab, var(--card) 98%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+    min-width: 148px;
     box-shadow: var(--shadow-pop);
+    backdrop-filter: blur(10px) saturate(1.15);
+    -webkit-backdrop-filter: blur(10px) saturate(1.15);
   }
-  .chart-tooltip-label { color: var(--muted-foreground); margin-bottom: 8px; font-weight: 600; }
-  .chart-tooltip-row { margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+  .chart-tooltip-label {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  }
+  .chart-tooltip-rows { display: flex; flex-direction: column; gap: 6px; }
+  .chart-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .chart-tooltip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px color-mix(in oklab, currentColor 20%, transparent);
+  }
+  .chart-tooltip-name {
+    flex: 1;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color: color-mix(in oklab, var(--foreground) 75%, transparent);
+    font-size: 11px;
+  }
+  .chart-tooltip-value {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    font-size: 12px;
+  }
 
   /* ─── SCROLLBAR ─── */
   .content::-webkit-scrollbar,
@@ -2050,156 +2145,254 @@ export const css = `
     }
   }
 
-  /* ─── Dashboard V2 — Premium ──────────────────────────────────────────────── */
+  /* ─── Dashboard V2 — layout claro (CenterOS / rn-kpi) ───────────────────── */
 
-  /* Root: cancela o padding do .content para o hero sangrar */
+  .content:has(.dash-v2-root) {
+    animation: none;
+  }
+
   .dash-v2-root {
-    margin: -1.5rem;
+    margin: -1.25rem -1.5rem;
     min-height: 100%;
-    background: var(--background);
+    background: var(--surface);
   }
 
-  /* ── Hero escuro ─────────────────────────────────────────────────────────── */
-
+  /* Topo: toolbar + KPIs no fundo claro (sem faixa verde escura) */
   .dash-hero {
-    background:
-      radial-gradient(ellipse at 80% 0%, oklch(0.55 0.16 258 / 0.28) 0%, transparent 55%),
-      radial-gradient(ellipse at 10% 100%, oklch(0.38 0.10 248 / 0.20) 0%, transparent 50%),
-      linear-gradient(160deg, oklch(0.36 0.13 252) 0%, oklch(0.28 0.10 258) 55%, oklch(0.24 0.07 255) 100%);
-    padding: 1.5rem 1.5rem 2.5rem;
+    padding: 1.5rem 1.625rem 0.375rem;
+    background: var(--surface);
     position: relative;
-    overflow: hidden;
   }
 
-  /* Brilho decorativo */
-  .dash-hero::before {
-    content: '';
-    position: absolute;
-    top: -80px; right: -60px;
-    width: 400px; height: 400px;
-    border-radius: 50%;
-    background: radial-gradient(circle, oklch(0.65 0.20 252 / 0.14) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .dash-hero::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 60px;
-    background: linear-gradient(to bottom, transparent, oklch(0.24 0.07 255 / 0.55));
-    pointer-events: none;
-  }
-
-  /* Toolbar dentro do hero */
   .dash-hero-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
-    position: relative;
-    z-index: 1;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .dash-hero-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .dash-hero-heading-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in oklab, var(--forest-50) 80%, var(--card));
+    color: var(--forest-700);
+    border: 1px solid color-mix(in oklab, var(--forest-600) 15%, var(--border));
+    box-shadow: var(--shadow-card);
+    flex-shrink: 0;
   }
   .dash-hero-label {
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: oklch(0.75 0.06 240);
+    letter-spacing: -0.03em;
+    color: var(--foreground);
+    text-transform: none;
+    line-height: 1.25;
   }
-
-  /* Period selector no hero (sobrescreve cores para fundo escuro/azul) */
-  .dash-hero .period-selector { background: transparent; gap: 8px; }
-  .dash-hero .period-selector span { color: oklch(0.70 0.04 240); font-size: 12px; }
-  .dash-hero .period-selector select {
-    background: oklch(1 0 0 / 0.10);
-    border: 1px solid oklch(1 0 0 / 0.18);
-    color: oklch(0.95 0.008 240);
+  .dash-hero-sub {
     font-size: 12px;
-    padding: 5px 10px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-    -webkit-appearance: none;
-    appearance: none;
+    color: color-mix(in oklab, var(--muted-foreground) 95%, transparent);
+    margin-top: 3px;
+    font-weight: 500;
+    line-height: 1.45;
   }
-  .dash-hero .period-selector select:hover,
-  .dash-hero .period-selector select:focus {
-    background: oklch(1 0 0 / 0.16);
-    border-color: oklch(1 0 0 / 0.28);
-    outline: none;
-  }
-  .dash-hero .period-selector select option { background: oklch(0.22 0.07 252); color: #fff; }
 
-  /* ── KPI Grid ────────────────────────────────────────────────────────────── */
+  .dash-insight {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 16px;
+    margin-bottom: 1.125rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in oklab, var(--warning) 28%, var(--border));
+    background: linear-gradient(135deg, color-mix(in oklab, var(--warning-soft) 75%, var(--card)) 0%, var(--card) 60%);
+    box-shadow: var(--shadow-card);
+  }
+  .dash-insight-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+  .dash-insight--success .dash-insight-icon {
+    background: var(--success-soft);
+    color: var(--success-fg);
+  }
+  .dash-insight--warn .dash-insight-icon {
+    background: var(--warning-soft);
+    color: var(--warning-fg);
+  }
+  .dash-insight--info .dash-insight-icon {
+    background: var(--info-soft);
+    color: var(--info-fg);
+  }
+  .dash-insight-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: color-mix(in oklab, var(--foreground) 86%, transparent);
+    margin: 0;
+    font-weight: 500;
+  }
 
   .kpi-v2-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    position: relative;
-    z-index: 1;
+    gap: 18px;
   }
 
-  /* ── KPI Card — glass sobre fundo azul ──────────────────────────────────── */
-
-  .kpi-v2 {
-    background: oklch(1 0 0 / 0.10);
-    backdrop-filter: blur(16px) saturate(1.4);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    border: 1px solid oklch(1 0 0 / 0.14);
-    border-top-color: oklch(1 0 0 / 0.22);
-    border-radius: 14px;
-    padding: 16px 18px 14px;
+  .dash-v2-root .kpi-v2 {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--forest-50) 55%, var(--card)) 0%, var(--card) 52%);
+    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    border-left: 3px solid var(--forest-600);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-float);
+    padding: 1.3125rem 1.375rem;
+    min-height: 132px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: default;
+    gap: 8px;
     position: relative;
     overflow: hidden;
+    isolation: isolate;
+    transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
   }
-  .kpi-v2:hover {
-    background: oklch(1 0 0 / 0.16);
-    transform: translateY(-3px);
-    box-shadow: 0 12px 40px oklch(0.14 0.05 252 / 0.35);
-  }
-  /* Linha brilhante no topo do card */
-  .kpi-v2::before {
+  .dash-v2-root .kpi-v2::after {
     content: '';
     position: absolute;
-    top: 0; left: 10%; right: 10%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.30), transparent);
+    top: -35%;
+    right: -12%;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in oklab, var(--forest-500) 16%, transparent) 0%, transparent 68%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .dash-v2-root .kpi-v2 > * { position: relative; z-index: 1; }
+  .dash-v2-root .kpi-v2:hover {
+    border-color: color-mix(in oklab, var(--forest-600) 28%, var(--border));
+    box-shadow: var(--shadow-elevated);
+  }
+  .dash-v2-root .kpi-v2::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 88%, transparent);
+    z-index: 0;
+  }
+  .dash-v2-root .kpi-v2--success {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--success-soft) 88%, var(--card)) 0%, var(--card) 50%);
+    border-left-color: var(--success);
+    border-color: color-mix(in oklab, var(--success) 22%, var(--border));
+  }
+  .dash-v2-root .kpi-v2--success::after {
+    background: radial-gradient(circle, color-mix(in oklab, var(--success) 24%, transparent) 0%, transparent 68%);
+  }
+  .dash-v2-root .kpi-v2--danger {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--danger-soft) 90%, var(--card)) 0%, var(--card) 50%);
+    border-left-color: var(--danger);
+    border-color: color-mix(in oklab, var(--danger) 20%, var(--border));
+  }
+  .dash-v2-root .kpi-v2--danger::after {
+    background: radial-gradient(circle, color-mix(in oklab, var(--danger) 20%, transparent) 0%, transparent 68%);
+  }
+  .dash-v2-root .kpi-v2--warning {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--warning-soft) 90%, var(--card)) 0%, var(--card) 50%);
+    border-left-color: var(--warning);
+    border-color: color-mix(in oklab, var(--warning) 22%, var(--border));
+  }
+  .dash-v2-root .kpi-v2--warning::after {
+    background: radial-gradient(circle, color-mix(in oklab, var(--warning) 22%, transparent) 0%, transparent 68%);
   }
 
-  .kpi-v2-icon {
-    font-size: 18px;
-    margin-bottom: 6px;
-    opacity: 0.90;
+  .kpi-v2-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
   }
+  .kpi-v2-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in oklab, var(--forest-100) 70%, var(--card));
+    color: var(--forest-700);
+    border: 1px solid color-mix(in oklab, var(--forest-600) 12%, transparent);
+    flex-shrink: 0;
+    box-shadow: var(--shadow-card);
+  }
+  .kpi-v2--success .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--success) 18%, var(--card));
+    color: var(--success-fg);
+    border-color: color-mix(in oklab, var(--success) 30%, transparent);
+  }
+  .kpi-v2--danger .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--danger) 14%, var(--card));
+    color: var(--danger-fg);
+    border-color: color-mix(in oklab, var(--danger) 28%, transparent);
+  }
+  .kpi-v2--warning .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--warning) 16%, var(--card));
+    color: var(--warning-fg);
+    border-color: color-mix(in oklab, var(--warning) 30%, transparent);
+  }
+
+  .sparkline { display: block; opacity: 0.88; }
+  .sparkline--success { color: var(--success); }
+  .sparkline--danger { color: var(--danger); }
+  .sparkline--neutral { color: var(--forest-600); }
+  .sparkline polyline {
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .kpi-v2-label {
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: oklch(0.78 0.06 240);
+    letter-spacing: 0.1em;
+    color: color-mix(in oklab, var(--muted-foreground) 94%, transparent);
+    line-height: 1.3;
   }
   .kpi-v2-value {
-    font-size: 22px;
-    font-weight: 800;
-    color: oklch(0.97 0.004 240);
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--foreground);
+    font-family: var(--font-mono);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
   }
-  .kpi-v2-value.success { color: oklch(0.86 0.16 150); }
-  .kpi-v2-value.danger  { color: oklch(0.84 0.14 25); }
-  .kpi-v2-value.warning { color: oklch(0.86 0.16 75); }
+  .kpi-v2-value.success { color: var(--success-fg); }
+  .kpi-v2-value.danger  { color: var(--danger-fg); }
+  .kpi-v2-value.warning { color: var(--warning-fg); }
 
   .kpi-v2-sub {
-    font-size: 10px;
-    color: oklch(0.68 0.04 240);
-    margin-top: 1px;
+    font-size: 11px;
+    color: color-mix(in oklab, var(--muted-foreground) 92%, transparent);
+    font-weight: 500;
+    line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2207,31 +2400,42 @@ export const css = `
   .kpi-v2-trend {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 99px;
-    margin-top: 5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-top: 4px;
     width: fit-content;
+    letter-spacing: 0.03em;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 10%, transparent);
   }
-  .kpi-v2-trend.up      { background: oklch(0.45 0.14 150 / 0.30); color: oklch(0.84 0.16 150); }
-  .kpi-v2-trend.down    { background: oklch(0.45 0.14 25  / 0.30); color: oklch(0.84 0.16 25); }
-  .kpi-v2-trend.neutral { background: oklch(1 0 0 / 0.18);          color: oklch(0.80 0    0); }
+  .kpi-v2-trend.up      { background: var(--success-soft); color: var(--success-fg); }
+  .kpi-v2-trend.down    { background: var(--danger-soft); color: var(--danger-fg); }
+  .kpi-v2-trend.neutral { background: var(--muted); color: var(--muted-foreground); }
+
+  .dash-charts-grid--featured {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dash-chart-featured {
+    grid-column: 1 / -1;
+    min-height: 320px;
+  }
 
   /* ── Seção clara (charts) ─────────────────────────────────────────────────── */
 
   .dash-section {
-    padding: 1.5rem;
+    padding: 0.875rem 1.625rem 1.875rem;
   }
   .dash-section-title {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 10.5px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted-foreground);
-    margin-bottom: 12px;
-    margin-top: 4px;
+    letter-spacing: 0.11em;
+    color: color-mix(in oklab, var(--muted-foreground) 90%, transparent);
+    margin-bottom: 14px;
+    margin-top: 6px;
+    line-height: 1.3;
   }
 
   /* ── Chart Cards ─────────────────────────────────────────────────────────── */
@@ -2239,24 +2443,36 @@ export const css = `
   .dash-charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 18px;
   }
 
-  .chart-card-v2 {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 18px 18px 14px;
-    box-shadow:
-      0 1px 3px oklch(0 0 0 / 0.04),
-      0 4px 12px oklch(0 0 0 / 0.04);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  .dash-v2-root .chart-card-v2 {
+    background: linear-gradient(160deg, color-mix(in oklab, var(--forest-50) 45%, var(--card)) 0%, var(--card) 42%);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    border-top: 2px solid color-mix(in oklab, var(--forest-600) 35%, transparent);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem 1.375rem 1.125rem;
+    box-shadow: var(--shadow-float);
+    position: relative;
+    isolation: isolate;
+    transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
   }
-  .chart-card-v2:hover {
-    box-shadow:
-      0 2px 6px oklch(0 0 0 / 0.06),
-      0 8px 24px oklch(0 0 0 / 0.07);
-    transform: translateY(-2px);
+  .dash-v2-root .chart-card-v2:hover {
+    border-color: color-mix(in oklab, var(--forest-600) 22%, var(--border));
+    box-shadow: var(--shadow-elevated);
+  }
+  .dash-v2-root .chart-card-v2::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 85%, transparent);
+    z-index: 0;
+  }
+  .dash-v2-root .chart-card-v2 > * {
+    position: relative;
+    z-index: 1;
   }
   .chart-card-v2-header {
     display: flex;
@@ -2266,23 +2482,28 @@ export const css = `
     gap: 8px;
   }
   .chart-card-v2-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--foreground);
-    line-height: 1.3;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
   }
   .chart-card-v2-sub {
     font-size: 11px;
-    color: var(--muted-foreground);
-    margin-top: 2px;
+    color: color-mix(in oklab, var(--muted-foreground) 92%, transparent);
+    margin-top: 3px;
+    font-weight: 500;
+    line-height: 1.4;
   }
   .chart-card-v2-badge {
     font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
+    font-weight: 600;
+    padding: 4px 10px;
     border-radius: 99px;
-    background: var(--primary);
-    color: var(--primary-foreground);
+    background: var(--forest-50);
+    color: var(--forest-700);
+    border: 1px solid color-mix(in oklab, var(--forest-600) 14%, transparent);
+    letter-spacing: 0.02em;
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -2299,16 +2520,22 @@ export const css = `
 
   /* ── Contas Widget ───────────────────────────────────────────────────────── */
 
-  .dash-accounts-card {
+  .dash-v2-root .dash-accounts-card {
     background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 18px;
-    box-shadow: 0 1px 3px oklch(0 0 0 / 0.04);
-    transition: box-shadow 0.2s ease;
+    border: 1px solid color-mix(in oklab, #fff 55%, var(--border));
+    border-radius: var(--radius-xl);
+    padding: 1.125rem 1.25rem;
+    box-shadow: var(--shadow-float);
+    position: relative;
+    isolation: isolate;
   }
-  .dash-accounts-card:hover {
-    box-shadow: 0 2px 8px oklch(0 0 0 / 0.07);
+  .dash-v2-root .dash-accounts-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 85%, transparent);
   }
   .dash-accounts-list { margin-top: 12px; }
   .dash-account-item {
@@ -2343,9 +2570,9 @@ export const css = `
 
   .skeleton-pulse {
     background: linear-gradient(90deg,
-      oklch(1 0 0 / 0.10) 25%,
-      oklch(1 0 0 / 0.18) 50%,
-      oklch(1 0 0 / 0.10) 75%
+      var(--muted) 25%,
+      var(--surface-2) 50%,
+      var(--muted) 75%
     );
     background-size: 200% 100%;
     animation: skeleton-wave 1.5s ease-in-out infinite;
@@ -2369,16 +2596,20 @@ export const css = `
 
   @media (max-width: 960px) {
     .kpi-v2-grid      { grid-template-columns: repeat(2, 1fr); }
-    .dash-charts-grid { grid-template-columns: 1fr; }
+    .dash-charts-grid,
+    .dash-charts-grid--featured { grid-template-columns: 1fr; }
+    .dash-chart-featured { grid-column: auto; min-height: 260px; }
+    .dash-hero-toolbar { flex-direction: column; align-items: stretch; }
+    .period-selector--dash { justify-content: flex-start; flex-wrap: wrap; }
   }
   @media (max-width: 540px) {
     .kpi-v2-grid   { grid-template-columns: 1fr; }
     .dash-v2-root  { margin: -1rem; }
-    .dash-hero     { padding: 1rem 1rem 2rem; }
-    .dash-section  { padding: 1rem; }
-    .chart-card-v2 { padding: 14px 12px 10px; }
-    .kpi-v2        { padding: 14px 14px 12px; }
-    .kpi-v2-value  { font-size: 18px; }
+    .dash-hero     { padding: 1rem 1rem 0.5rem; }
+    .dash-section  { padding: 0.75rem 1rem 1.25rem; }
+    .kpi-v2-value  { font-size: 26px; }
+    .table-wrap { border-radius: var(--radius-lg); }
+    thead th, tbody td { padding-left: 0.75rem; padding-right: 0.75rem; }
   }
 
   /* ─── Recorrências ────────────────────────────────────────────────────────── */
@@ -2559,15 +2790,14 @@ export const css = `
   }
   .cp-kpi {
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
     border-radius: var(--radius-lg);
     padding: 14px 16px 12px;
     box-shadow: var(--shadow-card);
-    transition: box-shadow 0.15s, transform 0.15s;
+    transition: box-shadow 0.15s, border-color 0.15s;
   }
   .cp-kpi:hover {
     box-shadow: var(--shadow-elevated);
-    transform: translateY(-2px);
   }
   .cp-kpi-icon {
     font-size: 16px;
@@ -2832,9 +3062,9 @@ export const css = `
   /* Hero */
   .of-hero {
     background:
-      radial-gradient(ellipse at 70% 0%,  oklch(0.55 0.16 262 / 0.25) 0%, transparent 60%),
-      radial-gradient(ellipse at 10% 100%, oklch(0.38 0.10 248 / 0.18) 0%, transparent 50%),
-      linear-gradient(155deg, oklch(0.34 0.12 255) 0%, oklch(0.26 0.09 262) 60%, oklch(0.22 0.06 258) 100%);
+      radial-gradient(ellipse at 70% 0%, color-mix(in oklab, var(--indicator) 20%, transparent) 0%, transparent 60%),
+      radial-gradient(ellipse at 10% 100%, color-mix(in oklab, var(--forest-600) 12%, transparent) 0%, transparent 50%),
+      linear-gradient(155deg, var(--forest-900) 0%, var(--forest-800) 60%, var(--forest-700) 100%);
     padding: 2rem 2rem 2.5rem;
     border-radius: var(--radius-xl);
     margin-bottom: 24px;
@@ -2847,7 +3077,7 @@ export const css = `
     top: -60px; right: -40px;
     width: 300px; height: 300px;
     border-radius: 50%;
-    background: radial-gradient(circle, oklch(0.45 0.12 260 / 0.10) 0%, transparent 70%);
+    background: radial-gradient(circle, color-mix(in oklab, var(--indicator) 14%, transparent) 0%, transparent 70%);
     pointer-events: none;
   }
   .of-hero-inner { position: relative; z-index: 1; max-width: 680px; }
@@ -2860,7 +3090,7 @@ export const css = `
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: oklch(0.75 0.12 260);
+    color: color-mix(in oklab, var(--indicator) 85%, var(--primary-foreground));
     background: oklch(1 0 0 / 0.08);
     border: 1px solid oklch(1 0 0 / 0.14);
     padding: 4px 12px;
@@ -2870,14 +3100,14 @@ export const css = `
   .of-hero-title {
     font-size: 26px;
     font-weight: 800;
-    color: oklch(0.97 0.005 240);
+    color: var(--primary-foreground);
     letter-spacing: -0.02em;
     margin: 0 0 10px;
     line-height: 1.2;
   }
   .of-hero-sub {
     font-size: 14px;
-    color: oklch(0.74 0.030 240);
+    color: color-mix(in oklab, var(--primary-foreground) 72%, transparent);
     line-height: 1.6;
     margin: 0 0 18px;
     max-width: 560px;
@@ -2951,18 +3181,17 @@ export const css = `
   /* Card de banco */
   .of-banco-card {
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
     border-radius: var(--radius-lg);
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     box-shadow: var(--shadow-card);
-    transition: box-shadow 0.15s, transform 0.15s;
+    transition: box-shadow 0.15s, border-color 0.15s;
   }
   .of-banco-card:hover {
     box-shadow: var(--shadow-elevated);
-    transform: translateY(-2px);
   }
   .of-banco-header {
     display: flex;

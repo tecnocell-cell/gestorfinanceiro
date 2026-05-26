@@ -30,7 +30,18 @@ import ContasAPagarAlert   from "../components/ContasAPagarAlert.jsx";
 import KpiCardV2            from "../components/dashboard/KpiCardV2.jsx";
 import ChartCardV2          from "../components/dashboard/ChartCardV2.jsx";
 import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
+import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx";
+import DashInsight          from "../components/dashboard/DashInsight.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
+import {
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Hourglass,
+  Repeat,
+  Wallet,
+  LayoutDashboard,
+} from "../components/icons.jsx";
 
 // ─── Helpers locais ───────────────────────────────────────────────────────────
 
@@ -49,35 +60,6 @@ const PIE_COLORS = [
   CHART.despesas, CHART.custo, CHART.pie[2],
   CHART.pie[3], CHART.pie[4], CHART.pie[1],
 ];
-
-// ─── Period Toolbar (estilo hero escuro) ──────────────────────────────────────
-
-function PeriodToolbar() {
-  const { filterPeriodo, setFilterPeriodo } = useGestor();
-  return (
-    <div className="dash-hero-toolbar">
-      <div className="dash-hero-label">📊 Visão Geral</div>
-      <div className="period-selector">
-        <span>Período:</span>
-        <select
-          value={filterPeriodo.ano}
-          onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}
-        >
-          {["2023", "2024", "2025", "2026", "2027"].map((y) => <option key={y}>{y}</option>)}
-        </select>
-        <select
-          value={filterPeriodo.mes}
-          onChange={(e) => setFilterPeriodo((p) => ({ ...p, mes: e.target.value }))}
-        >
-          <option value="">Todos os meses</option>
-          {MESES.map((m, i) => (
-            <option key={m} value={(i + 1).toString().padStart(2, "0")}>{m}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
 
 // ─── Legenda customizada para o Pie (aceita icone via categoriasData) ────────
 
@@ -159,70 +141,98 @@ export default function DashboardV2Page() {
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
 
-  // ── KPI configs ────────────────────────────────────────────────────────────
+  const sparkReceitas = useMemo(() => mensal.map((m) => m.Receita || 0), [mensal]);
+  const sparkDespesas = useMemo(
+    () => mensal.map((m) => (m.Custo || 0) + (m.Despesas || 0)),
+    [mensal]
+  );
+  const sparkLucro = useMemo(() => mensal.map((m) => m["Lucro Líquido"] || 0), [mensal]);
+
+  const insight = useMemo(() => {
+    if (dreAtual.receitas === 0 && dreAtual.custos === 0 && dreAtual.despesas === 0) {
+      return "Sem movimentação no período. Lance receitas e despesas para acompanhar margem e fluxo de caixa.";
+    }
+    if (lucroLiq < 0) {
+      return `Resultado negativo de ${fmtBRL(Math.abs(lucroLiq))} (margem ${fmtPct(margem)}). Revise custos, despesas e impostos do período.`;
+    }
+    if (recProximas.length > 0) {
+      return `${recProximas.length} recorrência(s) nos próximos 7 dias. Confira compromissos em A Pagar/Receber.`;
+    }
+    return `Operação lucrativa: lucro ${fmtBRL(lucroLiq)} com margem de ${fmtPct(margem)} no período.`;
+  }, [dreAtual, lucroLiq, margem, recProximas.length]);
 
   const kpis = [
     {
-      icon: "💰",
+      icon: Wallet,
       label: "Saldo Total",
       value: fmtBRL(saldoTotal),
       sub: `${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
       valueClass: saldoTotal >= 0 ? "success" : "danger",
     },
     {
-      icon: "↑",
+      icon: TrendingUp,
       label: "Receitas",
       value: fmtBRL(dreAtual.receitas),
       sub: "Entradas no período",
       valueClass: "success",
+      sparkline: sparkReceitas,
+      tone: "success",
     },
     {
-      icon: "↓",
+      icon: TrendingDown,
       label: "Custos + Despesas",
       value: fmtBRL(dreAtual.custos + dreAtual.despesas),
       sub: `Impostos: ${fmtBRL(dreAtual.impostos)}`,
       valueClass: "danger",
+      sparkline: sparkDespesas,
+      tone: "danger",
     },
     {
-      icon: "◎",
+      icon: CircleDollarSign,
       label: "Lucro Líquido",
       value: fmtBRL(lucroLiq),
       sub: `Margem: ${fmtPct(margem)}`,
       valueClass: lucroLiq >= 0 ? "success" : "danger",
+      sparkline: sparkLucro,
       trend: lucroLiq >= 0
-        ? { dir: "up",   label: `${fmtPct(Math.abs(margem))} de margem` }
+        ? { dir: "up", label: `${fmtPct(Math.abs(margem))} de margem` }
         : { dir: "down", label: "Resultado negativo" },
+      tone: lucroLiq >= 0 ? "success" : "danger",
     },
     {
-      icon: "↺",
+      icon: Repeat,
       label: "Recorrências",
       value: recLoading ? "—" : recProximas.length.toString(),
       sub: recLoading ? "Carregando…" : recProximas.length > 0 ? "Vencendo em 7 dias" : "Nenhuma vencendo",
       valueClass: recProximas.length > 0 ? "warning" : "",
+      tone: "warning",
     },
     {
-      icon: "⌛",
+      icon: Hourglass,
       label: "Fluxo Previsto (30d)",
       value: recLoading ? "—" : fmtBRL(fluxoPrevisto),
       sub: "Com base nas recorrências ativas",
       valueClass: fluxoPrevisto >= 0 ? "success" : "danger",
+      tone: fluxoPrevisto >= 0 ? "success" : "danger",
     },
   ];
 
   return (
     <div className="dash-v2-root">
 
-      {/* ── Hero escuro com KPIs ─────────────────────────────────────────── */}
       <div className="dash-hero">
-        <PeriodToolbar />
+        <DashPeriodToolbar
+          title="Visão geral"
+          subtitle="Indicadores da empresa no período"
+          icon={LayoutDashboard}
+        />
+        <DashInsight
+          message={insight}
+          tone={lucroLiq < 0 ? "warn" : recProximas.length > 0 ? "info" : "success"}
+        />
         <div className="kpi-v2-grid">
-          {kpis.map((k, i) => (
-            <KpiCardV2
-              key={k.label}
-              {...k}
-              delay={i * 60}
-              loading={false}
-            />
+          {kpis.map((k) => (
+            <KpiCardV2 key={k.label} {...k} />
           ))}
         </div>
       </div>
@@ -235,24 +245,25 @@ export default function DashboardV2Page() {
         <ContasAPagarAlert />
 
         {/* Gráficos linha 1 */}
-        <div className="dash-section-title">Desempenho Mensal</div>
-        <div className="dash-charts-grid" style={{ marginBottom: 16 }}>
+        <div className="dash-section-title">Desempenho mensal</div>
+        <div className="dash-charts-grid dash-charts-grid--featured" style={{ marginBottom: 16 }}>
 
-          {/* Bar: Receita vs Custos vs Despesas */}
           <ChartCardV2
+            className="dash-chart-featured"
             title="Receitas × Custos × Despesas"
-            sub={`Ano ${filterPeriodo.ano}`}
+            sub={`Ano ${filterPeriodo.ano} · visão consolidada`}
+            height={300}
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={mensal} barCategoryGap="28%" barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: CHART.tick, fontSize: 10 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={40} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Bar dataKey="Receita"  fill={CHART.receita}  radius={[4, 4, 0, 0]} maxBarSize={32} />
-                <Bar dataKey="Custo"    fill={CHART.custo}    radius={[4, 4, 0, 0]} maxBarSize={32} />
-                <Bar dataKey="Despesas" fill={CHART.despesas} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                <CartesianGrid strokeDasharray="4 8" stroke={CHART.grid} strokeOpacity={0.65} vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={40} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART.grid, opacity: 0.35 }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10, fontWeight: 500 }} />
+                <Bar dataKey="Receita"  fill={CHART.receita}  radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="Custo"    fill={CHART.custo}    radius={[6, 6, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="Despesas" fill={CHART.despesas} radius={[6, 6, 0, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCardV2>
@@ -266,26 +277,27 @@ export default function DashboardV2Page() {
               <AreaChart data={mensal}>
                 <defs>
                   <linearGradient id="lucroGradV2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={CHART.lucro} stopOpacity={0.3} />
+                    <stop offset="5%"  stopColor={CHART.lucro} stopOpacity={0.4} />
                     <stop offset="95%" stopColor={CHART.lucro} stopOpacity={0}   />
                   </linearGradient>
                   <linearGradient id="receitaGradV2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={CHART.receita} stopOpacity={0.15} />
+                    <stop offset="5%"  stopColor={CHART.receita} stopOpacity={0.28} />
                     <stop offset="95%" stopColor={CHART.receita} stopOpacity={0}    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: CHART.tick, fontSize: 10 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={40} />
-                <Tooltip content={<CustomTooltip />} />
+                <CartesianGrid strokeDasharray="4 8" stroke={CHART.grid} strokeOpacity={0.65} vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={40} />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: CHART.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
                 <Area
                   type="monotone"
                   dataKey="Receita"
                   stroke={CHART.receita}
                   fill="url(#receitaGradV2)"
-                  strokeWidth={1.5}
+                  strokeWidth={2.25}
                   dot={false}
-                  strokeDasharray="4 2"
+                  strokeDasharray="5 3"
+                  strokeOpacity={1}
                 />
                 <Area
                   type="monotone"
@@ -293,8 +305,8 @@ export default function DashboardV2Page() {
                   stroke={CHART.lucro}
                   fill="url(#lucroGradV2)"
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: CHART.lucro, strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 0, fill: CHART.lucro }}
                 />
               </AreaChart>
             </ResponsiveContainer>

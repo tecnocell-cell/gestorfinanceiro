@@ -1,11 +1,14 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  loadState,
   saveState,
   getEmpresaAtiva,
   updateEmpresaAtiva,
   createEmpresa,
   createPerfil,
+  isValidAppState,
+  createInitialStateForUser,
+  normalizeStateForUser,
+  defaultState,
 } from "./storage.js";
 import {
   filterLancamentos,
@@ -21,25 +24,25 @@ import {
   generateId,
   nextLote,
 } from "./finance.js";
-import { checkApiStatus, syncFromAccess } from "./importExport.js";
-import { mergeSyncPayload } from "./lacusSync.js";
-import { stateApi } from "./api.js";
+import { stateApi, adminApi, healthApi } from "./api.js";
 import { useAuth } from "./AuthContext.jsx";
+import { resolveProfileTipo } from "./profileLabels.js";
+import { registerStateFlush } from "./persistence.js";
 
 const GestorContext = createContext(null);
 
-const SAVE_DEBOUNCE_MS = 1500;
+const SAVE_DEBOUNCE_MS = 800;
 
 export function GestorProvider({ children }) {
-  const { token } = useAuth();
+  const { token, user, profileReady } = useAuth();
 
-  // ── State (inicia do localStorage; se tiver token, sobrescreve com API) ────
-  const [state, setState] = useState(loadState);
+  const [state, setState] = useState(() => defaultState());
   const [appLoading, setAppLoading] = useState(!!token);
   const isFirstLoad = useRef(true);
   const saveTimer = useRef(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
-  // ── Filtros e UI ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("Todos");
   const [consiliadoFilter, setConsiliadoFilter] = useState("Todos");
@@ -48,61 +51,108 @@ export function GestorProvider({ children }) {
   const [modalOpen, setModalOpen] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [apiOnline, setApiOnline] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncError, setSyncError] = useState(null);
+  const [impersonatingUser, setImpersonatingUser] = useState(null);
+  const adminStateBackup = useRef(null);
 
-  // ── Carrega estado da API quando autenticado ──────────────────────────────
+  const buildProfile = useCallback((u) => ({
+    tipo_perfil: u?.tipo_perfil || "juridica",
+    nome_perfil: u?.nome_perfil || u?.nome,
+    nome: u?.nome,
+  }), []);
+
+  const viewOnly = !!impersonatingUser;
+
+  const persistState = useCallback(async (snapshot) => {
+    if (!token || viewOnly) return;
+    await stateApi.save(snapshot);
+  }, [token, viewOnly]);
+
+  const flushStateSave = useCallback(async () => {
+    clearTimeout(saveTimer.current);
+    if (!token || isFirstLoad.current) return;
+    try {
+      await persistState(stateRef.current);
+    } catch (err) {
+      console.warn("Falha ao salvar estado (flush):", err.message);
+      throw err;
+    }
+  }, [token, persistState]);
+
   useEffect(() => {
-    if (!token) { setAppLoading(false); return; }
+    registerStateFlush(flushStateSave);
+    return () => registerStateFlush(null);
+  }, [flushStateSave]);
+
+  // Carrega estado só com perfil confirmado no servidor (evita PF→PJ por sessão antiga)
+  useEffect(() => {
+    if (!token) {
+      setAppLoading(false);
+      isFirstLoad.current = true;
+      return;
+    }
+    if (impersonatingUser) return;
+    if (!profileReady || !user?.tipo_perfil) return;
+
+    const profile = buildProfile(user);
+    isFirstLoad.current = true;
     setAppLoading(true);
+
     stateApi
       .fetch()
-      .then(({ dados }) => {
-        if (dados && Object.keys(dados).length > 0) {
-          setState(dados);
-        }
+      .then(({ dados, profile: serverProfile }) => {
+        const p = serverProfile?.tipo_perfil
+          ? { ...profile, ...serverProfile }
+          : profile;
+        const next = isValidAppState(dados)
+          ? normalizeStateForUser(dados, p)
+          : createInitialStateForUser(p.tipo_perfil, p.nome_perfil || p.nome);
+        setState(next);
+        stateRef.current = next;
       })
-      .catch((err) => console.warn("Falha ao carregar estado da API:", err.message))
+      .catch((err) => {
+        console.warn("Falha ao carregar estado da API:", err.message);
+        const next = createInitialStateForUser(profile.tipo_perfil, profile.nome_perfil || profile.nome);
+        setState(next);
+        stateRef.current = next;
+      })
       .finally(() => {
         setAppLoading(false);
         isFirstLoad.current = false;
       });
-  }, [token]);
+  }, [token, user?.id, user?.tipo_perfil, impersonatingUser, profileReady, buildProfile]);
 
-  // ── Persiste estado (debounced) ───────────────────────────────────────────
   useEffect(() => {
-    if (isFirstLoad.current) return;
+    if (isFirstLoad.current || !token) return;
 
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      if (token) {
-        stateApi.save(state).catch((err) =>
-          console.warn("Falha ao salvar estado na API:", err.message)
-        );
-      } else {
-        saveState(state);
-      }
+      persistState(stateRef.current).catch((err) =>
+        console.warn("Falha ao salvar estado na API:", err.message)
+      );
     }, SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(saveTimer.current);
-  }, [state, token]);
+  }, [state, token, impersonatingUser, persistState]);
 
-  // ── Verificação da API Access (Lacus) ─────────────────────────────────────
   useEffect(() => {
-    checkApiStatus().then((s) => setApiOnline(!!s.online));
-    const t = setInterval(() => {
-      checkApiStatus().then((s) => setApiOnline(!!s.online));
-    }, 30000);
+    const ping = () =>
+      healthApi.status().then((s) => setApiOnline(!!s.online)).catch(() => setApiOnline(false));
+    ping();
+    const t = setInterval(ping, 30000);
     return () => clearInterval(t);
   }, []);
 
-  // ── Empresa ativa ─────────────────────────────────────────────────────────
   const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
   const { company, contas, planoContas, lancamentos, clientes, fornecedores } = empresa;
   const fechamentos = empresa.fechamentos  || [];
   const metas       = empresa.metas        || [];
   const orcamentos  = empresa.orcamentos   || [];
-  const tipo        = empresa.tipo         || "juridica";
+  const profileTipo = resolveProfileTipo({
+    user,
+    impersonatingUser,
+    empresaTipo: empresa.tipo,
+  });
+  const tipo        = profileTipo;
   const pessoa      = empresa.pessoa       || null;
   const filterPeriodo = state.filterPeriodo;
 
@@ -114,8 +164,9 @@ export function GestorProvider({ children }) {
   }, []);
 
   const patchEmpresa = useCallback((patch) => {
+    if (viewOnly) return;
     setState((s) => updateEmpresaAtiva(s, patch));
-  }, []);
+  }, [viewOnly]);
 
   const setEmpresaField = useCallback((field, value) => {
     setState((s) => {
@@ -156,10 +207,53 @@ export function GestorProvider({ children }) {
     });
   }, []);
 
+  const enterAsTenant = useCallback(async (tenantUser) => {
+    if (!tenantUser?.ativo) {
+      throw new Error("Conta inativa. Ative o cliente antes de entrar.");
+    }
+    if (!impersonatingUser) {
+      await flushStateSave().catch(() => {});
+      adminStateBackup.current = stateRef.current;
+    }
+    const { dados } = await adminApi.getUserState(tenantUser.id);
+    const profile = buildProfile(tenantUser);
+    const next = isValidAppState(dados)
+      ? normalizeStateForUser(dados, profile)
+      : createInitialStateForUser(profile.tipo_perfil, profile.nome_perfil || profile.nome);
+    setState(next);
+    stateRef.current = next;
+    setImpersonatingUser(tenantUser);
+    isFirstLoad.current = false;
+  }, [impersonatingUser, buildProfile, flushStateSave]);
+
+  const exitAsTenant = useCallback(async () => {
+    if (!impersonatingUser) return;
+    await flushStateSave().catch(() => {});
+    setImpersonatingUser(null);
+    if (adminStateBackup.current) {
+      setState(adminStateBackup.current);
+      stateRef.current = adminStateBackup.current;
+      adminStateBackup.current = null;
+    } else if (token && user?.tipo_perfil) {
+      try {
+        const profile = buildProfile(user);
+        const { dados } = await stateApi.fetch();
+        const next = isValidAppState(dados)
+          ? normalizeStateForUser(dados, profile)
+          : createInitialStateForUser(profile.tipo_perfil, profile.nome_perfil || profile.nome);
+        setState(next);
+        stateRef.current = next;
+      } catch (err) {
+        console.warn("Falha ao restaurar estado do admin:", err.message);
+      }
+    }
+  }, [impersonatingUser, flushStateSave, token, user, buildProfile]);
+
   const openModal = useCallback((type, item = null) => {
+    if (viewOnly) return;
     setModalOpen(type);
     setEditingItem(item);
-  }, []);
+  }, [viewOnly]);
 
   const closeModal = useCallback(() => {
     setModalOpen(null);
@@ -212,8 +306,9 @@ export function GestorProvider({ children }) {
         });
       }
       closeModal();
+      setTimeout(() => flushStateSave().catch(() => {}), 50);
     },
-    [editingItem, lancamentos, lancCrud, closeModal, contas]
+    [editingItem, lancamentos, lancCrud, closeModal, contas, flushStateSave]
   );
 
   const markConsiliado = useCallback(
@@ -229,27 +324,6 @@ export function GestorProvider({ children }) {
     [lancamentos, patchEmpresa]
   );
 
-  const syncAccess = useCallback(async () => {
-    setSyncing(true);
-    setSyncError(null);
-    try {
-      const data = await syncFromAccess(company.caminhoBanco, company.senhaBanco);
-      const { empresaPatch, statePatch } = mergeSyncPayload(empresa, data);
-      if (!Object.keys(empresaPatch).length && !Object.keys(statePatch).length) {
-        throw new Error("Nenhum dado retornado do Access.");
-      }
-      setState((s) => {
-        const updated = updateEmpresaAtiva(s, empresaPatch);
-        return { ...updated, ...statePatch };
-      });
-    } catch (e) {
-      setSyncError(e.message);
-    } finally {
-      setSyncing(false);
-    }
-  }, [company, empresa]);
-
-  // ── Dados calculados ──────────────────────────────────────────────────────
   const lancsFiltrados = useMemo(
     () => [...filterLancamentos(lancamentos, {
       ano: filterPeriodo.ano,
@@ -275,9 +349,11 @@ export function GestorProvider({ children }) {
 
   const value = {
     state, setState, appLoading,
-    empresa, tipo, pessoa,
+    empresa, tipo, profileTipo, pessoa,
     company, contas, planoContas, lancamentos, clientes, fornecedores,
     metas, orcamentos,
+    viewOnly,
+    impersonatingUser, enterAsTenant, exitAsTenant,
     filterPeriodo, setFilterPeriodo,
     search, setSearch,
     tipoFilter, setTipoFilter,
@@ -285,14 +361,13 @@ export function GestorProvider({ children }) {
     contaFilter, setContaFilter,
     showSaldoCol, setShowSaldoCol,
     modalOpen, editingItem, openModal, closeModal,
-    apiOnline, syncing, syncError,
+    apiOnline,
     setEmpresaField, setPessoaField, updateEmpresaData, patchEmpresa,
     switchEmpresa, addEmpresa, addPerfil, removePerfil,
-    saveLancamento, markConsiliado, setLancamentos,
+    saveLancamento, markConsiliado, setLancamentos, flushStateSave,
     lancCrud, contaCrud, planoCrud, clienteCrud, fornecedorCrud,
     fechamentos, fechamentoCrud,
     metaCrud, orcamentoCrud,
-    syncAccess,
     lancsFiltrados, dreAtual, consultaDRE, mensal, balancete, fluxoCaixa,
     getSaldoConta: saldoContaFn,
     getSaldoTotal: saldoTotalFn,

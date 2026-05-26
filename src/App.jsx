@@ -1,29 +1,21 @@
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './gestor/AuthContext.jsx';
 import { GestorProvider, useGestor } from './gestor/GestorContext.jsx';
 import GestorApp from './gestor/GestorApp.jsx';
 import LoginPage from './gestor/pages/LoginPage.jsx';
+import RegisterPage from './gestor/pages/RegisterPage.jsx';
+import { css } from './gestor/styles.js';
 
 function LoadingScreen() {
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", gap: 16,
-      background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 40%, #f0f9ff 100%)",
-    }}>
-      <div style={{
-        width: 52, height: 52, borderRadius: 15,
-        background: "linear-gradient(135deg, #10b981, #0d9488)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 22, fontWeight: 800, color: "#fff",
-      }}>GF</div>
-      <div style={{
-        width: 34, height: 34, border: "3px solid #e2e8f0",
-        borderTop: "3px solid #10b981", borderRadius: "50%",
-        animation: "spin 0.8s linear infinite",
-      }} />
-      <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>Carregando dados…</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    <>
+      <style>{css}</style>
+      <div className="loading-screen">
+        <div className="loading-logo">CT</div>
+        <div className="loading-spinner" />
+        <p className="loading-text">Carregando dados…</p>
+      </div>
+    </>
   );
 }
 
@@ -33,13 +25,28 @@ function AppWithLoading() {
   return <GestorApp />;
 }
 
+function AuthScreen() {
+  const [mode, setMode] = useState('login');
+  const { setSession } = useAuth();
+
+  if (mode === 'register') {
+    return (
+      <RegisterPage
+        onLogin={() => setMode('login')}
+        onVerified={(data) => setSession(data.token, data.user)}
+      />
+    );
+  }
+
+  return <LoginPage onRegister={() => setMode('register')} />;
+}
+
 function AppInner() {
-  const { token } = useAuth();
+  const { token, profileReady } = useAuth();
 
-  // Sem token → tela de login (sem modo local)
-  if (!token) return <LoginPage />;
+  if (!token) return <AuthScreen />;
+  if (!profileReady) return <LoadingScreen />;
 
-  // Admin ou tenant → mesma shell (GestorApp gerencia o painel admin no sidebar)
   return (
     <GestorProvider>
       <AppWithLoading />

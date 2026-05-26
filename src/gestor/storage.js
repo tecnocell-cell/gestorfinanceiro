@@ -9,10 +9,7 @@ export const defaultCompany = () => ({
   cnpj: "00.000.000/0001-91",
   inscricaoEstadual: "",
   codigoDominio: 0,
-  codigoEmpresa: 1,
   dataFechamento: "",
-  caminhoBanco: "",
-  senhaBanco: "",
 });
 
 export const defaultContas = () => [
@@ -104,8 +101,6 @@ export const defaultState = () => {
     empresas: [emp],
     empresaAtivaId: emp.id,
     filterPeriodo: { ano: new Date().getFullYear().toString(), mes: "" },
-    versaoBanco: "2.0",
-    dataFechamento: "",
   };
 };
 
@@ -133,6 +128,81 @@ export const loadState = () => {
 
 export const saveState = (state) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+};
+
+export const isValidAppState = (dados) =>
+  dados && Array.isArray(dados.empresas) && dados.empresas.length > 0;
+
+/** Estado inicial alinhado ao tipo_perfil do usuário (PF ou PJ) */
+export const createInitialStateForUser = (tipo = "juridica", nomePerfil = "Perfil") => {
+  const emp = createPerfil(nomePerfil, tipo);
+  return {
+    empresas: [emp],
+    empresaAtivaId: emp.id,
+    filterPeriodo: { ano: new Date().getFullYear().toString(), mes: "" },
+  };
+};
+
+/** Garante tipo da empresa ativa coerente com o cadastro do usuário (fonte: tipo_perfil) */
+export const normalizeStateForUser = (dados, user) => {
+  if (!isValidAppState(dados)) return dados;
+  const tipoPerfil = user?.tipo_perfil;
+  if (!tipoPerfil) return dados;
+
+  const nome = user.nome_perfil || user.nome || "Perfil";
+  const activeId = dados.empresaAtivaId || dados.empresas[0]?.id;
+
+  if (tipoPerfil === "fisica") {
+    const allLancamentos = dados.empresas.flatMap((e) => e.lancamentos || []);
+    const allMetas = dados.empresas.flatMap((e) => e.metas || []);
+    const allOrcamentos = dados.empresas.flatMap((e) => e.orcamentos || []);
+    const allFechamentos = dados.empresas.flatMap((e) => e.fechamentos || []);
+
+    const base =
+      dados.empresas.find((e) => e.tipo === "fisica") ||
+      dados.empresas.find((e) => e.id === activeId) ||
+      dados.empresas[0];
+
+    let converted;
+    if (base.tipo === "fisica") {
+      converted = {
+        ...base,
+        tipo: "fisica",
+        nome: base.nome || nome,
+        pessoa: base.pessoa || defaultPessoa(base.nome || nome),
+        planoContas: base.planoContas?.length ? base.planoContas : defaultCategoriasPF(),
+        contas: base.contas?.length ? base.contas : defaultContasPF(),
+      };
+    } else {
+      converted = {
+        ...createPerfil(base.nome || nome, "fisica"),
+        id: base.id,
+        contas: base.contas?.length ? base.contas : defaultContasPF(),
+        planoContas: base.planoContas?.length ? base.planoContas : defaultCategoriasPF(),
+      };
+    }
+
+    converted.lancamentos = allLancamentos.length ? allLancamentos : (converted.lancamentos || []);
+    converted.metas = allMetas.length ? allMetas : (converted.metas || []);
+    converted.orcamentos = allOrcamentos.length ? allOrcamentos : (converted.orcamentos || []);
+    converted.fechamentos = allFechamentos.length ? allFechamentos : (converted.fechamentos || []);
+
+    return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
+  }
+
+  const empresas = dados.empresas.map((emp) => {
+    if (emp.id !== activeId) return emp;
+    return {
+      ...emp,
+      tipo: "juridica",
+      nome: emp.nome || nome,
+      company: emp.company || defaultCompany(),
+      planoContas: emp.planoContas?.length ? emp.planoContas : defaultPlano(),
+      contas: emp.contas?.length ? emp.contas : defaultContas(),
+    };
+  });
+
+  return { ...dados, empresas };
 };
 
 export const getEmpresaAtiva = (state) =>

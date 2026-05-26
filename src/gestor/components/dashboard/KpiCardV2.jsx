@@ -1,39 +1,50 @@
 import { memo } from "react";
+import Sparkline from "./Sparkline.jsx";
+import { TrendIcon } from "../icons.jsx";
 
 /**
- * KpiCardV2 — card de KPI premium para o Dashboard V2.
- * Roda sobre fundo escuro (hero section).
- *
- * Props:
- *  icon       string  emoji / símbolo
- *  label      string  rótulo pequeno
- *  value      string  valor já formatado
- *  sub        string? texto secundário
- *  valueClass string? "danger" | "success" | "warning" | ""
- *  trend      { dir: "up"|"down"|"neutral", label: string }?
- *  delay      number? delay da animação (ms)
- *  loading    bool?   mostra skeleton
+ * KPI premium — Lucide, sparkline opcional, badge de tendência.
  */
-function KpiCardV2({ icon, label, value, sub, valueClass = "", trend, delay = 0, loading = false }) {
+function KpiCardV2({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  valueClass = "",
+  trend,
+  sparkline,
+  tone = "default",
+  loading = false,
+}) {
   if (loading) {
     return (
-      <div className="kpi-v2" style={{ animationDelay: `${delay}ms` }}>
-        <div className="skeleton-pulse" style={{ width: 28, height: 28, borderRadius: 8, marginBottom: 8 }} />
-        <div className="skeleton-pulse" style={{ width: "60%", height: 12, borderRadius: 4, marginBottom: 8 }} />
-        <div className="skeleton-pulse" style={{ width: "80%", height: 24, borderRadius: 4 }} />
+      <div className="kpi-v2 kpi-v2--skeleton">
+        <div className="skeleton-pulse" style={{ width: 36, height: 36, borderRadius: 10, marginBottom: 10 }} />
+        <div className="skeleton-pulse" style={{ width: "55%", height: 11, borderRadius: 4, marginBottom: 8 }} />
+        <div className="skeleton-pulse" style={{ width: "75%", height: 26, borderRadius: 4 }} />
       </div>
     );
   }
 
+  const sparkTone = valueClass === "success" ? "success" : valueClass === "danger" ? "danger" : "neutral";
+
   return (
-    <div className="kpi-v2 dash-v2-fade-in" style={{ animationDelay: `${delay}ms` }}>
-      <div className="kpi-v2-icon">{icon}</div>
+    <div className={`kpi-v2 kpi-v2--${tone} kpi-v2--${valueClass || "default"}`}>
+      <div className="kpi-v2-top">
+        <div className="kpi-v2-icon-wrap" aria-hidden>
+          {Icon ? <Icon size={20} strokeWidth={1.75} /> : null}
+        </div>
+        {sparkline?.length >= 2 && (
+          <Sparkline data={sparkline} tone={sparkTone} width={80} height={32} />
+        )}
+      </div>
       <div className="kpi-v2-label">{label}</div>
       <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
       {sub && <div className="kpi-v2-sub">{sub}</div>}
       {trend && (
         <div className={`kpi-v2-trend ${trend.dir}`}>
-          {trend.dir === "up" ? "↑" : trend.dir === "down" ? "↓" : "→"} {trend.label}
+          <TrendIcon dir={trend.dir} size={13} />
+          <span>{trend.label}</span>
         </div>
       )}
     </div>

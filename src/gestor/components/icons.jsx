@@ -1,0 +1,107 @@
+import {
+  LayoutDashboard,
+  ArrowLeftRight,
+  Repeat,
+  CalendarClock,
+  Tags,
+  PieChart,
+  Target,
+  Wallet,
+  FileBarChart,
+  Link2,
+  User,
+  Building2,
+  Percent,
+  Users,
+  Truck,
+  Upload,
+  GitCompare,
+  List,
+  Lock,
+  Settings,
+  Shield,
+  Menu,
+  LogOut,
+  Eye,
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Hourglass,
+  AlertTriangle,
+  Mail,
+  Smartphone,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Sparkles,
+  Landmark,
+  FileSpreadsheet,
+  PenLine,
+} from "lucide-react";
+
+/** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
+export const NAV_ICON_MAP = {
+  dashboard: LayoutDashboard,
+  lancamentos: ArrowLeftRight,
+  recorrencias: Repeat,
+  "contas-pagar": CalendarClock,
+  categorias: Tags,
+  orcamento: PieChart,
+  metas: Target,
+  contas: Wallet,
+  relatorios: FileBarChart,
+  "open-finance": Link2,
+  perfil: User,
+  dre: FileBarChart,
+  plano: List,
+  impostos: Percent,
+  clientes: Users,
+  fornecedores: Truck,
+  importacoes: Upload,
+  conciliacao: GitCompare,
+  balancete: List,
+  fechamento: Lock,
+  empresa: Building2,
+};
+
+export function NavIcon({ name, size = 18, strokeWidth = 1.75, className = "" }) {
+  const Icon = NAV_ICON_MAP[name];
+  if (!Icon) return <Minus size={size} strokeWidth={strokeWidth} className={className} aria-hidden />;
+  return <Icon size={size} strokeWidth={strokeWidth} className={className} aria-hidden />;
+}
+
+export function TrendIcon({ dir, size = 14 }) {
+  if (dir === "up") return <ArrowUpRight size={size} strokeWidth={2} aria-hidden />;
+  if (dir === "down") return <ArrowDownRight size={size} strokeWidth={2} aria-hidden />;
+  return <Minus size={size} strokeWidth={2} aria-hidden />;
+}
+
+export {
+  LayoutDashboard,
+  ArrowLeftRight,
+  Repeat,
+  CalendarClock,
+  Tags,
+  PieChart,
+  Target,
+  Wallet,
+  FileBarChart,
+  Link2,
+  User,
+  Building2,
+  Shield,
+  Menu,
+  LogOut,
+  Eye,
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Hourglass,
+  AlertTriangle,
+  Mail,
+  Smartphone,
+  Sparkles,
+  Landmark,
+  FileSpreadsheet,
+  PenLine,
+};

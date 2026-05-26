@@ -1,7 +1,10 @@
 /** Proteções para contas super admin (role = 'admin') em operações multi-tenant. */
 
 export async function findUsuario(query, id) {
-  const { rows } = await query("SELECT id, email, role FROM usuarios WHERE id = $1", [id]);
+  const { rows } = await query(
+    "SELECT id, email, nome, role, ativo, tipo_perfil, nome_perfil FROM usuarios WHERE id = $1",
+    [id]
+  );
   return rows[0] || null;
 }
 

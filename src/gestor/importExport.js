@@ -196,26 +196,4 @@ export const exportRelatorioCSV = (rows, filename) => {
 export const marcarExportadosDominio = (lancamentos, ids) =>
   lancamentos.map((l) => (ids.includes(l.id) ? { ...l, exportado: true } : l));
 
-export const apiBase = () => import.meta.env.VITE_API_URL || "";
-
-export const syncFromAccess = async (caminho, senha) => {
-  const res = await fetch(`${apiBase()}/api/sync`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: caminho, password: senha || "" }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Falha ao sincronizar com Access");
-  }
-  return res.json();
-};
-
-export const checkApiStatus = async () => {
-  try {
-    const res = await fetch(`${apiBase()}/api/status`);
-    return res.ok ? await res.json() : { online: false };
-  } catch {
-    return { online: false };
-  }
-};
+export const apiBase = () => import.meta.env.VITE_API_URL ?? "/api";
