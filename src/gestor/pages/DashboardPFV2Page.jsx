@@ -21,6 +21,7 @@ import { useRecorrencias }  from "../hooks/useRecorrencias.js";
 import { fmtBRL }           from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
+import ContasAPagarAlert   from "../components/ContasAPagarAlert.jsx";
 import KpiCardV2            from "../components/dashboard/KpiCardV2.jsx";
 import ChartCardV2          from "../components/dashboard/ChartCardV2.jsx";
 import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
@@ -224,6 +225,7 @@ export default function DashboardPFV2Page() {
       <div className="dash-section">
 
         <RecorrenciaAlert />
+        <ContasAPagarAlert />
 
         <div className="dash-section-title">Evolução Mensal</div>
         <div className="dash-charts-grid" style={{ marginBottom: 16 }}>

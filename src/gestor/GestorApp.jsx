@@ -9,6 +9,7 @@ import {
 } from "./components/Modals.jsx";
 import AdminPanel        from "./pages/AdminPage.jsx";
 import RecorrenciasPage  from "./pages/RecorrenciasPage.jsx";
+import ContasAPagarPage  from "./pages/ContasAPagarPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
 import DashboardV2Page   from "./pages/DashboardV2Page.jsx";
 import DashboardPFV2Page from "./pages/DashboardPFV2Page.jsx";
@@ -30,6 +31,7 @@ import PfDueAlert from "./components/pf/PfDueAlert.jsx";
 const PAGE_MAP_PJ = {
   // dashboard → V2 premium. Rollback: trocar DashboardV2Page por DashboardPage
   dashboard: DashboardV2Page, lancamentos: LancamentosPage, recorrencias: RecorrenciasPage,
+  "contas-pagar": ContasAPagarPage,
   dre: DREPage, contas: ContasPage, plano: PlanoContasPage, impostos: ImpostosPage,
   clientes: ClientesPage, fornecedores: FornecedoresPage,
   importacoes: ImportacoesPage, conciliacao: ConciliacaoPage,
@@ -41,6 +43,7 @@ const PAGE_MAP_PF = {
   // dashboard → V2 premium. Rollback: trocar DashboardPFV2Page por DashboardPFPage
   dashboard: DashboardPFV2Page, lancamentos: LancamentosPFPage,
   recorrencias: RecorrenciasPage,
+  "contas-pagar": ContasAPagarPage,
   categorias: CategoriasPFPage, orcamento: OrcamentoPage,
   metas: MetasPage, contas: ContasPFPage,
   relatorios: RelatoriosPFPage, perfil: PerfilPFPage,

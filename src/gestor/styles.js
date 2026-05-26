@@ -2542,4 +2542,190 @@ export const css = `
     background: oklch(0.97 0.015 25);
     color: oklch(0.55 0.18 25);
   }
+
+  /* ─── Contas a Pagar / Receber ────────────────────────────────────────────── */
+
+  /* KPI grid: 4 cards em linha */
+  .cp-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .cp-kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .cp-kpi:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-2px);
+  }
+  .cp-kpi-icon {
+    font-size: 16px;
+    margin-bottom: 6px;
+    opacity: 0.75;
+  }
+  .cp-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground);
+    margin-bottom: 4px;
+  }
+  .cp-kpi-value {
+    font-size: 20px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    color: var(--foreground);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .cp-kpi-sub {
+    font-size: 10px;
+    color: var(--muted-foreground);
+    margin-top: 3px;
+  }
+
+  /* Filter bar */
+  .cp-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .cp-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .cp-filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  /* Status badges */
+  .badge-cp-pago {
+    background: oklch(0.95 0.025 150);
+    color: oklch(0.36 0.10 150);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+  }
+  .badge-cp-pendente {
+    background: oklch(0.95 0.025 230);
+    color: oklch(0.36 0.09 230);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+  }
+  .badge-cp-atrasado {
+    background: oklch(0.96 0.04 22);
+    color: oklch(0.42 0.18 27);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+  }
+
+  /* Tipo badges */
+  .badge-success {
+    background: var(--success-soft);
+    color: var(--success-fg);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .badge-danger {
+    background: var(--danger-soft);
+    color: var(--danger-fg);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  /* Table helpers */
+  .cp-td-ellipsis {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Inline vencimento edit cell */
+  .cp-venc-cell {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .cp-venc-edit-icon {
+    opacity: 0.3;
+    font-size: 10px;
+    transition: opacity 0.15s;
+  }
+  .cp-venc-cell:hover .cp-venc-edit-icon { opacity: 0.75; }
+
+  /* Alert widget no dashboard */
+  .contas-alert {
+    background: oklch(0.995 0.008 75);
+    border: 1px solid oklch(0.90 0.05 75);
+    border-left: 4px solid oklch(0.65 0.14 75);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+  }
+  .contas-alert .recorrencia-alert-title { color: oklch(0.45 0.12 70); }
+  .contas-alert .recorrencia-alert-link  { color: oklch(0.45 0.12 70); }
+
+  .danger-count {
+    background: var(--danger) !important;
+    color: white !important;
+  }
+  .contas-alert-badge-late {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--danger-soft);
+    color: var(--danger-fg);
+    margin-left: 4px;
+  }
+
+  /* Responsividade */
+  @media (max-width: 900px) {
+    .cp-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .cp-filters  { gap: 8px; }
+  }
+  @media (max-width: 540px) {
+    .cp-kpi-grid  { grid-template-columns: 1fr 1fr; }
+    .cp-kpi-value { font-size: 16px; }
+  }
 `;

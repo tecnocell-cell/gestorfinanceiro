@@ -26,6 +26,7 @@ import { useRecorrencias }  from "../hooks/useRecorrencias.js";
 import { fmtBRL, fmtPct }  from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
+import ContasAPagarAlert   from "../components/ContasAPagarAlert.jsx";
 import KpiCardV2            from "../components/dashboard/KpiCardV2.jsx";
 import ChartCardV2          from "../components/dashboard/ChartCardV2.jsx";
 import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
@@ -226,8 +227,9 @@ export default function DashboardV2Page() {
       {/* ── Seção clara: alerta + gráficos ──────────────────────────────── */}
       <div className="dash-section">
 
-        {/* Alert recorrências — silencioso se não tiver nada */}
+        {/* Alerts — silenciosos se não houver nada */}
         <RecorrenciaAlert />
+        <ContasAPagarAlert />
 
         {/* Gráficos linha 1 */}
         <div className="dash-section-title">Desempenho Mensal</div>

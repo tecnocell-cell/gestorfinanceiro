@@ -21,10 +21,11 @@ export const CHART = {
 export const STORAGE_KEY = "gestor_financeiro_v2";
 
 export const NAV_ITEMS_FISICA = [
-  { id: "dashboard",    icon: "◉", label: "Dashboard"      },
-  { id: "lancamentos",  icon: "↔", label: "Lançamentos"    },
-  { id: "recorrencias", icon: "↺", label: "Recorrências"   },
-  { id: "categorias",   icon: "▤", label: "Categorias"     },
+  { id: "dashboard",    icon: "◉", label: "Dashboard"        },
+  { id: "lancamentos",  icon: "↔", label: "Lançamentos"      },
+  { id: "recorrencias", icon: "↺", label: "Recorrências"     },
+  { id: "contas-pagar", icon: "⊖", label: "A Pagar/Receber"  },
+  { id: "categorias",   icon: "▤", label: "Categorias"       },
   { id: "orcamento",    icon: "◎", label: "Orçamento"      },
   { id: "metas",        icon: "◈", label: "Metas"          },
   { id: "contas",       icon: "▦", label: "Contas"         },
@@ -33,10 +34,11 @@ export const NAV_ITEMS_FISICA = [
 ];
 
 export const NAV_ITEMS = [
-  { id: "dashboard",    icon: "◉", label: "Dashboard"      },
-  { id: "lancamentos",  icon: "↔", label: "Lançamentos"    },
-  { id: "recorrencias", icon: "↺", label: "Recorrências"   },
-  { id: "dre",          icon: "▤", label: "D.R.E."         },
+  { id: "dashboard",    icon: "◉", label: "Dashboard"        },
+  { id: "lancamentos",  icon: "↔", label: "Lançamentos"      },
+  { id: "recorrencias", icon: "↺", label: "Recorrências"     },
+  { id: "contas-pagar", icon: "⊖", label: "A Pagar/Receber"  },
+  { id: "dre",          icon: "▤", label: "D.R.E."           },
   { id: "contas",       icon: "◎", label: "Contas"         },
   { id: "plano",        icon: "▦", label: "Plano Contas"   },
   { id: "impostos",     icon: "%", label: "Impostos"       },

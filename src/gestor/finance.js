@@ -306,3 +306,17 @@ export const nextLote = (lancamentos) => {
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
   return `L${String(next).padStart(3, "0")}`;
 };
+
+/**
+ * Computes the display status of a lançamento for Contas a Pagar/Receber.
+ * "atrasado" is NEVER persisted — only computed here on the client.
+ *  l.status:    "pendente" | "pago"  (undefined → "pago" fallback for old records)
+ *  l.vencimento: optional date string (undefined → falls back to l.data)
+ */
+export const getStatusLancamento = (l) => {
+  const s = l.status ?? "pago";
+  if (s === "pago") return "pago";
+  const hoje = new Date().toISOString().slice(0, 10);
+  const venc = l.vencimento ?? l.data;
+  return venc < hoje ? "atrasado" : "pendente";
+};
