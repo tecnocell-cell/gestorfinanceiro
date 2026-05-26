@@ -40,7 +40,7 @@ services:
     ports:
       - "3001:3001"
     # Roda o seed antes de iniciar o servidor (só cria admin se banco estiver vazio)
-    command: sh -c "node server/seed.js && node server/index.js"
+    command: sh -c "node server/seed.js && node server/seed-centertech.js && node server/index.js"
     networks:
       - gestor_net
 

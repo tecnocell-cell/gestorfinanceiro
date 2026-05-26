@@ -24,12 +24,15 @@ const DIST = join(ROOT, "dist");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS: em dev aceita o Vite (5173); em prod aceita a origem configurada
+// CORS: dev (Vite) + CORS_ORIGIN (várias origens separadas por vírgula)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
+  ...(process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
 
 app.use(cors({
   origin: (origin, cb) => {

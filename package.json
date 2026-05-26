@@ -11,6 +11,7 @@
     "start": "node server/index.js",
     "test:api": "node server/integrationTest.js",
     "migrate": "node server/migrate.js",
+    "seed:centertech": "node server/seed-centertech.js",
     "repair:tenants": "node server/repairTenants.js",
     "build": "vite build",
     "lint": "eslint .",

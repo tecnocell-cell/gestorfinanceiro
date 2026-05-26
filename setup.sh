@@ -131,7 +131,8 @@ cd "$APP_DIR"
 # Carrega .env para o processo do seed
 set -a; source "$ENV_FILE"; set +a
 node server/seed.js
-# seed.js já imprime o resultado
+node server/seed-centertech.js
+# seeds já imprimem o resultado
 
 # ── 9. PM2 (process manager) ─────────────────────────────────
 if ! command -v pm2 &>/dev/null; then
