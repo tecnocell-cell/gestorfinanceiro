@@ -26,25 +26,31 @@ function calcProximaDataLocal(periodicidade, dataAtual) {
 }
 
 function diasAteVencimento(data) {
-  const diff = new Date(data + "T00:00:00") - new Date(hoje() + "T00:00:00");
+  // normaliza timestamp do Postgres (ex: "2026-05-30T00:00:00.000Z") → "2026-05-30"
+  const key = toDateKey(data);
+  if (!key) return NaN;
+  const diff = new Date(key + "T00:00:00") - new Date(hoje() + "T00:00:00");
   return Math.ceil(diff / 86_400_000);
 }
 
 function classProxima(data) {
   const dias = diasAteVencimento(data);
+  if (Number.isNaN(dias)) return "";
   if (dias < 0)  return "recorrencias-proxima-late";
   if (dias <= 7) return "recorrencias-proxima-soon";
   return "recorrencias-proxima-ok";
 }
 
 function labelProxima(data) {
-  const dias = diasAteVencimento(data);
+  const key = toDateKey(data);
+  if (!key) return "—";
+  const dias = diasAteVencimento(key);
   if (Number.isNaN(dias)) return "—";
-  if (dias < 0)  return `${fmtDate(data)} (${Math.abs(dias)}d atraso)`;
+  if (dias < 0)  return `${fmtDate(key)} (${Math.abs(dias)}d atraso)`;
   if (dias === 0) return "Hoje";
   if (dias === 1) return "Amanhã";
-  if (dias <= 7)  return `${fmtDate(data)} (em ${dias}d)`;
-  return fmtDate(data);
+  if (dias <= 7)  return `${fmtDate(key)} (em ${dias}d)`;
+  return fmtDate(key);
 }
 
 const PERIODO_LABEL = { mensal: "Mensal", semanal: "Semanal", anual: "Anual" };
@@ -353,7 +359,7 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
                 {recorrencia.tipo}
               </span>
               <span>{PERIODO_LABEL[recorrencia.periodicidade]}</span>
-              <span>Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, recorrencia.proxima_data))}</span>
+              <span>Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, toDateKey(recorrencia.proxima_data) || recorrencia.proxima_data))}</span>
             </div>
           </div>
 

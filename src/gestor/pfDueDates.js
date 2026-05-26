@@ -19,12 +19,16 @@ export function daysBetween(from, to) {
 }
 
 export function isLancamentoPago(l) {
+  // Campo status explícito (ContasAPagar / PJ)
+  if (l.status === "pago") return true;
+  if (l.status === "pendente") return false;
+  // Campo booleano pago (modal PF)
   if (l.pago === true) return true;
   if (l.pago === false) return false;
+  // Conciliado = quitado
   if (l.consiliado) return true;
-  const due = parseLocalDate(l.vencimento || l.data);
-  if (!due) return true;
-  return due <= startOfDay(new Date());
+  // Sem info de status — não considera automaticamente como pago
+  return false;
 }
 
 export function getDueDate(l) {

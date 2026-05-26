@@ -259,7 +259,7 @@ export default function GestorApp() {
         {!isAdminPage && modalOpen === "categoria-pf" && <ModalCategoriaPF />}
         {!isAdminPage && modalOpen === "meta"         && <ModalMeta />}
 
-        {isPF && !isAdminPage && !viewOnly && <PfDueAlert />}
+        {!isAdminPage && !viewOnly && <PfDueAlert />}
       </div>
     </>
   );
