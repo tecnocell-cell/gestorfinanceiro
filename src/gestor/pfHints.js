@@ -32,4 +32,16 @@ export const PF_PAGE_HINTS = {
     title: "Perfil",
     text: "Mantenha seus dados pessoais atualizados. As informações aparecem nos relatórios e identificam seu perfil financeiro.",
   },
+  recorrencias: {
+    title: "Recorrências",
+    text: "Cadastre despesas e receitas que se repetem todo mês, como aluguel, assinaturas e salário. O sistema gera os lançamentos automaticamente na data certa, sem você precisar repetir manualmente.",
+  },
+  "contas-pagar": {
+    title: "Contas a Pagar / Receber",
+    text: "Acompanhe todas as despesas e receitas em aberto. Clique no vencimento para ajustar a data e use “✓ Pago” para quitar uma conta. Lançamentos vencidos aparecem automaticamente como atrasados.",
+  },
+  "open-finance": {
+    title: "Conexões Bancárias",
+    text: "Aqui você poderá conectar sua conta bancária para importar extratos automaticamente. A integração com Open Finance está em preparação — clique em “Avise-me” para ser notificado quando seu banco estiver disponível.",
+  },
 };

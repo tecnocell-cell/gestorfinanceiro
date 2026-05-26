@@ -109,7 +109,7 @@ function RoadmapItem({ item, isLast }) {
   );
 }
 
-function ImportCard({ tipo, onGoImportar }) {
+function ImportCard({ tipo }) {
   return (
     <div className="of-import-card">
       <div className="of-import-icon">{tipo.icon}</div>
@@ -145,6 +145,7 @@ export default function ConexoesBancariasPage() {
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="of-hero">
         <div className="of-hero-inner">
+
           <div className="of-hero-badge">⚡ Open Finance · Em preparação</div>
           <h2 className="of-hero-title">Conexões Bancárias</h2>
           <p className="of-hero-sub">
@@ -152,12 +153,14 @@ export default function ConexoesBancariasPage() {
             via Open Finance. Seus lançamentos serão importados automaticamente,
             com total segurança e sem armazenar senhas.
           </p>
+
           <div className="of-hero-chips">
             <span className="of-chip">🔐 Sem armazenar senhas</span>
             <span className="of-chip">🏦 Padrão Banco Central BR</span>
             <span className="of-chip">🔄 Sync automático</span>
             <span className="of-chip">✋ Você controla o acesso</span>
           </div>
+
         </div>
       </div>
 

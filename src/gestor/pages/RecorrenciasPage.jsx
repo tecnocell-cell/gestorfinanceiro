@@ -9,6 +9,7 @@ import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
 import { fmtBRL, fmtDate, generateId, toDateKey } from "../finance.js";
 import { PenLine, Trash2, Pause, Play, CircleCheck } from "../components/icons.jsx";
+import PfPageShell from "../components/pf/PfPageShell.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -529,6 +530,7 @@ export default function RecorrenciasPage() {
   };
 
   return (
+    <PfPageShell pageId="recorrencias">
     <div>
       {/* Toolbar */}
       <div className="toolbar">
@@ -735,5 +737,6 @@ export default function RecorrenciasPage() {
         />
       )}
     </div>
+    </PfPageShell>
   );
 }

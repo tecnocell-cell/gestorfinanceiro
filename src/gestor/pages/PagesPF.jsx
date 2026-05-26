@@ -703,7 +703,6 @@ export function PerfilPFPage() {
   };
 
   return (
-    <PfPageShell pageId="perfil">
     <div>
       <div className="card">
         <div className="card-title">Dados Pessoais</div>
@@ -728,7 +727,6 @@ export function PerfilPFPage() {
         </div>
       </div>
     </div>
-    </PfPageShell>
   );
 }
 

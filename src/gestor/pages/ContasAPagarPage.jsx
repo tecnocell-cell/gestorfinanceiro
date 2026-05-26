@@ -13,6 +13,7 @@
  */
 import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
+import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
 import { MESES }                from "../constants.js";
 
@@ -170,6 +171,7 @@ export default function ContasAPagarPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <PfPageShell pageId="contas-pagar">
     <div>
 
       {/* ── KPIs ─────────────────────────────────────────────────────────── */}
@@ -396,5 +398,6 @@ export default function ContasAPagarPage() {
         </div>
       )}
     </div>
+    </PfPageShell>
   );
 }
