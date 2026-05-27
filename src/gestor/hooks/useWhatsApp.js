@@ -34,9 +34,18 @@ export function useWhatsApp() {
       const data = await whatsappApi.status();
       const prev = statusRef.current;
 
+      if (data.error) {
+        setError(data.error);
+        setStatus("disconnected");
+        statusRef.current = "disconnected";
+        setQrcode(null);
+        setPhone(null);
+        return;
+      }
+
       if (prev === "connecting" && data.status === "disconnected") {
         setError(
-          "Conexão interrompida antes do QR. Aguarde alguns segundos ou clique em Conectar novamente."
+          "Conexão interrompida antes do QR. Clique em Conectar WhatsApp novamente."
         );
         setQrcode(null);
       }

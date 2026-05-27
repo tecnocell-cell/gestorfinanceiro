@@ -138,13 +138,28 @@ function DisconnectedState({ onConnect, loading, error }) {
 }
 
 // ── Estado: aguardando QR ─────────────────────────────────────────────────────
-function ConnectingState({ qrcode, onCancel, loading }) {
+function ConnectingState({ qrcode, onCancel, loading, error }) {
   return (
     <Card>
       <Title>Escaneie o QR Code</Title>
       <Subtitle>
         Abra o WhatsApp no celular → Menu (⋮) → Dispositivos vinculados → Vincular dispositivo
       </Subtitle>
+
+      {error && (
+        <div style={{
+          background: C.redLight,
+          border: `1px solid ${C.redBorder}`,
+          color: C.red,
+          borderRadius: 8,
+          padding: "10px 14px",
+          marginBottom: 16,
+          fontSize: 13,
+          textAlign: "left",
+        }}>
+          {error}
+        </div>
+      )}
 
       {qrcode ? (
         <div style={{
@@ -310,6 +325,7 @@ export default function WhatsAppPage() {
             qrcode={qrcode}
             onCancel={disconnect}
             loading={loading}
+            error={error}
           />
         )}
 

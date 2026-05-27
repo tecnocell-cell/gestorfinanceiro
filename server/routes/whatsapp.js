@@ -16,9 +16,16 @@ const router = Router();
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
 const evoFetchListCooldown = new Map();
 const evo404Warned = new Set();
+const lastWebhookConnState = new Map();
+const lastCloseIgnoreLog = new Map();
 const FETCH_INSTANCES_COOLDOWN_MS = 8_000;
+const QR_WAIT_TIMEOUT_MS = 120_000;
 
 const STALE_SESSION = Symbol("STALE_SESSION");
+
+const QR_TIMEOUT_MSG =
+  "A Evolution API não enviou o QR code (limite 2 min). " +
+  "Atualize para v2.3.7+ ou configure SERVER_URL e CONFIG_SESSION_PHONE_VERSION no Docker da Evolution.";
 
 function buildInstanceName(usuarioId) {
   return `cf-${usuarioId}`;
@@ -273,6 +280,33 @@ async function persistQrIfFound(instanceName, ...responses) {
 }
 
 /** Instância não existe mais na Evolution — reseta sessão local para parar poll com 404. */
+async function failQrWaitTimeout(instanceName, logLabel) {
+  await query(
+    `UPDATE whatsapp_sessions
+     SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
+     WHERE instance_name = $1`,
+    [instanceName]
+  );
+  console.error(`[whatsapp/${logLabel}] ${QR_TIMEOUT_MSG} (${instanceName})`);
+}
+
+/** Uma tentativa de /connect após 6s (não bloqueia resposta HTTP). */
+function scheduleDelayedQrFetch(instanceName) {
+  setTimeout(async () => {
+    try {
+      const resp = await connectInstance(instanceName);
+      const qr = await persistQrIfFound(instanceName, resp);
+      if (qr) {
+        console.log(`[whatsapp/connect] QR obtido via connect atrasado: ${instanceName}`);
+      }
+    } catch (err) {
+      if (err.status !== 404) {
+        console.warn("[whatsapp/connect] connect atrasado falhou:", err.message);
+      }
+    }
+  }, 6_000);
+}
+
 async function resetStaleSession(usuarioId, instanceName, logLabel) {
   await query(
     `UPDATE whatsapp_sessions
@@ -472,6 +506,7 @@ router.post("/connect", ...auth, async (req, res) => {
 
     if (!qrBase64) {
       console.log("[whatsapp/connect] QR aguardando webhook QRCODE_UPDATED:", instanceName);
+      scheduleDelayedQrFetch(instanceName);
     }
 
     res.status(201).json({
@@ -495,17 +530,41 @@ router.post("/connect", ...auth, async (req, res) => {
 
 // GET /api/whatsapp/status
 router.get("/status", ...auth, async (req, res) => {
+  const instanceName = buildInstanceName(req.user.id);
+
   try {
     const { rows } = await query(
-      "SELECT status, phone_number FROM whatsapp_sessions WHERE usuario_id = $1",
+      `SELECT status, phone_number, qrcode_base64, updated_at
+       FROM whatsapp_sessions WHERE usuario_id = $1`,
       [req.user.id]
     );
     if (!rows.length) {
       return res.json({ status: "disconnected", phone_number: null });
     }
+
+    const row = rows[0];
+    const ageMs = row.updated_at
+      ? Date.now() - new Date(row.updated_at).getTime()
+      : 0;
+
+    if (
+      row.status === "connecting" &&
+      !row.qrcode_base64 &&
+      ageMs >= QR_WAIT_TIMEOUT_MS
+    ) {
+      await failQrWaitTimeout(instanceName, "status");
+      return res.json({
+        status: "disconnected",
+        phone_number: null,
+        error: QR_TIMEOUT_MSG,
+      });
+    }
+
     res.json({
-      status: rows[0].status,
-      phone_number: rows[0].phone_number || null,
+      status: row.status,
+      phone_number: row.phone_number || null,
+      waiting_qr: row.status === "connecting" && !row.qrcode_base64,
+      waiting_seconds: row.status === "connecting" ? Math.round(ageMs / 1000) : 0,
     });
   } catch (err) {
     console.error("[whatsapp/status]:", err.message);
@@ -611,8 +670,6 @@ router.post("/webhook/:instanceName", async (req, res) => {
       return;
     }
 
-    console.log(`[whatsapp/webhook] auth ok via ${authVia}: ${instanceName}`);
-
     const { event, data } = normalizeWebhookEvent(req.body);
 
     if (!event) {
@@ -620,9 +677,8 @@ router.post("/webhook/:instanceName", async (req, res) => {
       return;
     }
 
-    console.log(`[whatsapp/webhook] evento: ${event} instancia: ${instanceName}`);
-
     if (event === "QRCODE_UPDATED") {
+      console.log(`[whatsapp/webhook] QRCODE_UPDATED via ${authVia}: ${instanceName}`);
       const qrBase64 = await persistQrIfFound(instanceName, data, req.body);
       if (!qrBase64) {
         console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido: ${instanceName}`);
@@ -636,13 +692,30 @@ router.post("/webhook/:instanceName", async (req, res) => {
 
     if (event === "CONNECTION_UPDATE") {
       const state = data && data.state;
+      const now = Date.now();
+      const prev = lastWebhookConnState.get(instanceName);
 
-      if (data && typeof data === "object") {
-        console.log(`[whatsapp/webhook] CONNECTION_UPDATE keys:`, Object.keys(data));
+      if (prev && prev.state === state && now - prev.at < 2_000) {
+        return;
+      }
+      lastWebhookConnState.set(instanceName, { state, at: now });
+
+      if (prev?.state !== state) {
+        console.log(`[whatsapp/webhook] CONNECTION_UPDATE state=${state}: ${instanceName}`);
+        if (data?.statusReason != null) {
+          console.log(`[whatsapp/webhook] statusReason:`, String(data.statusReason).slice(0, 200));
+        }
+        if (data?.instance && typeof data.instance === "object") {
+          console.log(`[whatsapp/webhook] instance keys:`, Object.keys(data.instance));
+        }
       }
 
-      // Evolution v2.1.1 pode enviar QR dentro de CONNECTION_UPDATE (sem QRCODE_UPDATED)
-      const qrInUpdate = await persistQrIfFound(instanceName, data, req.body);
+      const qrInUpdate = await persistQrIfFound(
+        instanceName,
+        data,
+        data?.instance,
+        req.body
+      );
       if (qrInUpdate) {
         console.log(`[whatsapp/webhook] QR via CONNECTION_UPDATE: ${instanceName}`);
       }
@@ -669,15 +742,21 @@ router.post("/webhook/:instanceName", async (req, res) => {
           ? Date.now() - new Date(row.updated_at).getTime()
           : 0;
 
-        // close transitório enquanto aguarda QR — não marcar disconnected (evita loop no frontend)
-        if (waitingQr && ageMs < 180_000) {
-          console.log(
-            `[whatsapp/webhook] close ignorado (aguardando QR, ${Math.round(ageMs / 1000)}s): ${instanceName}`
-          );
-          await query(
-            `UPDATE whatsapp_sessions SET status = 'connecting', updated_at = NOW() WHERE instance_name = $1`,
-            [instanceName]
-          );
+        if (waitingQr && ageMs >= QR_WAIT_TIMEOUT_MS) {
+          await failQrWaitTimeout(instanceName, "webhook");
+          return;
+        }
+
+        // close transitório — NÃO atualizar updated_at (senão o timeout nunca dispara)
+        if (waitingQr) {
+          const ageSec = Math.round(ageMs / 1000);
+          const lastLog = lastCloseIgnoreLog.get(instanceName) || 0;
+          if (now - lastLog >= 15_000) {
+            lastCloseIgnoreLog.set(instanceName, now);
+            console.log(
+              `[whatsapp/webhook] aguardando QR (${ageSec}s), close ignorado: ${instanceName}`
+            );
+          }
           return;
         }
 
