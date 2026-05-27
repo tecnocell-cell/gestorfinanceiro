@@ -298,7 +298,6 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
 // ─── Modal Gerar Lançamento ───────────────────────────────────────────────────
 
 function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoContas }) {
-  const [dataLanc, setDataLanc]   = useState(hoje());
   const [valorLanc, setValorLanc] = useState(String(recorrencia.valor));
   const [contaId, setContaId]     = useState(recorrencia.conta_id || "");
   const [planoId, setPlanoId]     = useState(recorrencia.plano_id || "");
@@ -306,17 +305,19 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
 
+  // A data do lançamento = vencimento = proxima_data da recorrência (antes de avançar)
+  const dataVenc = toDateKey(recorrencia.proxima_data) || hoje();
+
   const handleConfirm = async () => {
     const valor = parseFloat(valorLanc);
     if (isNaN(valor) || valor <= 0) return setError("Valor inválido.");
-    if (!dataLanc) return setError("Informe a data.");
 
     setLoading(true);
     setError(null);
     try {
       await onConfirm({
         tipo:     recorrencia.tipo,
-        data:     dataLanc,
+        data:     dataVenc,
         valor,
         contaId,
         planoId,
@@ -353,40 +354,22 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
             marginBottom: 16,
             fontSize: 13,
           }}>
-            <div style={{ fontWeight: 700, marginBottom: 2 }}>{recorrencia.descricao}</div>
-            <div style={{ color: "var(--muted-foreground)", display: "flex", gap: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{recorrencia.descricao}</div>
+            <div style={{ color: "var(--muted-foreground)", display: "flex", gap: 12, flexWrap: "wrap" }}>
               <span className={`badge ${recorrencia.tipo === "Receita" ? "badge-green" : "badge-red"}`}>
                 {recorrencia.tipo}
               </span>
               <span>{PERIODO_LABEL[recorrencia.periodicidade]}</span>
-              <span>Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, toDateKey(recorrencia.proxima_data) || recorrencia.proxima_data))}</span>
+              <span style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                Vencimento: {fmtDate(dataVenc)}
+              </span>
+              <span style={{ color: "var(--muted-foreground)" }}>
+                Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, dataVenc))}
+              </span>
             </div>
           </div>
 
           <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">Data do pagamento *</label>
-              <input
-                className="form-input"
-                type="date"
-                value={dataLanc}
-                onChange={(e) => setDataLanc(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Vencimento</label>
-              <input
-                className="form-input"
-                type="text"
-                value={fmtDate(toDateKey(recorrencia.proxima_data) || recorrencia.proxima_data)}
-                readOnly
-                style={{ background: "var(--surface-2)", color: "var(--muted-foreground)", cursor: "default" }}
-                title="Data de vencimento desta competência"
-              />
-            </div>
-
             <div className="form-group">
               <label className="form-label">Valor (R$) *</label>
               <input
