@@ -16,6 +16,7 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
+import { whatsappRouter } from "./routes/whatsapp.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -388,6 +389,9 @@ app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, 
 
 // ─── Recorrências (despesas e receitas fixas) ─────────────────────────────────
 app.use("/api/recorrencias", recorrenciasRouter);
+
+// ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
+app.use("/api/whatsapp", whatsappRouter);
 
 // Admin: lê recorrências de um tenant (somente leitura, modo impersonation)
 app.get("/api/admin/users/:id/recorrencias", authMiddleware, adminMiddleware, async (req, res) => {

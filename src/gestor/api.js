@@ -104,6 +104,14 @@ export const recorrenciasApi = {
   gerar:  (id)       => request(`/recorrencias/${id}/gerar`, { method: "POST" }),
 };
 
+// ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
+export const whatsappApi = {
+  connect:    ()  => request("/whatsapp/connect",    { method: "POST" }),
+  status:     ()  => request("/whatsapp/status"),
+  qrcode:     ()  => request("/whatsapp/qrcode"),
+  disconnect: ()  => request("/whatsapp/disconnect", { method: "POST" }),
+};
+
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 export const tokenStorage = {
   get:     () => localStorage.getItem("gestor_token"),

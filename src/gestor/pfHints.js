@@ -42,6 +42,10 @@ export const PF_PAGE_HINTS = {
   },
   "open-finance": {
     title: "Conexões Bancárias",
-    text: "Aqui você poderá conectar sua conta bancária para importar extratos automaticamente. A integração com Open Finance está em preparação — clique em “Avise-me” para ser notificado quando seu banco estiver disponível.",
+    text: "Aqui você poderá conectar sua conta bancária para importar extratos automaticamente. A integração com Open Finance está em preparação — clique em \"Avise-me\" para ser notificado quando seu banco estiver disponível.",
+  },
+  whatsapp: {
+    title: "WhatsApp Financeiro",
+    text: "Conecte seu WhatsApp para registrar lançamentos por mensagem. Envie algo como \"Paguei R$150 de mercado\" e confirme com \"sim\" — o lançamento é salvo automaticamente.",
   },
 };

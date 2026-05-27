@@ -30,6 +30,7 @@ export const NAV_ITEMS_FISICA = [
   { id: "metas",        icon: "◈", label: "Metas"          },
   { id: "contas",       icon: "▦", label: "Contas"         },
   { id: "relatorios",   icon: "▥", label: "Relatórios"        },
+  { id: "whatsapp",     icon: "◫", label: "WhatsApp"          },
   { id: "open-finance", icon: "⇌", label: "Conexões"          },
   { id: "perfil",       icon: "⚙", label: "Perfil"            },
 ];
@@ -50,6 +51,7 @@ export const NAV_ITEMS = [
   { id: "balancete",    icon: "☰", label: "Balancete"      },
   { id: "fechamento",   icon: "⊛", label: "Fechamento"     },
   { id: "relatorios",   icon: "▥", label: "Relatórios"        },
+  { id: "whatsapp",     icon: "◫", label: "WhatsApp"          },
   { id: "open-finance", icon: "⇌", label: "Conexões"          },
   { id: "empresa",      icon: "⚙", label: "Empresa"           },
 ];
