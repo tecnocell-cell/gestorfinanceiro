@@ -21,42 +21,112 @@ function buildWebhookUrl(instanceName, webhookSecret) {
   return `${base}/api/whatsapp/webhook/${instanceName}?secret=${webhookSecret}`;
 }
 
+/** Log seguro: só chaves do objeto qrcode, nunca valores. */
+function logQrcodeKeys(label, data) {
+  const qr = data?.qrcode;
+  if (qr && typeof qr === "object" && !Array.isArray(qr)) {
+    console.log(`[whatsapp/${label}] qrcode keys:`, Object.keys(qr));
+  }
+}
+
+/** Classifica uma string candidata a QR. */
+function classifyQrString(val) {
+  if (!val || typeof val !== "string") return null;
+  const s = val.trim();
+  if (s.length < 10) return null;
+
+  if (s.startsWith("data:image/")) {
+    return { type: "png_b64", value: s };
+  }
+
+  if (s.startsWith("http://") || s.startsWith("https://")) {
+    return { type: "png_b64", value: s };
+  }
+
+  if (s.length >= 100 && /^[A-Za-z0-9+/]+=*$/.test(s)) {
+    return { type: "png_b64", value: `data:image/png;base64,${s}` };
+  }
+
+  if (s.startsWith("1@") || s.startsWith("2@") || s.includes(",")) {
+    return { type: "raw_string", value: s };
+  }
+
+  // pairingCode / code curto demais para PNG — tenta gerar QR da string
+  if (s.length >= 8) {
+    return { type: "raw_string", value: s };
+  }
+
+  return null;
+}
+
+/** Coleta strings candidatas de todos os formatos conhecidos da Evolution. */
+function collectQrCandidates(data) {
+  if (!data || typeof data !== "object") return [];
+
+  const candidates = [];
+  const seen = new Set();
+
+  const push = (val) => {
+    if (val == null) return;
+    if (typeof val === "string") {
+      if (!seen.has(val)) {
+        seen.add(val);
+        candidates.push(val);
+      }
+      return;
+    }
+    if (typeof val === "object" && !Array.isArray(val)) {
+      push(val.base64);
+      push(val.image);
+      push(val.data);
+      push(val.code);
+      push(val.qr);
+      push(val.url);
+      push(val.pairingCode);
+      push(val.qrcode);
+    }
+  };
+
+  const qr = data.qrcode;
+  if (typeof qr === "string") {
+    push(qr);
+  } else if (qr && typeof qr === "object") {
+    push(qr.code);
+    push(qr.qr);
+    push(qr.base64);
+    push(qr.image);
+    push(qr.url);
+    push(qr.pairingCode);
+    push(qr.data);
+    push(qr.qrcode);
+  }
+
+  push(data.base64);
+  push(data.code);
+  push(data.qr);
+  push(data.pairingCode);
+  push(data?.hash?.qrcode);
+  push(data?.data?.qrcode);
+  push(data?.data?.qrcode?.base64);
+  push(data?.data?.qrcode?.code);
+  push(data?.data?.qrcode?.qr);
+  push(data?.data?.base64);
+  push(data?.data?.code);
+  push(data?.instance?.qrcode);
+
+  return candidates;
+}
+
 /**
  * Extrai QR code de uma resposta da Evolution API.
  * Retorna { type: 'png_b64'|'raw_string', value } | null
  */
 function extractQrFromResponse(data) {
-  if (!data || typeof data !== "object") return null;
-
-  const candidates = [
-    data?.qrcode?.base64,
-    data?.base64,
-    data?.hash?.qrcode,
-    data?.data?.qrcode?.base64,
-    data?.data?.base64,
-    data?.qrcode,
-    data?.code,
-    data?.pairingCode,
-    data?.data?.qrcode,
-    data?.data?.code,
-  ];
-
+  const candidates = collectQrCandidates(data);
   for (const val of candidates) {
-    if (!val || typeof val !== "string" || val.length < 10) continue;
-
-    if (val.startsWith("data:image/")) {
-      return { type: "png_b64", value: val };
-    }
-
-    if (val.length >= 100 && /^[A-Za-z0-9+/]+=*$/.test(val)) {
-      return { type: "png_b64", value: `data:image/png;base64,${val}` };
-    }
-
-    if (val.startsWith("1@") || val.startsWith("2@") || val.includes(",")) {
-      return { type: "raw_string", value: val };
-    }
+    const classified = classifyQrString(val);
+    if (classified) return classified;
   }
-
   return null;
 }
 
@@ -175,6 +245,8 @@ router.post("/connect", ...auth, async (req, res) => {
     let createResp;
     try {
       createResp = await createInstance({ instanceName, webhookUrl });
+      console.log("[whatsapp/connect] createInstance keys:", Object.keys(createResp || {}));
+      logQrcodeKeys("connect", createResp);
     } catch (err) {
       console.error("[whatsapp/connect] createInstance falhou:", err.message);
       await failConnectingSession(usuarioId, instanceName);
@@ -184,6 +256,8 @@ router.post("/connect", ...auth, async (req, res) => {
     let connectResp = null;
     try {
       connectResp = await connectInstance(instanceName);
+      console.log("[whatsapp/connect] connectInstance keys:", Object.keys(connectResp || {}));
+      logQrcodeKeys("connect", connectResp);
     } catch (err) {
       console.warn("[whatsapp/connect] connectInstance falhou (nao fatal):", err.message);
     }
@@ -192,7 +266,7 @@ router.post("/connect", ...auth, async (req, res) => {
     const qrBase64 = await persistQrIfFound(instanceName, createResp, connectResp);
 
     if (!qrBase64) {
-      console.log("[whatsapp/connect] QR aguardando webhook QRCODE_UPDATED:", instanceName);
+      console.log("[whatsapp/connect] QR nao disponivel na resposta — aguardando webhook:", instanceName);
     }
 
     res.status(201).json({
