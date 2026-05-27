@@ -15,7 +15,10 @@ const router = Router();
 
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
 const evoFetchListCooldown = new Map();
+const evo404Warned = new Set();
 const FETCH_INSTANCES_COOLDOWN_MS = 8_000;
+
+const STALE_SESSION = Symbol("STALE_SESSION");
 
 function buildInstanceName(usuarioId) {
   return `cf-${usuarioId}`;
@@ -269,11 +272,37 @@ async function persistQrIfFound(instanceName, ...responses) {
   return qrBase64;
 }
 
+/** Instância não existe mais na Evolution — reseta sessão local para parar poll com 404. */
+async function resetStaleSession(usuarioId, instanceName, logLabel) {
+  await query(
+    `UPDATE whatsapp_sessions
+     SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
+     WHERE usuario_id = $1`,
+    [usuarioId]
+  );
+  const warnKey = `${instanceName}:404`;
+  if (!evo404Warned.has(warnKey)) {
+    evo404Warned.add(warnKey);
+    console.warn(
+      `[whatsapp/${logLabel}] instancia ausente na Evolution (404) — sessao local resetada. Reconecte pelo app.`
+    );
+  }
+}
+
 /** Tenta obter QR via fetchInstances (Evolution v2.1.1 às vezes só expõe QR aqui). */
-async function fetchQrViaInstanceList(instanceName, logLabel) {
+async function fetchQrViaInstanceList(instanceName, logLabel, usuarioId = null) {
   try {
     const resp = await fetchInstanceByName(instanceName);
     const list = Array.isArray(resp) ? resp : resp ? [resp] : [];
+
+    if (!list.length) {
+      if (usuarioId) {
+        await resetStaleSession(usuarioId, instanceName, logLabel);
+        return STALE_SESSION;
+      }
+      return null;
+    }
+
     console.log(`[whatsapp/${logLabel}] fetchInstances count:`, list.length);
 
     for (const item of list) {
@@ -286,6 +315,18 @@ async function fetchQrViaInstanceList(instanceName, logLabel) {
       if (qr) return qr;
     }
   } catch (err) {
+    if (err.status === 404 && usuarioId) {
+      await resetStaleSession(usuarioId, instanceName, logLabel);
+      return STALE_SESSION;
+    }
+    if (err.status === 404) {
+      const warnKey = `${instanceName}:404`;
+      if (!evo404Warned.has(warnKey)) {
+        evo404Warned.add(warnKey);
+        console.warn(`[whatsapp/${logLabel}] instancia ausente na Evolution (404)`);
+      }
+      return STALE_SESSION;
+    }
     console.warn(`[whatsapp/${logLabel}] fetchInstances falhou:`, err.message);
   }
   return null;
@@ -295,14 +336,14 @@ async function fetchQrViaInstanceList(instanceName, logLabel) {
  * Consulta fetchInstances com cooldown (sem chamar /instance/connect).
  * Repetir /connect a cada poll derruba a sessão e gera loop CONNECTION_UPDATE close.
  */
-async function fetchQrPassive(instanceName, logLabel, { force = false } = {}) {
+async function fetchQrPassive(instanceName, logLabel, { force = false, usuarioId = null } = {}) {
   const now = Date.now();
   const last = evoFetchListCooldown.get(instanceName) || 0;
   if (!force && now - last < FETCH_INSTANCES_COOLDOWN_MS) {
     return null;
   }
   evoFetchListCooldown.set(instanceName, now);
-  return fetchQrViaInstanceList(instanceName, logLabel);
+  return fetchQrViaInstanceList(instanceName, logLabel, usuarioId);
 }
 
 /** Salva sessão em connecting ANTES de chamar a Evolution (webhook precisa encontrar o registro). */
@@ -422,7 +463,11 @@ router.post("/connect", ...auth, async (req, res) => {
 
     // 4. Uma consulta passiva (sem repetir /connect)
     if (!qrBase64) {
-      qrBase64 = await fetchQrPassive(instanceName, "connect", { force: true });
+      qrBase64 = await fetchQrPassive(instanceName, "connect", {
+        force: true,
+        usuarioId,
+      });
+      if (qrBase64 === STALE_SESSION) qrBase64 = null;
     }
 
     if (!qrBase64) {
@@ -491,7 +536,14 @@ router.get("/qrcode", ...auth, async (req, res) => {
 
     // Sem QR: só lê fetchInstances (cooldown) — nunca chama /instance/connect no poll
     if (sess.status === "connecting" && !qr) {
-      qr = await fetchQrPassive(instanceName, "qrcode");
+      const passive = await fetchQrPassive(instanceName, "qrcode", { usuarioId });
+      if (passive === STALE_SESSION) {
+        return res.status(410).json({
+          error: "Sessao expirada na Evolution. Clique em Conectar WhatsApp novamente.",
+          status: "disconnected",
+        });
+      }
+      if (passive) qr = passive;
     }
 
     if (!qr) {

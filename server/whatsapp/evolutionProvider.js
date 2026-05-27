@@ -130,15 +130,37 @@ export async function fetchDirectConnectQr(instanceName) {
   return evoFetch("GET", `/instance/connect/${instanceName}`);
 }
 
+function matchesInstanceName(item, instanceName) {
+  const n =
+    item?.instance?.instanceName ||
+    item?.instanceName ||
+    item?.name ||
+    item?.instance?.name;
+  return n === instanceName;
+}
+
 /**
  * Busca dados da instância (pode incluir QR no Manager / v2.1.1).
+ * Algumas builds retornam 404 com ?instanceName= — faz fallback listando todas.
+ *
  * @param {string} instanceName
  */
 export async function fetchInstanceByName(instanceName) {
-  return evoFetch(
-    "GET",
-    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`
-  );
+  try {
+    const filtered = await evoFetch(
+      "GET",
+      `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`
+    );
+    if (Array.isArray(filtered)) return filtered;
+    if (filtered && typeof filtered === "object") return [filtered];
+    return [];
+  } catch (err) {
+    if (err.status !== 404) throw err;
+  }
+
+  const all = await evoFetch("GET", "/instance/fetchInstances");
+  const list = Array.isArray(all) ? all : all ? [all] : [];
+  return list.filter((item) => matchesInstanceName(item, instanceName));
 }
 
 /**

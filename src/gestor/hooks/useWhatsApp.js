@@ -60,8 +60,15 @@ export function useWhatsApp() {
     try {
       const data = await whatsappApi.qrcode();
       if (data.qrcode) setQrcode(data.qrcode);
-    } catch {
-      // 202 (ainda não disponível) ou 409 (já conectou) — fetchStatus resolverá
+    } catch (err) {
+      const msg = err?.message || "";
+      if (msg.includes("expirada") || msg.includes("410")) {
+        setError(msg);
+        setStatus("disconnected");
+        statusRef.current = "disconnected";
+        setQrcode(null);
+      }
+      // 202 — ainda aguardando webhook
     }
   }, [status]);
 
