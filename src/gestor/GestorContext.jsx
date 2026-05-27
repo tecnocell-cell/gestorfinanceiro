@@ -38,7 +38,11 @@ export function GestorProvider({ children }) {
 
   const [state, setState] = useState(() => defaultState());
   const [appLoading, setAppLoading] = useState(!!token);
+  const [appLoadError, setAppLoadError] = useState(false);
   const isFirstLoad = useRef(true);
+  // Só permite salvar após pelo menos um carregamento bem-sucedido da API.
+  // Impede que erros de rede na carga inicial sobrescrevam o banco com estado vazio.
+  const loadOk = useRef(false);
   const saveTimer = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -63,7 +67,9 @@ export function GestorProvider({ children }) {
   const viewOnly = !!impersonatingUser;
 
   const persistState = useCallback(async (snapshot) => {
-    if (!token || viewOnly) return;
+    // Só salva se o estado foi carregado com sucesso pelo menos uma vez.
+    // Isso evita que falhas de rede na inicialização sobrescrevam dados no banco.
+    if (!token || viewOnly || !loadOk.current) return;
     await stateApi.save(snapshot);
   }, [token, viewOnly]);
 
@@ -88,6 +94,7 @@ export function GestorProvider({ children }) {
     if (!token) {
       setAppLoading(false);
       isFirstLoad.current = true;
+      loadOk.current = false;
       return;
     }
     if (impersonatingUser) return;
@@ -96,6 +103,7 @@ export function GestorProvider({ children }) {
     const profile = buildProfile(user);
     isFirstLoad.current = true;
     setAppLoading(true);
+    setAppLoadError(false);
 
     stateApi
       .fetch()
@@ -108,12 +116,19 @@ export function GestorProvider({ children }) {
           : createInitialStateForUser(p.tipo_perfil, p.nome_perfil || p.nome);
         setState(next);
         stateRef.current = next;
+        // Marca carga bem-sucedida — libera saves futuros
+        loadOk.current = true;
+        setAppLoadError(false);
       })
       .catch((err) => {
         console.warn("Falha ao carregar estado da API:", err.message);
-        const next = createInitialStateForUser(profile.tipo_perfil, profile.nome_perfil || profile.nome);
-        setState(next);
-        stateRef.current = next;
+        // IMPORTANTE: não chamar setState aqui.
+        // Se chamássemos createInitialStateForUser() e depois isFirstLoad ficasse false,
+        // o save effect dispararia e sobrescreveria o banco com estado vazio.
+        // loadOk permanece false → persistState não executa → dados no banco ficam seguros.
+        if (!loadOk.current) {
+          setAppLoadError(true);
+        }
       })
       .finally(() => {
         setAppLoading(false);
@@ -358,7 +373,7 @@ export function GestorProvider({ children }) {
   const getConsultaDREByRangeFn = useCallback((from, to) => getConsultaDREByRange(lancamentos, planoContas, contas, from, to), [lancamentos, planoContas, contas]);
 
   const value = {
-    state, setState, appLoading,
+    state, setState, appLoading, appLoadError,
     empresa, tipo, profileTipo, pessoa,
     company, contas, planoContas, lancamentos, clientes, fornecedores,
     metas, orcamentos,

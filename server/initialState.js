@@ -164,15 +164,15 @@ export function normalizeStateForUser(dados, user) {
 
   const empresas = dados.empresas.map((emp) => {
     if (emp.id !== activeId) return emp;
-    const pj = createEmpresaPJ(emp.nome || nome);
-    const rebuilt = pj.empresas[0];
     return {
-      ...rebuilt,
-      id: emp.id,
+      ...emp,
       tipo: "juridica",
-      lancamentos: emp.lancamentos || [],
+      nome: emp.nome || nome,
+      // Preserva company do usuário; só usa default se estiver ausente
+      company: emp.company || defaultCompany(emp.nome || nome),
       contas: emp.contas?.length ? emp.contas : defaultContasPJ(),
       planoContas: emp.planoContas?.length ? emp.planoContas : defaultPlanoPJ(),
+      lancamentos: emp.lancamentos || [],
       clientes: emp.clientes || [],
       fornecedores: emp.fornecedores || [],
       fechamentos: emp.fechamentos || [],

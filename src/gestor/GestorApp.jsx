@@ -59,7 +59,7 @@ export default function GestorApp() {
   const [page, setPage] = useState(() => (user?.role === "admin" ? "super-admin" : "dashboard"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {
-    empresa, tipo, pessoa, company, modalOpen, apiOnline,
+    empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
     viewOnly, impersonatingUser, enterAsTenant, exitAsTenant,
   } = useGestor();
 
@@ -235,6 +235,31 @@ export default function GestorApp() {
               )}
             </div>
           </div>
+
+          {appLoadError && (
+            <div style={{
+              background: "#fef3c7", borderBottom: "1px solid #f59e0b",
+              color: "#92400e", padding: "10px 20px",
+              fontSize: 13, display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span>⚠</span>
+              <span>
+                Não foi possível carregar seus dados do servidor. Seus dados estão seguros —
+                <strong> recarregue a página</strong> para tentar novamente.
+              </span>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                style={{
+                  marginLeft: "auto", background: "#f59e0b", color: "#fff",
+                  border: "none", borderRadius: 6, padding: "4px 12px",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Recarregar
+              </button>
+            </div>
+          )}
 
           {viewOnly && (
             <div className="view-only-banner">
