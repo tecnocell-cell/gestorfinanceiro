@@ -365,13 +365,25 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
 
           <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div className="form-group">
-              <label className="form-label">Data do lançamento *</label>
+              <label className="form-label">Data do pagamento *</label>
               <input
                 className="form-input"
                 type="date"
                 value={dataLanc}
                 onChange={(e) => setDataLanc(e.target.value)}
                 required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Vencimento</label>
+              <input
+                className="form-input"
+                type="text"
+                value={fmtDate(toDateKey(recorrencia.proxima_data) || recorrencia.proxima_data)}
+                readOnly
+                style={{ background: "var(--surface-2)", color: "var(--muted-foreground)", cursor: "default" }}
+                title="Data de vencimento desta competência"
               />
             </div>
 
@@ -494,6 +506,8 @@ export default function RecorrenciasPage() {
       codigo:         nextCodigo,
       lote:           `REC-${recorrenciaId.slice(0, 6)}`,
       data,
+      // vencimento = proxima_data da recorrência ANTES de avançar o ciclo
+      vencimento:     toDateKey(gerarTarget.proxima_data) || data,
       tipo:           tipoLanc,
       historico,
       valor:          parseFloat(valor),

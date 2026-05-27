@@ -85,7 +85,7 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
 
 export default function DashboardPFV2Page() {
   const {
-    dreAtual, mensal, contas, planoContas, lancamentos,
+    contas, planoContas, lancamentos,
     getSaldoConta, getSaldoTotal,
     filterPeriodo,
   } = useGestor();
@@ -95,7 +95,22 @@ export default function DashboardPFV2Page() {
   // ── Cálculos ───────────────────────────────────────────────────────────────
 
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
-  const saldoMes   = dreAtual.receitas - dreAtual.despesas;
+
+  // Para PF, calcula receitas/despesas diretamente por tipo (independe de categoria).
+  // dreAtual usa movPlano que exige planoId — lançamentos sem categoria ficariam invisíveis.
+  const pfTotais = useMemo(() => {
+    let receitas = 0, despesas = 0;
+    for (const l of lancamentos) {
+      if (!l.data) continue;
+      if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
+      if (filterPeriodo.mes && l.data.slice(5, 7) !== filterPeriodo.mes) continue;
+      if (l.tipo === "Entrada") receitas += Number(l.valor) || 0;
+      else if (l.tipo === "Saida") despesas += Number(l.valor) || 0;
+    }
+    return { receitas, despesas };
+  }, [lancamentos, filterPeriodo]);
+
+  const saldoMes = pfTotais.receitas - pfTotais.despesas;
 
   // Normaliza proxima_data do Postgres (Date object ou ISO timestamp) para YYYY-MM-DD
   const toKey = (v) => {
@@ -130,21 +145,31 @@ export default function DashboardPFV2Page() {
       );
   }, [recAtivas]);
 
-  // Dados para o gráfico bar (usa a mesma forma do DashboardPFPage original)
-  const mensalData = useMemo(
-    () => mensal.map((m) => ({ name: m.name, Receitas: m.Receita, Despesas: m.Despesas })),
-    [mensal]
-  );
+  // Para PF, agrega por tipo (Entrada/Saida) diretamente — ignora planoId.
+  // getMensal usa getDRE que exige planoId → lançamentos sem categoria ficariam zerados.
+  const pfMensal = useMemo(() => {
+    const totais = Array.from({ length: 12 }, () => ({ rec: 0, desp: 0 }));
+    for (const l of lancamentos) {
+      if (!l.data) continue;
+      if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
+      const mesIdx = parseInt(l.data.slice(5, 7), 10) - 1;
+      if (mesIdx < 0 || mesIdx > 11) continue;
+      if (l.tipo === "Entrada") totais[mesIdx].rec  += Number(l.valor) || 0;
+      else if (l.tipo === "Saida") totais[mesIdx].desp += Number(l.valor) || 0;
+    }
+    return MESES.map((name, i) => ({ name, Receitas: totais[i].rec, Despesas: totais[i].desp }));
+  }, [lancamentos, filterPeriodo.ano]);
 
-  const sparkReceitas = useMemo(() => mensal.map((m) => m.Receita || 0), [mensal]);
-  const sparkDespesas = useMemo(() => mensal.map((m) => m.Despesas || 0), [mensal]);
-  const sparkSaldo = useMemo(
-    () => mensal.map((m) => (m.Receita || 0) - (m.Despesas || 0)),
-    [mensal]
+  const mensalData    = pfMensal;
+  const sparkReceitas = useMemo(() => pfMensal.map((m) => m.Receitas), [pfMensal]);
+  const sparkDespesas = useMemo(() => pfMensal.map((m) => m.Despesas), [pfMensal]);
+  const sparkSaldo    = useMemo(
+    () => pfMensal.map((m) => m.Receitas - m.Despesas),
+    [pfMensal]
   );
 
   const insight = useMemo(() => {
-    if (dreAtual.receitas === 0 && dreAtual.despesas === 0) {
+    if (pfTotais.receitas === 0 && pfTotais.despesas === 0) {
       return "Nenhum lançamento no período. Registre entradas e saídas para ver tendências e insights.";
     }
     if (saldoMes < 0) {
@@ -153,8 +178,8 @@ export default function DashboardPFV2Page() {
     if (recProximas.length > 0) {
       return `${recProximas.length} recorrência(s) vencem esta semana. Confira A Pagar/Receber para não perder prazos.`;
     }
-    return `Período saudável com saldo de ${fmtBRL(saldoMes)}. Receitas ${fmtBRL(dreAtual.receitas)} e despesas ${fmtBRL(dreAtual.despesas)}.`;
-  }, [dreAtual, saldoMes, recProximas.length]);
+    return `Período saudável com saldo de ${fmtBRL(saldoMes)}. Receitas ${fmtBRL(pfTotais.receitas)} e despesas ${fmtBRL(pfTotais.despesas)}.`;
+  }, [pfTotais, saldoMes, recProximas.length]);
 
   // Despesas por categoria (top 6 no período) — inclui cor e ícone da categoria
   const categoriasData = useMemo(() => {
@@ -183,7 +208,7 @@ export default function DashboardPFV2Page() {
     {
       icon: TrendingUp,
       label: "Receitas",
-      value: fmtBRL(dreAtual.receitas),
+      value: fmtBRL(pfTotais.receitas),
       sub: "Entradas no período",
       valueClass: "success",
       sparkline: sparkReceitas,
@@ -192,9 +217,9 @@ export default function DashboardPFV2Page() {
     {
       icon: TrendingDown,
       label: "Despesas",
-      value: fmtBRL(dreAtual.despesas),
+      value: fmtBRL(pfTotais.despesas),
       sub: "Gastos no período",
-      valueClass: dreAtual.despesas > dreAtual.receitas ? "danger" : "",
+      valueClass: pfTotais.despesas > pfTotais.receitas ? "danger" : "",
       sparkline: sparkDespesas,
       tone: "danger",
     },
