@@ -7,6 +7,7 @@ import {
   createInstance,
   connectInstance,
   fetchDirectConnectQr,
+  fetchInstanceByName,
   logoutInstance,
   deleteInstance,
 } from "../whatsapp/evolutionProvider.js";
@@ -22,12 +23,34 @@ function buildWebhookUrl(instanceName, webhookSecret) {
   return `${base}/api/whatsapp/webhook/${instanceName}?secret=${webhookSecret}`;
 }
 
-/** Log seguro: só chaves do objeto qrcode, nunca valores. */
+/** Log seguro: só chaves, nunca valores. */
 function logQrcodeKeys(label, data) {
   const qr = data?.qrcode;
   if (qr && typeof qr === "object" && !Array.isArray(qr)) {
     console.log(`[whatsapp/${label}] qrcode keys:`, Object.keys(qr));
   }
+}
+
+function logHashShape(label, data) {
+  const h = data?.hash;
+  if (typeof h === "string") {
+    console.log(`[whatsapp/${label}] hash: string (${h.length} chars)`);
+  } else if (h && typeof h === "object") {
+    console.log(`[whatsapp/${label}] hash keys:`, Object.keys(h));
+  }
+}
+
+/** Normaliza nome do evento (qrcode.updated → QRCODE_UPDATED). */
+function normalizeWebhookEvent(body) {
+  const raw = (body?.event || body?.type || body?.action || "").toString();
+  let event = raw.toUpperCase().replace(/\./g, "_");
+  const data = body?.data ?? body;
+
+  if (!event && data && (data.qrcode || data.base64 || data.code)) {
+    event = "QRCODE_UPDATED";
+  }
+
+  return { event, data };
 }
 
 /** Classifica uma string candidata a QR. */
@@ -70,6 +93,10 @@ function isQrContainer(obj) {
 
 /** Coleta strings candidatas de todos os formatos conhecidos da Evolution. */
 function collectQrCandidates(data) {
+  if (typeof data === "string") {
+    const c = classifyQrString(data);
+    return c ? [data] : [];
+  }
   if (!data || typeof data !== "object") return [];
 
   const candidates = [];
@@ -118,7 +145,12 @@ function collectQrCandidates(data) {
     pushQrObject(data.qrcode);
   }
 
-  pushQrObject(data.hash);
+  if (typeof data.hash === "string") {
+    push(data.hash);
+  } else {
+    pushQrObject(data.hash);
+  }
+
   pushQrObject(data.instance);
 
   // GET /instance/connect — campos no root e em data.*
@@ -202,14 +234,37 @@ async function persistQrIfFound(instanceName, ...responses) {
   return qrBase64;
 }
 
+/** Tenta obter QR via fetchInstances (Evolution v2.1.1 às vezes só expõe QR aqui). */
+async function fetchQrViaInstanceList(instanceName, logLabel) {
+  try {
+    const resp = await fetchInstanceByName(instanceName);
+    const list = Array.isArray(resp) ? resp : resp ? [resp] : [];
+    console.log(`[whatsapp/${logLabel}] fetchInstances count:`, list.length);
+
+    for (const item of list) {
+      if (item?.instance && typeof item.instance === "object") {
+        console.log(`[whatsapp/${logLabel}] instance keys:`, Object.keys(item.instance));
+      }
+      const qr = await persistQrIfFound(instanceName, item, item?.qrcode, item?.instance);
+      if (qr) return qr;
+    }
+  } catch (err) {
+    console.warn(`[whatsapp/${logLabel}] fetchInstances falhou:`, err.message);
+  }
+  return null;
+}
+
 /**
- * Fallback: GET /instance/connect/{instanceName} (Evolution v2.1.1).
- * Tenta até 2 vezes (QR pode demorar após createInstance).
+ * Fallback: GET /instance/connect + fetchInstances.
+ * Evolution v2.1.1 costuma retornar só { count } no connect — QR vem via webhook ou fetchInstances.
  */
 async function fetchQrViaDirectConnect(instanceName, logLabel) {
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  const attempts = 6;
+  const delayMs = 2000;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     if (attempt > 1) {
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, delayMs));
     }
 
     let resp;
@@ -217,16 +272,19 @@ async function fetchQrViaDirectConnect(instanceName, logLabel) {
       resp = await fetchDirectConnectQr(instanceName);
     } catch (err) {
       console.warn(`[whatsapp/${logLabel}] directConnect falhou:`, err.message);
-      continue;
     }
 
-    console.log(`[whatsapp/${logLabel}] directConnect keys:`, Object.keys(resp || {}));
-    if (resp?.data && typeof resp.data === "object") {
-      console.log(`[whatsapp/${logLabel}] directConnect data keys:`, Object.keys(resp.data));
+    if (resp) {
+      console.log(`[whatsapp/${logLabel}] directConnect keys:`, Object.keys(resp || {}));
+      if (resp?.data && typeof resp.data === "object") {
+        console.log(`[whatsapp/${logLabel}] directConnect data keys:`, Object.keys(resp.data));
+      }
+      const qr = await persistQrIfFound(instanceName, resp, resp?.data, resp?.response);
+      if (qr) return qr;
     }
 
-    const qr = await persistQrIfFound(instanceName, resp, resp?.data, resp?.response);
-    if (qr) return qr;
+    const qrFromList = await fetchQrViaInstanceList(instanceName, logLabel);
+    if (qrFromList) return qrFromList;
   }
   return null;
 }
@@ -284,18 +342,26 @@ router.post("/connect", ...auth, async (req, res) => {
       });
     }
 
-    // Limpa instância Evolution anterior (reconexão)
+    const webhookBase = (process.env.WEBHOOK_BASE_URL || "").trim();
+    if (!webhookBase) {
+      console.error("[whatsapp/connect] WEBHOOK_BASE_URL nao configurada — QR via webhook nao funcionara");
+      return res.status(503).json({
+        error: "Servidor WhatsApp nao configurado (WEBHOOK_BASE_URL ausente). Contate o suporte.",
+      });
+    }
+
+    // Limpa instância Evolution anterior (reconexão) — NÃO apaga sessão no banco (evita race com webhook)
     if (existing.length) {
       await logoutInstance(instanceName);
       await deleteInstance(instanceName);
-      await query("DELETE FROM whatsapp_sessions WHERE usuario_id = $1", [usuarioId]);
     }
 
     const webhookSecret = crypto.randomBytes(32).toString("hex");
     const webhookUrl = buildWebhookUrl(instanceName, webhookSecret);
 
-    // 1. Persiste sessão ANTES da Evolution — webhook QRCODE_UPDATED precisa encontrar o registro
+    // 1. Upsert sessão ANTES da Evolution — webhook QRCODE_UPDATED precisa encontrar o registro
     await saveConnectingSession(usuarioId, instanceName, webhookSecret, null);
+    console.log(`[whatsapp/connect] sessao salva: ${instanceName}`);
 
     // 2. Cria instância e solicita QR na Evolution
     let createResp;
@@ -303,6 +369,10 @@ router.post("/connect", ...auth, async (req, res) => {
       createResp = await createInstance({ instanceName, webhookUrl });
       console.log("[whatsapp/connect] createInstance keys:", Object.keys(createResp || {}));
       logQrcodeKeys("connect", createResp);
+      logHashShape("connect", createResp);
+      if (createResp?.instance && typeof createResp.instance === "object") {
+        console.log("[whatsapp/connect] instance keys:", Object.keys(createResp.instance));
+      }
     } catch (err) {
       console.error("[whatsapp/connect] createInstance falhou:", err.message);
       await failConnectingSession(usuarioId, instanceName);
@@ -467,15 +537,21 @@ router.post("/webhook/:instanceName", async (req, res) => {
       return;
     }
 
-    const event = req.body?.event;
-    const data  = req.body?.data;
+    const { event, data } = normalizeWebhookEvent(req.body);
 
-    if (!event) return;
+    if (!event) {
+      console.warn(`[whatsapp/webhook] Evento ausente: ${instanceName}`);
+      return;
+    }
+
+    console.log(`[whatsapp/webhook] evento: ${event} instancia: ${instanceName}`);
 
     if (event === "QRCODE_UPDATED") {
-      const qrBase64 = await persistQrIfFound(instanceName, data);
+      const qrBase64 = await persistQrIfFound(instanceName, data, req.body);
       if (!qrBase64) {
         console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido: ${instanceName}`);
+        logQrcodeKeys("webhook", data);
+        logHashShape("webhook", data);
         return;
       }
       console.log(`[whatsapp/webhook] QR atualizado: ${instanceName}`);

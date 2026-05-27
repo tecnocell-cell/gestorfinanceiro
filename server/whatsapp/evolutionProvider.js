@@ -95,7 +95,7 @@ export async function createInstance({ instanceName, webhookUrl }) {
     alwaysOnline: false,
     webhook: {
       url: webhookUrl,
-      byEvents: false,
+      byEvents: true,
       base64: true,
       events: ["QRCODE_UPDATED", "CONNECTION_UPDATE"],
     },
@@ -119,6 +119,17 @@ export async function connectInstance(instanceName) {
  */
 export async function fetchDirectConnectQr(instanceName) {
   return evoFetch("GET", `/instance/connect/${instanceName}`);
+}
+
+/**
+ * Busca dados da instância (pode incluir QR no Manager / v2.1.1).
+ * @param {string} instanceName
+ */
+export async function fetchInstanceByName(instanceName) {
+  return evoFetch(
+    "GET",
+    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`
+  );
 }
 
 /**
