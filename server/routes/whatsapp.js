@@ -6,6 +6,7 @@ import { authMiddleware, activeMiddleware } from "../middleware/auth.js";
 import {
   createInstance,
   connectInstance,
+  fetchDirectConnectQr,
   logoutInstance,
   deleteInstance,
 } from "../whatsapp/evolutionProvider.js";
@@ -59,6 +60,14 @@ function classifyQrString(val) {
   return null;
 }
 
+/** Ignora objetos placeholder da Evolution (ex.: { count: 0 }). */
+function isQrContainer(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  const keys = Object.keys(obj);
+  if (!keys.length) return false;
+  return !(keys.length === 1 && keys[0] === "count");
+}
+
 /** Coleta strings candidatas de todos os formatos conhecidos da Evolution. */
 function collectQrCandidates(data) {
   if (!data || typeof data !== "object") return [];
@@ -76,6 +85,7 @@ function collectQrCandidates(data) {
       return;
     }
     if (typeof val === "object" && !Array.isArray(val)) {
+      if (!isQrContainer(val) && Object.keys(val).length <= 2 && "count" in val) return;
       push(val.base64);
       push(val.image);
       push(val.data);
@@ -85,34 +95,51 @@ function collectQrCandidates(data) {
       push(val.pairingCode);
       push(val.qrcode);
     }
+    if (Array.isArray(val)) {
+      for (const item of val) push(item);
+    }
   };
 
-  const qr = data.qrcode;
-  if (typeof qr === "string") {
-    push(qr);
-  } else if (qr && typeof qr === "object") {
-    push(qr.code);
-    push(qr.qr);
-    push(qr.base64);
-    push(qr.image);
-    push(qr.url);
-    push(qr.pairingCode);
-    push(qr.data);
-    push(qr.qrcode);
+  const pushQrObject = (obj) => {
+    if (!isQrContainer(obj)) return;
+    push(obj.code);
+    push(obj.qr);
+    push(obj.base64);
+    push(obj.image);
+    push(obj.url);
+    push(obj.pairingCode);
+    push(obj.data);
+    push(obj.qrcode);
+  };
+
+  if (typeof data.qrcode === "string") {
+    push(data.qrcode);
+  } else {
+    pushQrObject(data.qrcode);
   }
 
+  pushQrObject(data.hash);
+  pushQrObject(data.instance);
+
+  // GET /instance/connect — campos no root e em data.*
   push(data.base64);
   push(data.code);
   push(data.qr);
   push(data.pairingCode);
-  push(data?.hash?.qrcode);
-  push(data?.data?.qrcode);
-  push(data?.data?.qrcode?.base64);
-  push(data?.data?.qrcode?.code);
-  push(data?.data?.qrcode?.qr);
+
+  pushQrObject(data.data);
   push(data?.data?.base64);
   push(data?.data?.code);
-  push(data?.instance?.qrcode);
+  if (typeof data?.data?.qrcode === "string") {
+    push(data.data.qrcode);
+  } else {
+    pushQrObject(data?.data?.qrcode);
+  }
+
+  pushQrObject(data.response);
+  push(data?.response?.code);
+  push(data?.response?.base64);
+  push(data?.response?.qrcode);
 
   return candidates;
 }
@@ -173,6 +200,35 @@ async function persistQrIfFound(instanceName, ...responses) {
     [qrBase64, instanceName]
   );
   return qrBase64;
+}
+
+/**
+ * Fallback: GET /instance/connect/{instanceName} (Evolution v2.1.1).
+ * Tenta até 2 vezes (QR pode demorar após createInstance).
+ */
+async function fetchQrViaDirectConnect(instanceName, logLabel) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    if (attempt > 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    let resp;
+    try {
+      resp = await fetchDirectConnectQr(instanceName);
+    } catch (err) {
+      console.warn(`[whatsapp/${logLabel}] directConnect falhou:`, err.message);
+      continue;
+    }
+
+    console.log(`[whatsapp/${logLabel}] directConnect keys:`, Object.keys(resp || {}));
+    if (resp?.data && typeof resp.data === "object") {
+      console.log(`[whatsapp/${logLabel}] directConnect data keys:`, Object.keys(resp.data));
+    }
+
+    const qr = await persistQrIfFound(instanceName, resp, resp?.data, resp?.response);
+    if (qr) return qr;
+  }
+  return null;
 }
 
 /** Salva sessão em connecting ANTES de chamar a Evolution (webhook precisa encontrar o registro). */
@@ -262,11 +318,21 @@ router.post("/connect", ...auth, async (req, res) => {
       console.warn("[whatsapp/connect] connectInstance falhou (nao fatal):", err.message);
     }
 
-    // 3. Atualiza QR se veio na resposta síncrona (webhook também pode preencher depois)
-    const qrBase64 = await persistQrIfFound(instanceName, createResp, connectResp);
+    // 3. Atualiza QR se veio na resposta síncrona
+    let qrBase64 = await persistQrIfFound(
+      instanceName,
+      createResp,
+      createResp?.hash,
+      connectResp
+    );
+
+    // 4. Fallback: endpoint direto GET /instance/connect
+    if (!qrBase64) {
+      qrBase64 = await fetchQrViaDirectConnect(instanceName, "connect");
+    }
 
     if (!qrBase64) {
-      console.log("[whatsapp/connect] QR nao disponivel na resposta — aguardando webhook:", instanceName);
+      console.log("[whatsapp/connect] QR nao disponivel — aguardando webhook:", instanceName);
     }
 
     res.status(201).json({
@@ -329,14 +395,9 @@ router.get("/qrcode", ...auth, async (req, res) => {
 
     let qr = sess.qrcode_base64;
 
-    // Sem QR no banco: tenta buscar novamente na Evolution
+    // Sem QR no banco: fallback GET /instance/connect
     if (sess.status === "connecting" && !qr) {
-      try {
-        const connectResp = await connectInstance(instanceName);
-        qr = await persistQrIfFound(instanceName, connectResp);
-      } catch (err) {
-        console.warn("[whatsapp/qrcode] connectInstance retry falhou:", err.message);
-      }
+      qr = await fetchQrViaDirectConnect(instanceName, "qrcode");
     }
 
     if (!qr) {

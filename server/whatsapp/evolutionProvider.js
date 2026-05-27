@@ -104,12 +104,20 @@ export async function createInstance({ instanceName, webhookUrl }) {
 
 /**
  * Solicita o QR code da instância (pode retornar string raw, não PNG).
- * O QR em PNG base64 real chega via webhook QRCODE_UPDATED.
- * Use esta função apenas para forçar um novo QR se necessário.
  *
  * @param {string} instanceName
  */
 export async function connectInstance(instanceName) {
+  return fetchDirectConnectQr(instanceName);
+}
+
+/**
+ * GET /instance/connect/{instanceName} — endpoint direto de QR (Evolution v2.1.1).
+ * Pode retornar code, base64, qrcode ou campos em data.*.
+ *
+ * @param {string} instanceName
+ */
+export async function fetchDirectConnectQr(instanceName) {
   return evoFetch("GET", `/instance/connect/${instanceName}`);
 }
 
