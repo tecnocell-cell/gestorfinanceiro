@@ -23,7 +23,6 @@ function buildWebhookUrl(instanceName, webhookSecret) {
 
 /**
  * Extrai QR code de uma resposta da Evolution API.
- * Tenta multiplos campos em ordem de preferencia.
  * Retorna { type: 'png_b64'|'raw_string', value } | null
  */
 function extractQrFromResponse(data) {
@@ -61,10 +60,6 @@ function extractQrFromResponse(data) {
   return null;
 }
 
-/**
- * Converte string QR matrix para PNG base64.
- * Retorna null se falhar.
- */
 async function qrStringToPngBase64(qrString) {
   try {
     return await QRCode.toDataURL(qrString, {
@@ -74,9 +69,73 @@ async function qrStringToPngBase64(qrString) {
       color: { dark: "#000000", light: "#FFFFFF" },
     });
   } catch (err) {
-    console.error("[whatsapp/connect] Falha ao gerar PNG do QR string:", err.message);
+    console.error("[whatsapp] Falha ao gerar PNG do QR string:", err.message);
     return null;
   }
+}
+
+/** Converte respostas da Evolution em data URL PNG, se possível. */
+async function qrFromEvolutionResponses(...responses) {
+  for (const resp of responses) {
+    if (!resp) continue;
+    const extracted = extractQrFromResponse(resp);
+    if (!extracted) continue;
+
+    if (extracted.type === "png_b64") return extracted.value;
+
+    if (extracted.type === "raw_string") {
+      const png = await qrStringToPngBase64(extracted.value);
+      if (png) return png;
+    }
+  }
+  return null;
+}
+
+/** Persiste QR no banco quando encontrado. */
+async function persistQrIfFound(instanceName, ...responses) {
+  const qrBase64 = await qrFromEvolutionResponses(...responses);
+  if (!qrBase64) return null;
+
+  await query(
+    `UPDATE whatsapp_sessions
+     SET qrcode_base64 = $1, status = 'connecting', updated_at = NOW()
+     WHERE instance_name = $2`,
+    [qrBase64, instanceName]
+  );
+  return qrBase64;
+}
+
+/** Salva sessão em connecting ANTES de chamar a Evolution (webhook precisa encontrar o registro). */
+async function saveConnectingSession(usuarioId, instanceName, webhookSecret, qrcodeBase64 = null) {
+  await query(
+    `INSERT INTO whatsapp_sessions
+       (usuario_id, instance_name, status, webhook_secret, qrcode_base64)
+     VALUES ($1, $2, 'connecting', $3, $4)
+     ON CONFLICT (usuario_id) DO UPDATE SET
+       instance_name   = EXCLUDED.instance_name,
+       status          = 'connecting',
+       webhook_secret  = EXCLUDED.webhook_secret,
+       qrcode_base64   = EXCLUDED.qrcode_base64,
+       phone_number    = NULL,
+       updated_at      = NOW()`,
+    [usuarioId, instanceName, webhookSecret, qrcodeBase64]
+  );
+}
+
+/** Limpa Evolution e marca sessão como disconnected após falha no connect. */
+async function failConnectingSession(usuarioId, instanceName) {
+  try {
+    await logoutInstance(instanceName);
+    await deleteInstance(instanceName);
+  } catch {
+    // instância pode não existir — ok
+  }
+  await query(
+    `UPDATE whatsapp_sessions
+     SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
+     WHERE usuario_id = $1`,
+    [usuarioId]
+  );
 }
 
 const auth = [authMiddleware, activeMiddleware];
@@ -92,14 +151,15 @@ router.post("/connect", ...auth, async (req, res) => {
       [usuarioId]
     );
 
+    if (existing.length && existing[0].status === "connected") {
+      return res.status(409).json({
+        error: "WhatsApp ja esta conectado. Desconecte antes de reconectar.",
+        status: "connected",
+      });
+    }
+
+    // Limpa instância Evolution anterior (reconexão)
     if (existing.length) {
-      const sess = existing[0];
-      if (sess.status === "connected") {
-        return res.status(409).json({
-          error: "WhatsApp ja esta conectado. Desconecte antes de reconectar.",
-          status: "connected",
-        });
-      }
       await logoutInstance(instanceName);
       await deleteInstance(instanceName);
       await query("DELETE FROM whatsapp_sessions WHERE usuario_id = $1", [usuarioId]);
@@ -108,63 +168,32 @@ router.post("/connect", ...auth, async (req, res) => {
     const webhookSecret = crypto.randomBytes(32).toString("hex");
     const webhookUrl = buildWebhookUrl(instanceName, webhookSecret);
 
-    // 1. Cria instancia na Evolution API
+    // 1. Persiste sessão ANTES da Evolution — webhook QRCODE_UPDATED precisa encontrar o registro
+    await saveConnectingSession(usuarioId, instanceName, webhookSecret, null);
+
+    // 2. Cria instância e solicita QR na Evolution
     let createResp;
     try {
       createResp = await createInstance({ instanceName, webhookUrl });
     } catch (err) {
       console.error("[whatsapp/connect] createInstance falhou:", err.message);
-      throw err;
+      await failConnectingSession(usuarioId, instanceName);
+      return res.status(500).json({ error: "Erro ao conectar WhatsApp." });
     }
-    console.log(
-      `[whatsapp/connect] createInstance keys: ${JSON.stringify(Object.keys(createResp || {}))}`
-    );
 
-    // 2. Solicita conexao / QR
     let connectResp = null;
     try {
       connectResp = await connectInstance(instanceName);
-      console.log(
-        `[whatsapp/connect] connectInstance keys: ${JSON.stringify(Object.keys(connectResp || {}))}`
-      );
     } catch (err) {
       console.warn("[whatsapp/connect] connectInstance falhou (nao fatal):", err.message);
     }
 
-    // 3. Extrai QR de qualquer resposta disponivel
-    let qrBase64 = null;
-    for (const resp of [createResp, connectResp]) {
-      const extracted = extractQrFromResponse(resp);
-      if (!extracted) continue;
-
-      if (extracted.type === "png_b64") {
-        qrBase64 = extracted.value;
-        console.log("[whatsapp/connect] QR PNG base64 extraido da resposta.");
-        break;
-      }
-
-      if (extracted.type === "raw_string") {
-        console.log("[whatsapp/connect] QR raw string extraido - convertendo para PNG.");
-        const png = await qrStringToPngBase64(extracted.value);
-        if (png) {
-          qrBase64 = png;
-          console.log("[whatsapp/connect] QR PNG gerado com sucesso.");
-          break;
-        }
-      }
-    }
+    // 3. Atualiza QR se veio na resposta síncrona (webhook também pode preencher depois)
+    const qrBase64 = await persistQrIfFound(instanceName, createResp, connectResp);
 
     if (!qrBase64) {
-      console.log("[whatsapp/connect] QR nao disponivel na resposta - aguardando webhook QRCODE_UPDATED.");
+      console.log("[whatsapp/connect] QR aguardando webhook QRCODE_UPDATED:", instanceName);
     }
-
-    // 4. Persiste sessao com QR (se disponivel)
-    await query(
-      `INSERT INTO whatsapp_sessions
-         (usuario_id, instance_name, status, webhook_secret, qrcode_base64)
-       VALUES ($1, $2, 'connecting', $3, $4)`,
-      [usuarioId, instanceName, webhookSecret, qrBase64]
-    );
 
     res.status(201).json({
       ok: true,
@@ -175,7 +204,12 @@ router.post("/connect", ...auth, async (req, res) => {
         : "Instancia criada. Aguarde o QR code.",
     });
   } catch (err) {
-    console.error("whatsapp/connect:", err.message);
+    console.error("[whatsapp/connect]:", err.message);
+    try {
+      await failConnectingSession(usuarioId, instanceName);
+    } catch {
+      // melhor esforço
+    }
     res.status(500).json({ error: "Erro ao conectar WhatsApp." });
   }
 });
@@ -195,33 +229,51 @@ router.get("/status", ...auth, async (req, res) => {
       phone_number: rows[0].phone_number || null,
     });
   } catch (err) {
-    console.error("whatsapp/status:", err.message);
+    console.error("[whatsapp/status]:", err.message);
     res.status(500).json({ error: "Erro ao verificar status." });
   }
 });
 
 // GET /api/whatsapp/qrcode
 router.get("/qrcode", ...auth, async (req, res) => {
+  const usuarioId = req.user.id;
+  const instanceName = buildInstanceName(usuarioId);
+
   try {
     const { rows } = await query(
       "SELECT status, qrcode_base64 FROM whatsapp_sessions WHERE usuario_id = $1",
-      [req.user.id]
+      [usuarioId]
     );
     if (!rows.length) {
       return res.status(404).json({ error: "Nenhuma sessao encontrada." });
     }
+
     const sess = rows[0];
     if (sess.status === "connected") {
       return res.status(409).json({ error: "WhatsApp ja esta conectado." });
     }
-    if (!sess.qrcode_base64) {
+
+    let qr = sess.qrcode_base64;
+
+    // Sem QR no banco: tenta buscar novamente na Evolution
+    if (sess.status === "connecting" && !qr) {
+      try {
+        const connectResp = await connectInstance(instanceName);
+        qr = await persistQrIfFound(instanceName, connectResp);
+      } catch (err) {
+        console.warn("[whatsapp/qrcode] connectInstance retry falhou:", err.message);
+      }
+    }
+
+    if (!qr) {
       return res.status(202).json({
         message: "QR code ainda nao disponivel. Aguarde alguns segundos.",
       });
     }
-    res.json({ qrcode: sess.qrcode_base64 });
+
+    res.json({ qrcode: qr });
   } catch (err) {
-    console.error("whatsapp/qrcode:", err.message);
+    console.error("[whatsapp/qrcode]:", err.message);
     res.status(500).json({ error: "Erro ao obter QR code." });
   }
 });
@@ -245,7 +297,7 @@ router.post("/disconnect", ...auth, async (req, res) => {
     await query("DELETE FROM whatsapp_pending WHERE usuario_id = $1", [usuarioId]);
     res.json({ ok: true });
   } catch (err) {
-    console.error("whatsapp/disconnect:", err.message);
+    console.error("[whatsapp/disconnect]:", err.message);
     res.status(500).json({ error: "Erro ao desconectar WhatsApp." });
   }
 });
@@ -286,28 +338,11 @@ router.post("/webhook/:instanceName", async (req, res) => {
     if (!event) return;
 
     if (event === "QRCODE_UPDATED") {
-      const extracted = extractQrFromResponse(data);
-      let qrBase64 = null;
-
-      if (extracted && extracted.type === "png_b64") {
-        qrBase64 = extracted.value;
-      } else if (extracted && extracted.type === "raw_string") {
-        qrBase64 = await qrStringToPngBase64(extracted.value);
-      }
-
+      const qrBase64 = await persistQrIfFound(instanceName, data);
       if (!qrBase64) {
-        qrBase64 = (data && data.qrcode && data.qrcode.base64) || (data && data.base64) || null;
-      }
-
-      if (!qrBase64) {
-        console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido para ${instanceName}`);
+        console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido: ${instanceName}`);
         return;
       }
-
-      await query(
-        "UPDATE whatsapp_sessions SET qrcode_base64 = $1, status = 'connecting', updated_at = NOW() WHERE instance_name = $2",
-        [qrBase64, instanceName]
-      );
       console.log(`[whatsapp/webhook] QR atualizado: ${instanceName}`);
       return;
     }
@@ -318,29 +353,32 @@ router.post("/webhook/:instanceName", async (req, res) => {
       if (state === "open") {
         const phoneNumber = (data.instance && data.instance.owner) || data.phoneNumber || null;
         await query(
-          "UPDATE whatsapp_sessions SET status = 'connected', phone_number = COALESCE($1, phone_number), qrcode_base64 = NULL, updated_at = NOW() WHERE instance_name = $2",
+          `UPDATE whatsapp_sessions
+           SET status = 'connected', phone_number = COALESCE($1, phone_number),
+               qrcode_base64 = NULL, updated_at = NOW()
+           WHERE instance_name = $2`,
           [phoneNumber, instanceName]
         );
-        console.log(`[whatsapp/webhook] Conectado: ${instanceName} phone=${phoneNumber}`);
+        console.log(`[whatsapp/webhook] Conectado: ${instanceName}`);
 
       } else if (state === "close") {
         await query(
-          "UPDATE whatsapp_sessions SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW() WHERE instance_name = $1",
+          `UPDATE whatsapp_sessions
+           SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
+           WHERE instance_name = $1`,
           [instanceName]
         );
         console.log(`[whatsapp/webhook] Desconectado: ${instanceName}`);
 
       } else if (state === "connecting") {
         await query(
-          "UPDATE whatsapp_sessions SET status = 'connecting', updated_at = NOW() WHERE instance_name = $1",
+          `UPDATE whatsapp_sessions SET status = 'connecting', updated_at = NOW() WHERE instance_name = $1`,
           [instanceName]
         );
       }
-      return;
     }
-
   } catch (err) {
-    console.error(`[whatsapp/webhook] Erro ao processar evento (${instanceName}):`, err.message);
+    console.error(`[whatsapp/webhook] Erro (${instanceName}):`, err.message);
   }
 });
 
