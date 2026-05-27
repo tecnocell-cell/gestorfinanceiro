@@ -84,7 +84,21 @@ async function evoFetch(method, path, body) {
  * @param {string} params.instanceName  - nome único da instância (ex: cf-{uuid})
  * @param {string} params.webhookUrl    - URL completa do webhook incluindo ?secret=...
  */
-export async function createInstance({ instanceName, webhookUrl }) {
+export async function createInstance({ instanceName, webhookUrl, webhookSecret }) {
+  const webhook = {
+    url: webhookUrl,
+    byEvents: true,
+    base64: true,
+    events: ["QRCODE_UPDATED", "CONNECTION_UPDATE"],
+  };
+
+  // Evolution pode não repassar ?secret= na URL — enviar também no header
+  if (webhookSecret) {
+    webhook.headers = {
+      "X-CenterFlow-Webhook-Secret": webhookSecret,
+    };
+  }
+
   return evoFetch("POST", "/instance/create", {
     instanceName,
     integration: "WHATSAPP-BAILEYS",
@@ -93,12 +107,7 @@ export async function createInstance({ instanceName, webhookUrl }) {
     rejectCall: true,
     readMessages: false,
     alwaysOnline: false,
-    webhook: {
-      url: webhookUrl,
-      byEvents: true,
-      base64: true,
-      events: ["QRCODE_UPDATED", "CONNECTION_UPDATE"],
-    },
+    webhook,
   });
 }
 

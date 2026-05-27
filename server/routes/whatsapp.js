@@ -53,7 +53,15 @@ function normalizeWebhookEvent(body) {
   return { event, data };
 }
 
-/** Classifica uma string candidata a QR. */
+/** UUID/hash da instância — NÃO é pairing do WhatsApp. */
+function looksLikeInstanceHash(s) {
+  return (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+    /^[0-9a-f]{32,64}$/i.test(s)
+  );
+}
+
+/** Classifica uma string candidata a QR real do WhatsApp. */
 function classifyQrString(val) {
   if (!val || typeof val !== "string") return null;
   const s = val.trim();
@@ -63,21 +71,45 @@ function classifyQrString(val) {
     return { type: "png_b64", value: s };
   }
 
-  if (s.startsWith("http://") || s.startsWith("https://")) {
-    return { type: "png_b64", value: s };
-  }
-
   if (s.length >= 100 && /^[A-Za-z0-9+/]+=*$/.test(s)) {
     return { type: "png_b64", value: `data:image/png;base64,${s}` };
   }
 
+  // Pairing Baileys: "2@xxx,yyy,zzz" — único formato seguro para gerar QR manualmente
   if (s.startsWith("1@") || s.startsWith("2@") || s.includes(",")) {
     return { type: "raw_string", value: s };
   }
 
-  // pairingCode / code curto demais para PNG — tenta gerar QR da string
-  if (s.length >= 8) {
-    return { type: "raw_string", value: s };
+  // Nunca converter hash/id curto da instância em QR falso
+  if (looksLikeInstanceHash(s) || s.length < 50) {
+    return null;
+  }
+
+  return null;
+}
+
+function timingSafeEqualStr(a, b) {
+  const ba = Buffer.from(String(a || ""));
+  const bb = Buffer.from(String(b || ""));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+/** Valida webhook: ?secret=, header X-CenterFlow-Webhook-Secret ou apikey global Evolution. */
+function validateWebhookAuth(sess, req) {
+  const expected = sess.webhook_secret;
+
+  if (timingSafeEqualStr(req.query.secret, expected)) return "query";
+
+  const headerSecret =
+    req.headers["x-centerflow-webhook-secret"] ||
+    req.headers["x-webhook-secret"];
+  if (timingSafeEqualStr(headerSecret, expected)) return "header";
+
+  const evoKey = process.env.EVOLUTION_API_KEY;
+  const incomingKey = req.headers.apikey || req.headers["api-key"];
+  if (evoKey && incomingKey && timingSafeEqualStr(incomingKey, evoKey)) {
+    return "apikey";
   }
 
   return null;
@@ -366,10 +398,18 @@ router.post("/connect", ...auth, async (req, res) => {
     // 2. Cria instância e solicita QR na Evolution
     let createResp;
     try {
-      createResp = await createInstance({ instanceName, webhookUrl });
+      createResp = await createInstance({ instanceName, webhookUrl, webhookSecret });
       console.log("[whatsapp/connect] createInstance keys:", Object.keys(createResp || {}));
       logQrcodeKeys("connect", createResp);
       logHashShape("connect", createResp);
+      if (
+        typeof createResp?.hash === "string" &&
+        looksLikeInstanceHash(createResp.hash)
+      ) {
+        console.log(
+          "[whatsapp/connect] hash e ID da instancia, nao QR WhatsApp — aguardando webhook"
+        );
+      }
       if (createResp?.instance && typeof createResp.instance === "object") {
         console.log("[whatsapp/connect] instance keys:", Object.keys(createResp.instance));
       }
@@ -510,7 +550,6 @@ router.post("/disconnect", ...auth, async (req, res) => {
 // POST /api/whatsapp/webhook/:instanceName
 router.post("/webhook/:instanceName", async (req, res) => {
   const { instanceName } = req.params;
-  const secret = req.query.secret;
 
   res.json({ ok: true });
 
@@ -526,16 +565,17 @@ router.post("/webhook/:instanceName", async (req, res) => {
     }
 
     const sess = rows[0];
+    const authVia = validateWebhookAuth(sess, req);
 
-    const expected = Buffer.from(sess.webhook_secret);
-    const received = Buffer.from(secret || "");
-    if (
-      expected.length !== received.length ||
-      !crypto.timingSafeEqual(expected, received)
-    ) {
-      console.warn(`[whatsapp/webhook] Segredo invalido para instancia: ${instanceName}`);
+    if (!authVia) {
+      console.warn(
+        `[whatsapp/webhook] Segredo invalido: ${instanceName}` +
+        ` (query=${!!req.query.secret} header=${!!req.headers["x-centerflow-webhook-secret"]} apikey=${!!req.headers.apikey})`
+      );
       return;
     }
+
+    console.log(`[whatsapp/webhook] auth ok via ${authVia}: ${instanceName}`);
 
     const { event, data } = normalizeWebhookEvent(req.body);
 
