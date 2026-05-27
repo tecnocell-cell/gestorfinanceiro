@@ -6,13 +6,16 @@ import { authMiddleware, activeMiddleware } from "../middleware/auth.js";
 import {
   createInstance,
   connectInstance,
-  fetchDirectConnectQr,
   fetchInstanceByName,
   logoutInstance,
   deleteInstance,
 } from "../whatsapp/evolutionProvider.js";
 
 const router = Router();
+
+/** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
+const evoFetchListCooldown = new Map();
+const FETCH_INSTANCES_COOLDOWN_MS = 8_000;
 
 function buildInstanceName(usuarioId) {
   return `cf-${usuarioId}`;
@@ -274,9 +277,11 @@ async function fetchQrViaInstanceList(instanceName, logLabel) {
     console.log(`[whatsapp/${logLabel}] fetchInstances count:`, list.length);
 
     for (const item of list) {
+      console.log(`[whatsapp/${logLabel}] fetchInstances item keys:`, Object.keys(item || {}));
       if (item?.instance && typeof item.instance === "object") {
         console.log(`[whatsapp/${logLabel}] instance keys:`, Object.keys(item.instance));
       }
+      logQrcodeKeys(logLabel, item);
       const qr = await persistQrIfFound(instanceName, item, item?.qrcode, item?.instance);
       if (qr) return qr;
     }
@@ -287,38 +292,17 @@ async function fetchQrViaInstanceList(instanceName, logLabel) {
 }
 
 /**
- * Fallback: GET /instance/connect + fetchInstances.
- * Evolution v2.1.1 costuma retornar só { count } no connect — QR vem via webhook ou fetchInstances.
+ * Consulta fetchInstances com cooldown (sem chamar /instance/connect).
+ * Repetir /connect a cada poll derruba a sessão e gera loop CONNECTION_UPDATE close.
  */
-async function fetchQrViaDirectConnect(instanceName, logLabel) {
-  const attempts = 6;
-  const delayMs = 2000;
-
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    if (attempt > 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-
-    let resp;
-    try {
-      resp = await fetchDirectConnectQr(instanceName);
-    } catch (err) {
-      console.warn(`[whatsapp/${logLabel}] directConnect falhou:`, err.message);
-    }
-
-    if (resp) {
-      console.log(`[whatsapp/${logLabel}] directConnect keys:`, Object.keys(resp || {}));
-      if (resp?.data && typeof resp.data === "object") {
-        console.log(`[whatsapp/${logLabel}] directConnect data keys:`, Object.keys(resp.data));
-      }
-      const qr = await persistQrIfFound(instanceName, resp, resp?.data, resp?.response);
-      if (qr) return qr;
-    }
-
-    const qrFromList = await fetchQrViaInstanceList(instanceName, logLabel);
-    if (qrFromList) return qrFromList;
+async function fetchQrPassive(instanceName, logLabel, { force = false } = {}) {
+  const now = Date.now();
+  const last = evoFetchListCooldown.get(instanceName) || 0;
+  if (!force && now - last < FETCH_INSTANCES_COOLDOWN_MS) {
+    return null;
   }
-  return null;
+  evoFetchListCooldown.set(instanceName, now);
+  return fetchQrViaInstanceList(instanceName, logLabel);
 }
 
 /** Salva sessão em connecting ANTES de chamar a Evolution (webhook precisa encontrar o registro). */
@@ -436,13 +420,13 @@ router.post("/connect", ...auth, async (req, res) => {
       connectResp
     );
 
-    // 4. Fallback: endpoint direto GET /instance/connect
+    // 4. Uma consulta passiva (sem repetir /connect)
     if (!qrBase64) {
-      qrBase64 = await fetchQrViaDirectConnect(instanceName, "connect");
+      qrBase64 = await fetchQrPassive(instanceName, "connect", { force: true });
     }
 
     if (!qrBase64) {
-      console.log("[whatsapp/connect] QR nao disponivel — aguardando webhook:", instanceName);
+      console.log("[whatsapp/connect] QR aguardando webhook QRCODE_UPDATED:", instanceName);
     }
 
     res.status(201).json({
@@ -505,9 +489,9 @@ router.get("/qrcode", ...auth, async (req, res) => {
 
     let qr = sess.qrcode_base64;
 
-    // Sem QR no banco: fallback GET /instance/connect
+    // Sem QR: só lê fetchInstances (cooldown) — nunca chama /instance/connect no poll
     if (sess.status === "connecting" && !qr) {
-      qr = await fetchQrViaDirectConnect(instanceName, "qrcode");
+      qr = await fetchQrPassive(instanceName, "qrcode");
     }
 
     if (!qr) {
@@ -601,6 +585,16 @@ router.post("/webhook/:instanceName", async (req, res) => {
     if (event === "CONNECTION_UPDATE") {
       const state = data && data.state;
 
+      if (data && typeof data === "object") {
+        console.log(`[whatsapp/webhook] CONNECTION_UPDATE keys:`, Object.keys(data));
+      }
+
+      // Evolution v2.1.1 pode enviar QR dentro de CONNECTION_UPDATE (sem QRCODE_UPDATED)
+      const qrInUpdate = await persistQrIfFound(instanceName, data, req.body);
+      if (qrInUpdate) {
+        console.log(`[whatsapp/webhook] QR via CONNECTION_UPDATE: ${instanceName}`);
+      }
+
       if (state === "open") {
         const phoneNumber = (data.instance && data.instance.owner) || data.phoneNumber || null;
         await query(
@@ -613,6 +607,28 @@ router.post("/webhook/:instanceName", async (req, res) => {
         console.log(`[whatsapp/webhook] Conectado: ${instanceName}`);
 
       } else if (state === "close") {
+        const { rows: sr } = await query(
+          `SELECT qrcode_base64, updated_at FROM whatsapp_sessions WHERE instance_name = $1`,
+          [instanceName]
+        );
+        const row = sr[0];
+        const waitingQr = !row?.qrcode_base64;
+        const ageMs = row?.updated_at
+          ? Date.now() - new Date(row.updated_at).getTime()
+          : 0;
+
+        // close transitório enquanto aguarda QR — não marcar disconnected (evita loop no frontend)
+        if (waitingQr && ageMs < 180_000) {
+          console.log(
+            `[whatsapp/webhook] close ignorado (aguardando QR, ${Math.round(ageMs / 1000)}s): ${instanceName}`
+          );
+          await query(
+            `UPDATE whatsapp_sessions SET status = 'connecting', updated_at = NOW() WHERE instance_name = $1`,
+            [instanceName]
+          );
+          return;
+        }
+
         await query(
           `UPDATE whatsapp_sessions
            SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()

@@ -13,8 +13,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { whatsappApi } from "../api.js";
 
-const POLL_STATUS_MS = 3_000;
-const POLL_QR_MS     = 4_000;
+const POLL_STATUS_MS = 4_000;
+const POLL_QR_MS     = 8_000;
 
 export function useWhatsApp() {
   const [status, setStatus]       = useState(null);   // null = carregando
@@ -25,17 +25,29 @@ export function useWhatsApp() {
 
   const statusTimer = useRef(null);
   const qrTimer     = useRef(null);
+  const statusRef   = useRef(null);
+  statusRef.current = status;
 
   // ── Busca status atual ──────────────────────────────────────────────────────
   const fetchStatus = useCallback(async () => {
     try {
       const data = await whatsappApi.status();
+      const prev = statusRef.current;
+
+      if (prev === "connecting" && data.status === "disconnected") {
+        setError(
+          "Conexão interrompida antes do QR. Aguarde alguns segundos ou clique em Conectar novamente."
+        );
+        setQrcode(null);
+      }
+
       setStatus(data.status);
+      statusRef.current = data.status;
       setPhone(data.phone_number || null);
 
-      // Limpa QR quando conectado ou desconectado
-      if (data.status !== "connecting") {
+      if (data.status === "connected") {
         setQrcode(null);
+        setError(null);
       }
     } catch {
       // silencioso — mantém estado anterior
@@ -90,8 +102,9 @@ export function useWhatsApp() {
     try {
       await whatsappApi.connect();
       setStatus("connecting");
-      // Busca QR imediatamente após criar instância
-      setTimeout(fetchQr, 1_500);
+      statusRef.current = "connecting";
+      // Busca QR após Evolution processar (webhook costuma levar alguns segundos)
+      setTimeout(fetchQr, 3_000);
     } catch (err) {
       setError(err.message || "Erro ao conectar.");
     } finally {
