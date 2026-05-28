@@ -108,7 +108,6 @@ export const recorrenciasApi = {
 export const whatsappApi = {
   connect:    ()  => request("/whatsapp/connect",    { method: "POST" }),
   status:     ()  => request("/whatsapp/status"),
-  qrcode:     ()  => request("/whatsapp/qrcode"),
   disconnect: ()  => request("/whatsapp/disconnect", { method: "POST" }),
 };
 
