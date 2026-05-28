@@ -107,6 +107,67 @@ function timingSafeEqualStr(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
+/**
+ * Normaliza qualquer representacao de JID/numero para so digitos.
+ *   "5599999999999:1@s.whatsapp.net" → "5599999999999"
+ *   "5599999999999@s.whatsapp.net"   → "5599999999999"
+ *   "5599999999999"                  → "5599999999999"
+ * Retorna null se o resultado nao for 7-15 digitos.
+ */
+function normalizeJidToPhone(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  const beforeAt = s.includes("@") ? s.slice(0, s.indexOf("@")) : s;
+  const colon    = beforeAt.indexOf(":");
+  const phone    = colon >= 0 ? beforeAt.slice(0, colon) : beforeAt;
+  return /^\d{7,15}$/.test(phone) ? phone : null;
+}
+
+/**
+ * Varre todos os formatos possiveis de numero no payload do webhook CONNECTION_UPDATE.
+ * Tenta em ordem de confiabilidade; retorna o primeiro resultado valido.
+ *
+ * @param {object} data  - body.data (ou body quando body.data ausente)
+ * @param {object} body  - req.body bruto (fallback)
+ */
+function extractPhoneFromWebhookPayload(data, body) {
+  const candidates = [
+    // Campos do payload principal (ja normalizados pelo Gateway)
+    data?.phone,
+    data?.number,
+    data?.phoneNumber,
+    data?.ownerJid,
+    // JID bruto — normalizeJidToPhone remove ":1@s.whatsapp.net"
+    data?.jid,
+    // Campos aninhados em data.data (alguns wrappers duplicam o payload)
+    data?.data?.phone,
+    data?.data?.number,
+    data?.data?.phoneNumber,
+    data?.data?.ownerJid,
+    data?.data?.jid,
+    data?.data?.instance?.owner,
+    data?.data?.instance?.ownerJid,
+    // Campos do objeto instance dentro do payload
+    data?.instance?.owner,
+    data?.instance?.ownerJid,
+    // Fallback: root do body (quando normalizeWebhookEvent retornou data=body)
+    body?.phone,
+    body?.number,
+    body?.phoneNumber,
+    body?.ownerJid,
+    body?.jid,
+    body?.instance?.owner,
+    body?.instance?.ownerJid,
+  ];
+
+  for (const candidate of candidates) {
+    const phone = normalizeJidToPhone(candidate);
+    if (phone) return phone;
+  }
+  return null;
+}
+
 /** Valida webhook: ?secret=, header X-CenterFlow-Webhook-Secret ou apikey global Evolution. */
 function validateWebhookAuth(sess, req) {
   const expected = sess.webhook_secret;
@@ -731,15 +792,36 @@ router.post("/webhook/:instanceName", async (req, res) => {
       }
 
       if (state === "open") {
-        const phoneNumber = (data.instance && data.instance.owner) || data.phoneNumber || null;
+        // Log temporario de diagnostico — remover apos confirmar phone_number preenchido
+        console.log(`[whatsapp/webhook] CONNECTION_UPDATE open — payload keys:`, Object.keys(data || {}));
+        if (data?.instance && typeof data.instance === "object") {
+          console.log(`[whatsapp/webhook] data.instance:`, JSON.stringify(data.instance));
+        }
+        console.log(`[whatsapp/webhook] phone candidates:`, {
+          phone:      data?.phone,
+          number:     data?.number,
+          phoneNumber: data?.phoneNumber,
+          ownerJid:   data?.ownerJid,
+          jid:        data?.jid,
+          "instance.owner":    data?.instance?.owner,
+          "instance.ownerJid": data?.instance?.ownerJid,
+        });
+
+        const phoneNumber = extractPhoneFromWebhookPayload(data, req.body);
+
         await query(
           `UPDATE whatsapp_sessions
-           SET status = 'connected', phone_number = COALESCE($1, phone_number),
+           SET status = 'connected', phone_number = $1,
                qrcode_base64 = NULL, updated_at = NOW()
            WHERE instance_name = $2`,
           [phoneNumber, instanceName]
         );
-        console.log(`[whatsapp/webhook] Conectado: ${instanceName}`);
+
+        if (phoneNumber) {
+          console.log(`[whatsapp/webhook] Conectado: ${instanceName} phone=${phoneNumber}`);
+        } else {
+          console.warn(`[whatsapp/webhook] conectado sem phone_number: ${instanceName}`);
+        }
 
       } else if (state === "close") {
         const { rows: sr } = await query(
