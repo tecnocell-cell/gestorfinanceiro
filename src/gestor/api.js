@@ -93,6 +93,13 @@ export const adminApi = {
   getUserState:          (id)        => request(`/admin/users/${id}/state`),
   saveUserState:         (id, dados) => request(`/admin/users/${id}/state`, { method: "PUT", body: { dados } }),
   getUserRecorrencias:   (id)        => request(`/admin/users/${id}/recorrencias`),
+  // WhatsApp Admin
+  waConfig:           ()           => request("/whatsapp-admin/config"),
+  waSetConfig:        (data)       => request("/whatsapp-admin/config",           { method: "POST",   body: data }),
+  waListAuthorized:   ()           => request("/whatsapp-admin/authorized"),
+  waAddAuthorized:    (data)       => request("/whatsapp-admin/authorized",        { method: "POST",   body: data }),
+  waUpdateAuthorized: (id, data)   => request(`/whatsapp-admin/authorized/${id}`, { method: "PATCH",  body: data }),
+  waDeleteAuthorized: (id)         => request(`/whatsapp-admin/authorized/${id}`, { method: "DELETE" }),
 };
 
 // ─── Recorrências ─────────────────────────────────────────────────────────────
@@ -110,6 +117,8 @@ export const whatsappApi = {
   status:         ()  => request("/whatsapp/status"),
   disconnect:     ()  => request("/whatsapp/disconnect",      { method: "POST" }),
   gatewayHealth:  ()  => request("/whatsapp/gateway-health"),
+  pfConfig:       ()  => request("/whatsapp/pf-config"),
+  myAuthorized:   ()  => request("/whatsapp/my-authorized"),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────

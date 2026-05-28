@@ -762,157 +762,289 @@ router.post("/webhook/:instanceName", async (req, res) => {
     }
 
     if (event === "MESSAGES_UPSERT") {
-      // Fase 3 — recebimento de mensagens.
-      // Por enquanto apenas loga para validar o pipeline Gateway → Financeiro.
-      // NLP, criacao de lancamentos e confirmacoes serao implementados na proxima fase.
       const fromNumber = data?.fromNumber || data?.from || req.body?.fromNumber || null;
-      const body       = data?.body       || data?.text  || req.body?.body       || "";
+      const msgBody    = data?.body       || data?.text || req.body?.body       || "";
 
-      console.log(
-        `[whatsapp/webhook] MESSAGES_UPSERT instance=${instanceName}` +
-        ` from=${fromNumber || "?"} body=${String(body).slice(0, 120)}`
-      );
+      // Detectar se e a instancia admin (modo PF)
+      const pfCfg = await getPfConfig();
+      const isAdminInstance = pfCfg.adminInstance && instanceName === pfCfg.adminInstance;
+
+      if (isAdminInstance) {
+        // ── Modo PF: allowlist obrigatoria ──────────────────────────────
+        const authRow = await lookupAuthorizedPhone(fromNumber);
+        if (!authRow) {
+          console.warn(
+            `[whatsapp/webhook] MESSAGES_UPSERT PF -- numero NAO autorizado: ${fromNumber || "?"}`
+          );
+          // Numero nao cadastrado ou inativo: ignorar silenciosamente.
+          // (Fase futura: responder mensagem generica de rejeicao via Gateway)
+          return;
+        }
+        // Atualizar last_used_at sem bloquear o fluxo
+        query(
+          "UPDATE whatsapp_authorized_numbers SET last_used_at = NOW() WHERE id = $1",
+          [authRow.id]
+        ).catch(() => {});
+        console.log(
+          `[whatsapp/webhook] MESSAGES_UPSERT PF usuario=${authRow.usuario_id}` +
+          ` from=${fromNumber} body=${String(msgBody).slice(0, 120)}`
+        );
+        // TODO Fase 3b: processar mensagem para usuario PF authRow.usuario_id
+
+      } else {
+        // ── Modo PJ: verificar allowlist do tenant ──────────────────────
+        const allowed = await isPjFromNumberAllowed(sess.usuario_id, fromNumber);
+        if (!allowed) {
+          console.warn(
+            `[whatsapp/webhook] MESSAGES_UPSERT PJ -- numero NAO autorizado: ` +
+            `instance=${instanceName} from=${fromNumber || "?"}`
+          );
+          return;
+        }
+        // Atualizar last_used_at se existir entrada na allowlist
+        if (fromNumber) {
+          query(
+            `UPDATE whatsapp_authorized_numbers SET last_used_at = NOW()
+             WHERE usuario_id = $1 AND phone_number = $2 AND active = true`,
+            [sess.usuario_id, fromNumber]
+          ).catch(() => {});
+        }
+        console.log(
+          `[whatsapp/webhook] MESSAGES_UPSERT PJ instance=${instanceName}` +
+          ` usuario=${sess.usuario_id} from=${fromNumber || "?"} body=${String(msgBody).slice(0, 120)}`
+        );
+        // TODO Fase 3b: processar mensagem para tenant sess.usuario_id
+      }
       return;
     }
 
     if (event === "CONNECTION_UPDATE") {
-      const state = data && data.state;
-      const now = Date.now();
-      const prev = lastWebhookConnState.get(instanceName);
-
-      if (prev && prev.state === state && now - prev.at < 2_000) {
-        return;
-      }
-      lastWebhookConnState.set(instanceName, { state, at: now });
-
-      if (prev?.state !== state) {
-        console.log(`[whatsapp/webhook] CONNECTION_UPDATE state=${state}: ${instanceName}`);
-        if (data?.statusReason != null) {
-          console.log(`[whatsapp/webhook] statusReason:`, String(data.statusReason).slice(0, 200));
-        }
-        if (data?.instance && typeof data.instance === "object") {
-          console.log(`[whatsapp/webhook] instance keys:`, Object.keys(data.instance));
-        }
-      }
-
-      const qrInUpdate = await persistQrIfFound(
-        instanceName,
-        data,
-        data?.instance,
-        req.body
-      );
-      if (qrInUpdate) {
-        console.log(`[whatsapp/webhook] QR via CONNECTION_UPDATE: ${instanceName}`);
-      }
+      const state =
+        data?.state || data?.status || data?.connection ||
+        data?.data?.state || data?.data?.status || data?.data?.connection;
 
       if (state === "open") {
-        // Log temporario de diagnostico — remover apos confirmar phone_number preenchido
-        console.log(`[whatsapp/webhook] CONNECTION_UPDATE open — payload keys:`, Object.keys(data || {}));
-        if (data?.instance && typeof data.instance === "object") {
-          console.log(`[whatsapp/webhook] data.instance:`, JSON.stringify(data.instance));
-        }
+        console.log(
+          `[whatsapp/webhook] CONNECTION_UPDATE open -- payload keys:`,
+          Object.keys(data || {})
+        );
         console.log(`[whatsapp/webhook] phone candidates:`, {
-          phone:      data?.phone,
-          number:     data?.number,
+          phone:       data?.phone,
+          number:      data?.number,
           phoneNumber: data?.phoneNumber,
-          ownerJid:   data?.ownerJid,
-          jid:        data?.jid,
-          "instance.owner":    data?.instance?.owner,
-          "instance.ownerJid": data?.instance?.ownerJid,
+          ownerJid:    data?.ownerJid,
+          jid:         data?.jid,
         });
 
         const phoneNumber = extractPhoneFromWebhookPayload(data, req.body);
-
         await query(
           `UPDATE whatsapp_sessions
-           SET status = 'connected', phone_number = $1,
-               qrcode_base64 = NULL, updated_at = NOW()
+             SET status = 'connected', phone_number = $1,
+                 qrcode_base64 = NULL, updated_at = NOW()
            WHERE instance_name = $2`,
           [phoneNumber, instanceName]
         );
-
         if (phoneNumber) {
           console.log(`[whatsapp/webhook] Conectado: ${instanceName} phone=${phoneNumber}`);
         } else {
           console.warn(`[whatsapp/webhook] conectado sem phone_number: ${instanceName}`);
         }
+        return;
+      }
 
-      } else if (state === "close") {
-        const { rows: sr } = await query(
-          `SELECT status, qrcode_base64, updated_at FROM whatsapp_sessions WHERE instance_name = $1`,
-          [instanceName]
-        );
-        const row = sr[0];
-        const isConnecting = row?.status === "connecting";
-        const hasQr = !!row?.qrcode_base64;
-        const waitingQr = !hasQr;
-        const ageMs = row?.updated_at
-          ? Date.now() - new Date(row.updated_at).getTime()
-          : 0;
-
-        // Sessão ainda em connecting: close/timeout transitório — não apagar QR
-        if (isConnecting) {
-          if (waitingQr && ageMs >= QR_WAIT_TIMEOUT_MS) {
-            await failQrWaitTimeout(instanceName, "webhook");
-            return;
-          }
-
-          const ageSec = Math.round(ageMs / 1000);
-          const lastLog = lastCloseIgnoreLog.get(instanceName) || 0;
-          if (now - lastLog >= 15_000) {
-            lastCloseIgnoreLog.set(instanceName, now);
-            console.log(
-              `[whatsapp/webhook] close ignorado (connecting${hasQr ? ", QR salvo" : ""}, ${ageSec}s): ${instanceName}`
-            );
-          }
-          return;
-        }
-
+      if (state === "close" || state === "closed") {
         await query(
           `UPDATE whatsapp_sessions
-           SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
+             SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
            WHERE instance_name = $1`,
           [instanceName]
         );
         console.log(`[whatsapp/webhook] Desconectado: ${instanceName}`);
-
-      } else if (state === "connecting") {
-        await query(
-          `UPDATE whatsapp_sessions SET status = 'connecting', updated_at = NOW() WHERE instance_name = $1`,
-          [instanceName]
-        );
+        return;
       }
+
+      if (state === "connecting") {
+        console.log(`[whatsapp/webhook] Conectando: ${instanceName}`);
+        return;
+      }
+
+      console.log(
+        `[whatsapp/webhook] CONNECTION_UPDATE estado desconhecido: ${instanceName} state=${state}`
+      );
+      return;
     }
+
   } catch (err) {
-    console.error(`[whatsapp/webhook] Erro (${instanceName}):`, err.message);
+    console.error(`[whatsapp/webhook] Erro: ${instanceName}:`, err.message);
   }
 });
 
 // GET /api/whatsapp/gateway-health
-// Chama GET /health do Gateway e repassa o resultado.
-// SEMPRE retorna HTTP 200 para que api.js não intercepte como erro de servidor —
-// o campo ok:false/true sinaliza o estado real do Gateway.
+// Retorna sempre HTTP 200 -- evita que api.js intercepte 503 como "backend offline"
 router.get("/gateway-health", ...auth, async (_req, res) => {
   try {
     const data = await gatewayHealth();
     res.json({ ok: true, gateway: data });
   } catch (err) {
-    const isTimeout = err.message.includes("timeout");
-    const isUnreachable =
-      err.message.includes("inacessível") ||
-      err.message.includes("ECONNREFUSED") ||
-      err.message.includes("ENOTFOUND");
-
-    // HTTP 200 intencional — evita que api.js trate 503 como "backend fora do ar"
+    const isTimeout = err.message?.includes("timeout");
     res.json({
       ok: false,
       error: isTimeout
-        ? "Gateway WhatsApp não respondeu a tempo. Verifique se o serviço está rodando no CT103."
-        : isUnreachable
-          ? "Gateway WhatsApp inacessível. Verifique a conectividade entre CT111 e CT103."
-          : `Gateway WhatsApp indisponível: ${err.message}`,
+        ? "Gateway WhatsApp nao respondeu a tempo. Verifique se o servico esta rodando."
+        : "Gateway WhatsApp inacessivel. Verifique a conexao com CT103.",
     });
   }
 });
 
-export { router as whatsappRouter };
+
+// ─── Helpers PF (Pessoa Fisica) ──────────────────────────────────────────────
+
+/**
+ * Busca o admin_instance e admin_phone da tabela system_config.
+ * Cache simples em memoria (60s) para nao bater no banco a cada mensagem.
+ */
+let _pfConfigCache = null;
+let _pfConfigTs    = 0;
+const PF_CONFIG_TTL = 60_000;
+
+async function getPfConfig() {
+  const now = Date.now();
+  if (_pfConfigCache && now - _pfConfigTs < PF_CONFIG_TTL) return _pfConfigCache;
+  const { rows } = await query(
+    "SELECT key, value FROM system_config WHERE key IN ('whatsapp_admin_instance','whatsapp_admin_phone')"
+  );
+  const cfg = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  _pfConfigCache = {
+    adminInstance: cfg.whatsapp_admin_instance || null,
+    adminPhone:    cfg.whatsapp_admin_phone    || null,
+  };
+  _pfConfigTs = now;
+  return _pfConfigCache;
+}
+
+/**
+ * Normaliza telefone para apenas digitos.
+ */
+function digitsOnly(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  return raw.replace(/\D/g, "");
+}
+
+/**
+ * Busca entrada ativa na allowlist pelo numero de telefone.
+ * Tenta exato e sem DDI 55.
+ * @param {string} fromNumber
+ * @returns {object|null} linha de whatsapp_authorized_numbers ou null
+ */
+async function lookupAuthorizedPhone(fromNumber) {
+  if (!fromNumber) return null;
+  const digits = digitsOnly(fromNumber);
+  if (!digits) return null;
+
+  const { rows } = await query(
+    `SELECT id, usuario_id, phone_number, label
+       FROM whatsapp_authorized_numbers
+      WHERE phone_number = $1 AND active = true
+      LIMIT 1`,
+    [digits]
+  );
+  if (rows.length) return rows[0];
+
+  // Fallback sem DDI 55 (Baileys as vezes entrega sem o 55)
+  if (digits.length >= 12 && digits.startsWith("55")) {
+    const sem55 = digits.slice(2);
+    const { rows: r2 } = await query(
+      `SELECT id, usuario_id, phone_number, label
+         FROM whatsapp_authorized_numbers
+        WHERE phone_number = $1 AND active = true
+        LIMIT 1`,
+      [sem55]
+    );
+    if (r2.length) return r2[0];
+  }
+  return null;
+}
+
+/**
+ * Verifica se fromNumber e permitido para um tenant PJ.
+ *
+ * Regra:
+ *   - Se nenhuma entrada cadastrada para usuario_id: aceitar apenas
+ *     o phone_number da sessao (whatsapp_sessions.phone_number).
+ *   - Se houver entradas: aceitar apenas active = true.
+ *
+ * @param {string} usuarioId
+ * @param {string|null} fromNumber - numero ja normalizado (so digitos)
+ * @returns {Promise<boolean>}
+ */
+async function isPjFromNumberAllowed(usuarioId, fromNumber) {
+  // Sem numero de origem: nao autorizado
+  if (!fromNumber) return false;
+  const digits = digitsOnly(fromNumber);
+  if (!digits) return false;
+
+  // Verificar allowlist do tenant
+  const { rows: allowList } = await query(
+    "SELECT phone_number FROM whatsapp_authorized_numbers WHERE usuario_id = $1",
+    [usuarioId]
+  );
+
+  if (allowList.length === 0) {
+    // Sem allowlist: aceitar apenas o dono da sessao
+    const { rows: sess } = await query(
+      "SELECT phone_number FROM whatsapp_sessions WHERE usuario_id = $1 LIMIT 1",
+      [usuarioId]
+    );
+    if (!sess.length || !sess[0].phone_number) return false;
+    const sessPhone = digitsOnly(sess[0].phone_number);
+    return digits === sessPhone || (digits.length >= 12 && digits.startsWith("55") && digits.slice(2) === sessPhone);
+  }
+
+  // Com allowlist: verificar active = true
+  const { rows: active } = await query(
+    `SELECT id FROM whatsapp_authorized_numbers
+      WHERE usuario_id = $1 AND active = true
+        AND (phone_number = $2 OR phone_number = $3)
+      LIMIT 1`,
+    [usuarioId, digits, digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits]
+  );
+  return active.length > 0;
+}
+
+// GET /api/whatsapp/pf-config
+// Retorna o numero oficial do CenterFlow para exibir no frontend PF.
+// Nao requer autenticacao admin -- qualquer usuario autenticado pode saber o numero oficial.
+router.get("/pf-config", ...auth, async (_req, res) => {
+  try {
+    const cfg = await getPfConfig();
+    res.json({
+      admin_phone:    cfg.adminPhone    || null,
+      admin_instance: cfg.adminInstance || null,
+    });
+  } catch (err) {
+    console.error("[whatsapp/pf-config]:", err.message);
+    res.status(500).json({ error: "Erro ao buscar configuracao PF." });
+  }
+});
+
+
+// GET /api/whatsapp/my-authorized
+// Retorna os numeros autorizados do proprio usuario (para exibir no painel PF/PJ).
+router.get("/my-authorized", ...auth, async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, phone_number, label, active, verified_at, last_used_at, created_at
+         FROM whatsapp_authorized_numbers
+        WHERE usuario_id = $1
+        ORDER BY created_at ASC`,
+      [req.user.id]
+    );
+    res.json({ authorized: rows });
+  } catch (err) {
+    console.error("[whatsapp/my-authorized]:", err.message);
+    res.status(500).json({ error: "Erro ao buscar numeros autorizados." });
+  }
+});
+
+export default router;
+

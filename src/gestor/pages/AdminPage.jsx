@@ -201,6 +201,200 @@ function SuperAdminCard({ user }) {
   );
 }
 
+
+
+// ─── WhatsApp Admin Panel ─────────────────────────────────────────────────────
+
+function WhatsAppAdminPanel() {
+  const [config, setConfig]       = useState({ admin_instance: "", admin_phone: "" });
+  const [authorized, setAuthorized] = useState([]);
+  const [loadingCfg, setLoadingCfg]   = useState(true);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [addForm, setAddForm]     = useState({ usuario_id: "", phone_number: "", label: "" });
+  const [addError, setAddError]   = useState(null);
+  const [addLoading, setAddLoading] = useState(false);
+  const [cfgError, setCfgError]   = useState(null);
+
+  const S = {
+    card: { background: "#fff", border: "1px solid oklch(0.88 0.005 0)", borderRadius: 12, padding: "24px 28px", marginBottom: 24 },
+    title: { margin: "0 0 18px", fontSize: 17, fontWeight: 700, color: "oklch(0.20 0.015 155)", letterSpacing: "-0.2px" },
+    label: { display: "block", fontSize: 13, fontWeight: 600, color: "oklch(0.35 0.01 0)", marginBottom: 4 },
+    input: { width: "100%", padding: "8px 10px", border: "1px solid oklch(0.82 0.005 0)", borderRadius: 6, fontSize: 14, boxSizing: "border-box" },
+    btn: (color, bg, border) => ({ padding: "7px 16px", borderRadius: 6, border: `1px solid ${border}`, background: bg, color, fontSize: 13, fontWeight: 600, cursor: "pointer" }),
+    errBox: { background: "oklch(0.96 0.04 27)", border: "1px solid oklch(0.80 0.12 27)", color: "oklch(0.58 0.22 27)", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginBottom: 12 },
+    badge: (active) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 12, fontWeight: 600, background: active ? "oklch(0.94 0.04 155)" : "oklch(0.96 0.005 0)", color: active ? "oklch(0.42 0.08 155)" : "oklch(0.55 0.01 0)" }),
+  };
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const d = await adminApi.waConfig();
+      setConfig({ admin_instance: d.admin_instance || "", admin_phone: d.admin_phone || "" });
+    } catch { /* ignore */ } finally { setLoadingCfg(false); }
+  }, []);
+
+  const loadAuthorized = useCallback(async () => {
+    try {
+      const d = await adminApi.waListAuthorized();
+      setAuthorized(d.authorized || []);
+    } catch { /* ignore */ } finally { setLoadingAuth(false); }
+  }, []);
+
+  useEffect(() => { loadConfig(); loadAuthorized(); }, [loadConfig, loadAuthorized]);
+
+  const saveConfig = async () => {
+    setSavingCfg(true); setCfgError(null);
+    try {
+      await adminApi.waSetConfig({ admin_instance: config.admin_instance, admin_phone: config.admin_phone });
+    } catch (e) { setCfgError(e.message); } finally { setSavingCfg(false); }
+  };
+
+  const addNumber = async () => {
+    setAddError(null); setAddLoading(true);
+    try {
+      const d = await adminApi.waAddAuthorized(addForm);
+      setAuthorized(prev => [d.authorized, ...prev]);
+      setAddForm({ usuario_id: "", phone_number: "", label: "" });
+    } catch (e) { setAddError(e.message); } finally { setAddLoading(false); }
+  };
+
+  const toggleActive = async (row) => {
+    try {
+      const d = await adminApi.waUpdateAuthorized(row.id, { active: !row.active });
+      setAuthorized(prev => prev.map(r => r.id === row.id ? { ...r, ...d.authorized } : r));
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  const removeNumber = async (row) => {
+    if (!confirm(`Remover ${row.phone_number} (${row.nome || row.label || "?"}) da allowlist?`)) return;
+    try {
+      await adminApi.waDeleteAuthorized(row.id);
+      setAuthorized(prev => prev.filter(r => r.id !== row.id));
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h2 className="admin-section-title">WhatsApp do Sistema</h2>
+
+      {/* Config */}
+      <div style={S.card}>
+        <p style={S.title}>Numero oficial CenterFlow (instancia global)</p>
+        {cfgError && <div style={S.errBox}>{cfgError}</div>}
+        {loadingCfg ? <p style={{ color: "oklch(0.55 0.01 0)", fontSize: 14 }}>Carregando...</p> : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={S.label}>Nome da instancia (ex: cf-admin)</label>
+              <input style={S.input} value={config.admin_instance}
+                onChange={e => setConfig(c => ({ ...c, admin_instance: e.target.value }))}
+                placeholder="cf-admin" />
+            </div>
+            <div>
+              <label style={S.label}>Telefone oficial (ex: 5511400050000)</label>
+              <input style={S.input} value={config.admin_phone}
+                onChange={e => setConfig(c => ({ ...c, admin_phone: e.target.value }))}
+                placeholder="5511400050000" />
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop: 14, textAlign: "right" }}>
+          <button style={S.btn("#fff", "oklch(0.42 0.08 155)", "oklch(0.42 0.08 155)")}
+            onClick={saveConfig} disabled={savingCfg || loadingCfg}>
+            {savingCfg ? "Salvando..." : "Salvar configuracao"}
+          </button>
+        </div>
+      </div>
+
+      {/* Allowlist */}
+      <div style={S.card}>
+        <p style={S.title}>Numeros autorizados (allowlist PF e PJ)</p>
+
+        {/* Adicionar */}
+        <div style={{ background: "oklch(0.97 0.004 0)", border: "1px solid oklch(0.90 0.005 0)", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
+          <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "oklch(0.35 0.01 0)" }}>Adicionar numero</p>
+          {addError && <div style={S.errBox}>{addError}</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+            <div>
+              <label style={S.label}>ID do usuario (UUID)</label>
+              <input style={S.input} value={addForm.usuario_id}
+                onChange={e => setAddForm(f => ({ ...f, usuario_id: e.target.value }))}
+                placeholder="uuid do usuario" />
+            </div>
+            <div>
+              <label style={S.label}>Telefone (so digitos)</label>
+              <input style={S.input} value={addForm.phone_number}
+                onChange={e => setAddForm(f => ({ ...f, phone_number: e.target.value }))}
+                placeholder="5511999999999" />
+            </div>
+            <div>
+              <label style={S.label}>Descricao (opcional)</label>
+              <input style={S.input} value={addForm.label}
+                onChange={e => setAddForm(f => ({ ...f, label: e.target.value }))}
+                placeholder="Principal, Contador..." />
+            </div>
+            <button style={{ ...S.btn("#fff", "oklch(0.42 0.08 155)", "oklch(0.42 0.08 155)"), whiteSpace: "nowrap" }}
+              onClick={addNumber} disabled={addLoading || !addForm.usuario_id || !addForm.phone_number}>
+              {addLoading ? "..." : "+ Adicionar"}
+            </button>
+          </div>
+        </div>
+
+        {/* Tabela */}
+        {loadingAuth ? <p style={{ color: "oklch(0.55 0.01 0)", fontSize: 14 }}>Carregando...</p> : authorized.length === 0 ? (
+          <p style={{ color: "oklch(0.55 0.01 0)", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
+            Nenhum numero autorizado cadastrado.
+          </p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid oklch(0.90 0.005 0)" }}>
+                  {["Telefone", "Usuario", "Tipo", "Descricao", "Status", "Ultimo uso", "Acoes"].map(h => (
+                    <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "oklch(0.45 0.01 0)", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {authorized.map(row => (
+                  <tr key={row.id} style={{ borderBottom: "1px solid oklch(0.93 0.003 0)" }}>
+                    <td style={{ padding: "8px 10px", fontFamily: "monospace" }}>{row.phone_number}</td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <div style={{ fontWeight: 600 }}>{row.nome}</div>
+                      <div style={{ color: "oklch(0.55 0.01 0)", fontSize: 11 }}>{row.email}</div>
+                    </td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <span style={{ background: row.tipo_perfil === "fisica" ? "oklch(0.94 0.04 240)" : "oklch(0.94 0.04 60)", color: row.tipo_perfil === "fisica" ? "oklch(0.35 0.10 240)" : "oklch(0.35 0.10 60)", padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 600 }}>
+                        {row.tipo_perfil === "fisica" ? "PF" : "PJ"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "8px 10px", color: "oklch(0.55 0.01 0)" }}>{row.label || "-"}</td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <span style={S.badge(row.active)}>{row.active ? "Ativo" : "Inativo"}</span>
+                    </td>
+                    <td style={{ padding: "8px 10px", color: "oklch(0.55 0.01 0)" }}>{fmtDt(row.last_used_at)}</td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={S.btn(row.active ? "oklch(0.58 0.22 27)" : "oklch(0.42 0.08 155)", "#fff", row.active ? "oklch(0.80 0.12 27)" : "oklch(0.80 0.06 155)")}
+                          onClick={() => toggleActive(row)} title={row.active ? "Desativar" : "Ativar"}>
+                          {row.active ? "Desativar" : "Ativar"}
+                        </button>
+                        <button style={S.btn("oklch(0.58 0.22 27)", "oklch(0.96 0.04 27)", "oklch(0.80 0.12 27)")}
+                          onClick={() => removeNumber(row)} title="Remover">
+                          Remover
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage({ embedded = false, onEnterTenant }) {
   const { user: adminUser } = useAuth();
   const [users, setUsers] = useState([]);
@@ -381,6 +575,8 @@ export default function AdminPage({ embedded = false, onEnterTenant }) {
           )}
         </div>
       </div>
+
+      <WhatsAppAdminPanel />
 
       {showNovo && (
         <ModalNovoUsuario

@@ -17,6 +17,7 @@ import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
 import { whatsappRouter } from "./routes/whatsapp.js";
+import { whatsappAdminRouter } from "./routes/whatsappAdmin.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -392,6 +393,7 @@ app.use("/api/recorrencias", recorrenciasRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
 app.use("/api/whatsapp", whatsappRouter);
+app.use("/api/whatsapp-admin", whatsappAdminRouter);
 
 // Admin: lê recorrências de um tenant (somente leitura, modo impersonation)
 app.get("/api/admin/users/:id/recorrencias", authMiddleware, adminMiddleware, async (req, res) => {

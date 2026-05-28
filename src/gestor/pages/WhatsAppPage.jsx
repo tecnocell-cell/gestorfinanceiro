@@ -11,7 +11,9 @@
  *   - Polling automático enquanto "connecting" (via useWhatsApp)
  *   - Inline styles apenas — nunca alterar styles.js nem arquivos CSS
  */
+import React from "react";
 import { useWhatsApp } from "../hooks/useWhatsApp.js";
+import { useAuth } from "../AuthContext.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 
 // ─── Paleta (inline — nunca tocamos em styles.js) ────────────────────────────
@@ -334,59 +336,165 @@ function GatewayDownBanner({ onRetry }) {
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-export default function WhatsAppPage() {
-  const {
-    status, phoneNumber, qrcode,
-    loading, error,
-    gatewayOk,
-    connect, disconnect,
-    recheckGateway,
-  } = useWhatsApp();
+// -- Modo PF: painel com numero oficial --
+function PfModePanel({ adminPhone, myNumbers }) {
+  const formatted = adminPhone
+    ? adminPhone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4")
+    : null;
+
+  const fmtPhone = (p) =>
+    p ? p.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4") : p;
 
   return (
-    <PfPageShell pageId="whatsapp">
-      <div style={{ padding: "32px 16px" }}>
-        {/* Banner de Gateway indisponível — só aparece quando confirmado down */}
-        {gatewayOk === false && (
-          <GatewayDownBanner onRetry={recheckGateway} />
-        )}
+    <Card>
+      <div style={{ fontSize: 56, marginBottom: 20, lineHeight: 1 }}>&#128172;</div>
+      <Title>WhatsApp CenterFlow</Title>
+      <Subtitle>
+        Envie mensagens para o numero oficial abaixo para registrar lancamentos financeiros
+        diretamente pelo WhatsApp.
+      </Subtitle>
 
-        {/* Carregando status inicial */}
-        {status === null && (
-          <Card>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>
-              Verificando conexão…
-            </p>
-          </Card>
-        )}
-
-        {status === "disconnected" && (
-          <DisconnectedState
-            onConnect={connect}
-            loading={loading}
-            error={error}
-          />
-        )}
-
-        {status === "connecting" && (
-          <ConnectingState
-            qrcode={qrcode}
-            onCancel={disconnect}
-            loading={loading}
-            error={error}
-          />
-        )}
-
-        {status === "connected" && (
-          <ConnectedState
-            phoneNumber={phoneNumber}
-            onDisconnect={disconnect}
-            loading={loading}
-            error={error}
-          />
+      {/* Numero oficial */}
+      <div style={{
+        background: C.greenLight,
+        border: `1px solid ${C.greenBorder}`,
+        borderRadius: 12,
+        padding: "20px 24px",
+        marginBottom: 20,
+      }}>
+        <p style={{ margin: "0 0 6px", fontSize: 13, color: C.textMuted, fontWeight: 500 }}>
+          Numero oficial do CenterFlow
+        </p>
+        {formatted ? (
+          <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: "0.5px" }}>
+            {formatted}
+          </p>
+        ) : (
+          <p style={{ margin: 0, fontSize: 14, color: C.textMuted, fontStyle: "italic" }}>
+            Numero ainda nao configurado pelo administrador.
+          </p>
         )}
       </div>
+
+      {/* Numeros autorizados do usuario */}
+      <div style={{
+        background: C.greyLight,
+        border: `1px solid ${C.greyBorder}`,
+        borderRadius: 10,
+        padding: "14px 16px",
+        marginBottom: 20,
+        textAlign: "left",
+      }}>
+        <p style={{ margin: "0 0 10px", fontSize: 13, color: C.text, fontWeight: 600 }}>
+          Seu numero autorizado
+        </p>
+        {!myNumbers ? (
+          <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>Carregando...</p>
+        ) : myNumbers.length === 0 ? (
+          <div style={{ fontSize: 13, color: "oklch(0.55 0.12 30)", background: "oklch(0.96 0.04 30)", border: "1px solid oklch(0.85 0.08 30)", borderRadius: 6, padding: "8px 12px" }}>
+            Nenhum numero autorizado. Solicite ao administrador para liberar seu acesso.
+          </div>
+        ) : (
+          myNumbers.map(n => (
+            <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid oklch(0.90 0.005 0)" }}>
+              <div>
+                <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: C.text }}>
+                  {fmtPhone(n.phone_number)}
+                </span>
+                {n.label && <span style={{ marginLeft: 8, fontSize: 12, color: C.textMuted }}>{n.label}</span>}
+              </div>
+              <span style={{
+                padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600,
+                background: n.active ? C.greenLight : C.greyLight,
+                color: n.active ? C.green : C.grey,
+                border: `1px solid ${n.active ? C.greenBorder : C.greyBorder}`,
+              }}>
+                {n.active ? "Autorizado" : "Inativo"}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Instrucoes */}
+      <div style={{
+        background: C.greyLight,
+        border: `1px solid ${C.greyBorder}`,
+        borderRadius: 10,
+        padding: "14px 16px",
+        textAlign: "left",
+      }}>
+        <p style={{ margin: "0 0 6px", fontSize: 13, color: C.text, fontWeight: 600 }}>
+          Como usar:
+        </p>
+        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: C.textMuted, lineHeight: 1.8 }}>
+          <li>Salve o numero oficial na sua agenda</li>
+          <li>Envie uma mensagem descrevendo o lancamento pelo numero autorizado acima</li>
+          <li>Confirme respondendo <strong>sim</strong> ou <strong>confirmo</strong></li>
+          <li>O lancamento e registrado automaticamente</li>
+        </ol>
+      </div>
+    </Card>
+  );
+}
+
+// -- Pagina principal --
+export default function WhatsAppPage() {
+  const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
+    useWhatsApp();
+  const { user } = useAuth();
+
+  const isPF = user?.tipo_perfil === "fisica";
+
+  // PF: busca numero oficial e numeros autorizados ao montar
+  const [adminPhone, setAdminPhone] = React.useState(null);
+  const [myNumbers, setMyNumbers]   = React.useState(null); // null = carregando
+  React.useEffect(() => {
+    if (!isPF) return;
+    import("../api.js").then(({ whatsappApi }) => {
+      whatsappApi.pfConfig()
+        .then(d => setAdminPhone(d?.admin_phone || null))
+        .catch(() => {});
+      whatsappApi.myAuthorized()
+        .then(d => setMyNumbers(d?.authorized || []))
+        .catch(() => setMyNumbers([]));
+    });
+  }, [isPF]);
+
+  return (
+    <PfPageShell title="WhatsApp">
+      {isPF ? (
+        <PfModePanel adminPhone={adminPhone} myNumbers={myNumbers} />
+      ) : (
+        <>
+          {gatewayOk === false && (
+            <GatewayDownBanner onRetry={recheckGateway} />
+          )}
+
+          {status === null && !error && (
+            <div style={{ textAlign: "center", padding: 40, color: C.textMuted, fontSize: 14 }}>
+              Carregando...
+            </div>
+          )}
+
+          {status === "disconnected" && (
+            <DisconnectedState onConnect={connect} loading={loading} error={error} />
+          )}
+
+          {status === "connecting" && (
+            <ConnectingState qrcode={qrcode} onCancel={disconnect} loading={loading} error={error} />
+          )}
+
+          {status === "connected" && (
+            <ConnectedState
+              phoneNumber={phoneNumber}
+              onDisconnect={disconnect}
+              loading={loading}
+              error={error}
+            />
+          )}
+        </>
+      )}
     </PfPageShell>
   );
 }
