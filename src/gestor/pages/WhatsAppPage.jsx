@@ -292,17 +292,66 @@ function ConnectedState({ phoneNumber, onDisconnect, loading, error }) {
   );
 }
 
+// ── Banner: Gateway indisponível ──────────────────────────────────────────────
+function GatewayDownBanner({ onRetry }) {
+  return (
+    <div style={{
+      background: "oklch(0.97 0.04 60)",
+      border: "1px solid oklch(0.82 0.10 60)",
+      borderRadius: 10,
+      padding: "14px 18px",
+      marginBottom: 20,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+    }}>
+      <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: "0 0 2px", fontWeight: 600, fontSize: 14, color: "oklch(0.40 0.10 60)" }}>
+          Serviço WhatsApp indisponível
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: "oklch(0.50 0.06 60)" }}>
+          O Gateway WhatsApp (CT103) não está respondendo. Contate o administrador do sistema.
+        </p>
+      </div>
+      <button
+        onClick={onRetry}
+        style={{
+          flexShrink: 0,
+          padding: "6px 14px",
+          borderRadius: 6,
+          border: "1px solid oklch(0.75 0.10 60)",
+          background: "#fff",
+          color: "oklch(0.40 0.10 60)",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        Tentar novamente
+      </button>
+    </div>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function WhatsAppPage() {
   const {
     status, phoneNumber, qrcode,
     loading, error,
+    gatewayOk,
     connect, disconnect,
+    recheckGateway,
   } = useWhatsApp();
 
   return (
     <PfPageShell pageId="whatsapp">
       <div style={{ padding: "32px 16px" }}>
+        {/* Banner de Gateway indisponível — só aparece quando confirmado down */}
+        {gatewayOk === false && (
+          <GatewayDownBanner onRetry={recheckGateway} />
+        )}
+
         {/* Carregando status inicial */}
         {status === null && (
           <Card>

@@ -106,9 +106,10 @@ export const recorrenciasApi = {
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
 export const whatsappApi = {
-  connect:    ()  => request("/whatsapp/connect",    { method: "POST" }),
-  status:     ()  => request("/whatsapp/status"),
-  disconnect: ()  => request("/whatsapp/disconnect", { method: "POST" }),
+  connect:        ()  => request("/whatsapp/connect",         { method: "POST" }),
+  status:         ()  => request("/whatsapp/status"),
+  disconnect:     ()  => request("/whatsapp/disconnect",      { method: "POST" }),
+  gatewayHealth:  ()  => request("/whatsapp/gateway-health"),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────

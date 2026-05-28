@@ -9,6 +9,7 @@ import {
   fetchInstanceByName,
   logoutInstance,
   deleteInstance,
+  gatewayHealth,
 } from "../whatsapp/evolutionProvider.js";
 
 const router = Router();
@@ -788,6 +789,33 @@ router.post("/webhook/:instanceName", async (req, res) => {
     }
   } catch (err) {
     console.error(`[whatsapp/webhook] Erro (${instanceName}):`, err.message);
+  }
+});
+
+// GET /api/whatsapp/gateway-health
+// Chama GET /health do Gateway e repassa o resultado.
+// SEMPRE retorna HTTP 200 para que api.js não intercepte como erro de servidor —
+// o campo ok:false/true sinaliza o estado real do Gateway.
+router.get("/gateway-health", ...auth, async (_req, res) => {
+  try {
+    const data = await gatewayHealth();
+    res.json({ ok: true, gateway: data });
+  } catch (err) {
+    const isTimeout = err.message.includes("timeout");
+    const isUnreachable =
+      err.message.includes("inacessível") ||
+      err.message.includes("ECONNREFUSED") ||
+      err.message.includes("ENOTFOUND");
+
+    // HTTP 200 intencional — evita que api.js trate 503 como "backend fora do ar"
+    res.json({
+      ok: false,
+      error: isTimeout
+        ? "Gateway WhatsApp não respondeu a tempo. Verifique se o serviço está rodando no CT103."
+        : isUnreachable
+          ? "Gateway WhatsApp inacessível. Verifique a conectividade entre CT111 e CT103."
+          : `Gateway WhatsApp indisponível: ${err.message}`,
+    });
   }
 });
 

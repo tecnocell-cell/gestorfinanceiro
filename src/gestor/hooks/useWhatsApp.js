@@ -2,11 +2,13 @@
  * useWhatsApp — Hook para gerenciar o estado da sessão WhatsApp do tenant.
  *
  * Fonte única de QR: GET /api/whatsapp/status (campo data.qrcode).
+ * gatewayOk: null (ainda verificando) | true | false
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { whatsappApi } from "../api.js";
 
 const POLL_STATUS_MS = 4_000;
+const GATEWAY_HEALTH_INTERVAL_MS = 60_000; // Re-verifica Gateway a cada 60s
 
 export function useWhatsApp() {
   const [status, setStatus] = useState(null);
@@ -14,13 +16,26 @@ export function useWhatsApp() {
   const [qrcode, setQrcode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [gatewayOk, setGatewayOk] = useState(null); // null=verificando, true=ok, false=down
 
   const statusTimer = useRef(null);
+  const gatewayTimer = useRef(null);
   const statusRef = useRef(null);
   const qrcodeRef = useRef(null);
 
   statusRef.current = status;
   qrcodeRef.current = qrcode;
+
+  const checkGatewayHealth = useCallback(async () => {
+    try {
+      const data = await whatsappApi.gatewayHealth();
+      // Endpoint sempre retorna HTTP 200 — verificar campo ok no body
+      setGatewayOk(data?.ok === true);
+    } catch {
+      // Falha de rede ou Financeiro inacessível — Gateway também inacessível
+      setGatewayOk(false);
+    }
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -98,6 +113,13 @@ export function useWhatsApp() {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Verifica saúde do Gateway ao montar e a cada 60s
+  useEffect(() => {
+    checkGatewayHealth();
+    gatewayTimer.current = setInterval(checkGatewayHealth, GATEWAY_HEALTH_INTERVAL_MS);
+    return () => clearInterval(gatewayTimer.current);
+  }, [checkGatewayHealth]);
+
   const connect = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -143,8 +165,10 @@ export function useWhatsApp() {
     qrcode,
     loading,
     error,
+    gatewayOk,
     connect,
     disconnect,
     refresh: fetchStatus,
+    recheckGateway: checkGatewayHealth,
   };
 }

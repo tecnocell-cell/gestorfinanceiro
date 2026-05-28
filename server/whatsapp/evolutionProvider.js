@@ -33,19 +33,23 @@ function key() {
 /**
  * Executa uma chamada HTTP para o serviço WhatsApp (Evolution ou Gateway).
  *
- * @param {string} method  - GET | POST | DELETE
- * @param {string} path    - ex: "/instance/create"
- * @param {object} [body]  - payload JSON (omitir para GET)
+ * @param {string} method      - GET | POST | DELETE
+ * @param {string} path        - ex: "/instance/create"
+ * @param {object} [body]      - payload JSON (omitir para GET)
+ * @param {number} [timeoutMs] - timeout em ms (padrão: 15000)
  * @returns {Promise<any>} - JSON da resposta
  */
-async function evoFetch(method, path, body) {
+async function evoFetch(method, path, body, timeoutMs = 15_000) {
   const url = base() + path;
   const headers = {
     apikey: key(),
     "Content-Type": "application/json",
   };
 
-  const options = { method, headers };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const options = { method, headers, signal: controller.signal };
   if (body !== undefined) {
     options.body = JSON.stringify(body);
   }
@@ -54,7 +58,14 @@ async function evoFetch(method, path, body) {
   try {
     res = await fetch(url, options);
   } catch (networkErr) {
+    if (networkErr.name === "AbortError") {
+      throw new Error(
+        `WhatsApp Gateway timeout após ${timeoutMs / 1000}s (${method} ${path}) — verifique se o Gateway está rodando em ${process.env.EVOLUTION_API_URL}`
+      );
+    }
     throw new Error(`WhatsApp API inacessível (${method} ${path}): ${networkErr.message}`);
+  } finally {
+    clearTimeout(timer);
   }
 
   let json;
@@ -171,4 +182,13 @@ export async function deleteInstance(instanceName) {
     if (err.status === 404) return null;
     throw err;
   }
+}
+
+/**
+ * Verifica se o Gateway está vivo.
+ * Usa timeout curto (5s) — chamado em health checks frequentes.
+ * Retorna { ok: true, sessions: N, ... } ou lança erro.
+ */
+export async function gatewayHealth() {
+  return evoFetch("GET", "/health", undefined, 5_000);
 }
