@@ -761,6 +761,20 @@ router.post("/webhook/:instanceName", async (req, res) => {
       return;
     }
 
+    if (event === "MESSAGES_UPSERT") {
+      // Fase 3 — recebimento de mensagens.
+      // Por enquanto apenas loga para validar o pipeline Gateway → Financeiro.
+      // NLP, criacao de lancamentos e confirmacoes serao implementados na proxima fase.
+      const fromNumber = data?.fromNumber || data?.from || req.body?.fromNumber || null;
+      const body       = data?.body       || data?.text  || req.body?.body       || "";
+
+      console.log(
+        `[whatsapp/webhook] MESSAGES_UPSERT instance=${instanceName}` +
+        ` from=${fromNumber || "?"} body=${String(body).slice(0, 120)}`
+      );
+      return;
+    }
+
     if (event === "CONNECTION_UPDATE") {
       const state = data && data.state;
       const now = Date.now();

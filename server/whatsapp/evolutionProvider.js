@@ -100,7 +100,7 @@ export async function createInstance({ instanceName, webhookUrl, webhookSecret }
     url: webhookUrl,
     byEvents: true,
     base64: true,
-    events: ["QRCODE_UPDATED", "CONNECTION_UPDATE"],
+    events: ["QRCODE_UPDATED", "CONNECTION_UPDATE", "MESSAGES_UPSERT"],
   };
 
   if (webhookSecret) {
