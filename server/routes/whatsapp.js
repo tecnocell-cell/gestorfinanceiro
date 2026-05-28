@@ -23,9 +23,7 @@ const QR_WAIT_TIMEOUT_MS = 120_000;
 
 const STALE_SESSION = Symbol("STALE_SESSION");
 
-const QR_TIMEOUT_MSG =
-  "A Evolution API não enviou o QR code (limite 2 min). " +
-  "Atualize para v2.3.7+ ou configure SERVER_URL e CONFIG_SESSION_PHONE_VERSION no Docker da Evolution.";
+const QR_TIMEOUT_MSG = "QR code não recebido. Tente reconectar.";
 
 function buildInstanceName(usuarioId) {
   return `cf-${usuarioId}`;
@@ -203,6 +201,7 @@ function collectQrCandidates(data) {
   push(data.code);
   push(data.qr);
   push(data.pairingCode);
+  push(data.qrcode_base64);
 
   pushQrObject(data.data);
   push(data?.data?.base64);
@@ -539,7 +538,13 @@ router.get("/status", ...auth, async (req, res) => {
       [req.user.id]
     );
     if (!rows.length) {
-      return res.json({ status: "disconnected", phone_number: null });
+      return res.json({
+        status: "disconnected",
+        phone_number: null,
+        qrcode: null,
+        waiting_qr: false,
+        waiting_seconds: 0,
+      });
     }
 
     const row = rows[0];
@@ -556,6 +561,9 @@ router.get("/status", ...auth, async (req, res) => {
       return res.json({
         status: "disconnected",
         phone_number: null,
+        qrcode: null,
+        waiting_qr: false,
+        waiting_seconds: 0,
         error: QR_TIMEOUT_MSG,
       });
     }
@@ -563,6 +571,7 @@ router.get("/status", ...auth, async (req, res) => {
     res.json({
       status: row.status,
       phone_number: row.phone_number || null,
+      qrcode: row.qrcode_base64 || null,
       waiting_qr: row.status === "connecting" && !row.qrcode_base64,
       waiting_seconds: row.status === "connecting" ? Math.round(ageMs / 1000) : 0,
     });
@@ -598,7 +607,7 @@ router.get("/qrcode", ...auth, async (req, res) => {
       const passive = await fetchQrPassive(instanceName, "qrcode", { usuarioId });
       if (passive === STALE_SESSION) {
         return res.status(410).json({
-          error: "Sessao expirada na Evolution. Clique em Conectar WhatsApp novamente.",
+          error: "Sessao expirada. Clique em Conectar WhatsApp novamente.",
           status: "disconnected",
         });
       }
@@ -733,28 +742,30 @@ router.post("/webhook/:instanceName", async (req, res) => {
 
       } else if (state === "close") {
         const { rows: sr } = await query(
-          `SELECT qrcode_base64, updated_at FROM whatsapp_sessions WHERE instance_name = $1`,
+          `SELECT status, qrcode_base64, updated_at FROM whatsapp_sessions WHERE instance_name = $1`,
           [instanceName]
         );
         const row = sr[0];
-        const waitingQr = !row?.qrcode_base64;
+        const isConnecting = row?.status === "connecting";
+        const hasQr = !!row?.qrcode_base64;
+        const waitingQr = !hasQr;
         const ageMs = row?.updated_at
           ? Date.now() - new Date(row.updated_at).getTime()
           : 0;
 
-        if (waitingQr && ageMs >= QR_WAIT_TIMEOUT_MS) {
-          await failQrWaitTimeout(instanceName, "webhook");
-          return;
-        }
+        // Sessão ainda em connecting: close/timeout transitório — não apagar QR
+        if (isConnecting) {
+          if (waitingQr && ageMs >= QR_WAIT_TIMEOUT_MS) {
+            await failQrWaitTimeout(instanceName, "webhook");
+            return;
+          }
 
-        // close transitório — NÃO atualizar updated_at (senão o timeout nunca dispara)
-        if (waitingQr) {
           const ageSec = Math.round(ageMs / 1000);
           const lastLog = lastCloseIgnoreLog.get(instanceName) || 0;
           if (now - lastLog >= 15_000) {
             lastCloseIgnoreLog.set(instanceName, now);
             console.log(
-              `[whatsapp/webhook] aguardando QR (${ageSec}s), close ignorado: ${instanceName}`
+              `[whatsapp/webhook] close ignorado (connecting${hasQr ? ", QR salvo" : ""}, ${ageSec}s): ${instanceName}`
             );
           }
           return;

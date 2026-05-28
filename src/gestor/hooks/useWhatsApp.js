@@ -1,8 +1,18 @@
+/**
+ * useWhatsApp — Hook para gerenciar o estado da sessão WhatsApp do tenant.
+ *
+ * Estados:
+ *   "disconnected"  — sem sessão ativa
+ *   "connecting"    — aguardando scan do QR code
+ *   "connected"     — WhatsApp conectado
+ *
+ * QR: prioriza data.qrcode de GET /api/whatsapp/status; fallback GET /qrcode.
+ */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { whatsappApi } from "../api.js";
 
-const POLL_STATUS_MS = 4000;
-const POLL_QR_MS = 3000;
+const POLL_STATUS_MS = 4_000;
+const POLL_QR_MS = 8_000;
 
 export function useWhatsApp() {
   const [status, setStatus] = useState(null);
@@ -14,33 +24,42 @@ export function useWhatsApp() {
   const statusTimer = useRef(null);
   const qrTimer = useRef(null);
   const statusRef = useRef(null);
-  const qrcodeRef = useRef(null);
 
   statusRef.current = status;
-  qrcodeRef.current = qrcode;
+
+  const applyQrcode = useCallback((qr) => {
+    if (!qr) return false;
+    setQrcode(qr);
+    setStatus("connecting");
+    statusRef.current = "connecting";
+    setError(null);
+    return true;
+  }, []);
 
   const fetchQr = useCallback(async () => {
+    if (statusRef.current !== "connecting" && statusRef.current !== null) {
+      return false;
+    }
     try {
       const data = await whatsappApi.qrcode();
-
       if (data.qrcode) {
-        setQrcode(data.qrcode);
-        qrcodeRef.current = data.qrcode;
-        setStatus("connecting");
-        statusRef.current = "connecting";
-        setError(null);
-        return true;
+        return applyQrcode(data.qrcode);
       }
     } catch {
-      // mantém estado atual
+      // 202 ou rede — mantém estado atual
     }
-
     return false;
-  }, []);
+  }, [applyQrcode]);
 
   const fetchStatus = useCallback(async () => {
     try {
       const data = await whatsappApi.status();
+
+      if (data.qrcode) {
+        setPhone(data.phone_number || null);
+        applyQrcode(data.qrcode);
+        return;
+      }
 
       if (data.status === "connected") {
         setStatus("connected");
@@ -55,34 +74,27 @@ export function useWhatsApp() {
         setStatus("connecting");
         statusRef.current = "connecting";
         setPhone(data.phone_number || null);
+        setError(null);
         await fetchQr();
         return;
       }
 
       if (data.status === "disconnected") {
         const gotQr = await fetchQr();
-
-        if (gotQr) {
-          setStatus("connecting");
-          statusRef.current = "connecting";
-          return;
-        }
+        if (gotQr) return;
 
         setStatus("disconnected");
         statusRef.current = "disconnected";
         setPhone(null);
         setQrcode(null);
-
         if (data.error) {
           setError(data.error);
         }
-
-        return;
       }
     } catch {
       // mantém estado anterior
     }
-  }, [fetchQr]);
+  }, [applyQrcode, fetchQr]);
 
   const stopPolling = useCallback(() => {
     clearInterval(statusTimer.current);
@@ -103,7 +115,6 @@ export function useWhatsApp() {
     } else {
       stopPolling();
     }
-
     return stopPolling;
   }, [status, startPolling, stopPolling]);
 
@@ -121,15 +132,19 @@ export function useWhatsApp() {
       setStatus("connecting");
       statusRef.current = "connecting";
 
-      setTimeout(fetchQr, 1000);
-      setTimeout(fetchQr, 3000);
-      setTimeout(fetchQr, 6000);
+      const poll = () => {
+        fetchStatus();
+        fetchQr();
+      };
+      setTimeout(poll, 1_000);
+      setTimeout(poll, 3_000);
+      setTimeout(poll, 6_000);
     } catch (err) {
       setError(err.message || "Erro ao conectar.");
     } finally {
       setLoading(false);
     }
-  }, [fetchQr]);
+  }, [fetchStatus, fetchQr]);
 
   const disconnect = useCallback(async () => {
     setLoading(true);
