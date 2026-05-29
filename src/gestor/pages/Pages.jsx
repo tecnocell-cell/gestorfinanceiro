@@ -5,7 +5,7 @@ import {
   AreaChart, Area, ComposedChart, Line,
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
-import { fmtBRL, fmtPct, fmtDate, lancamentosComSaldoConta, contaPorCodigo, generateId } from "../finance.js";
+import { fmtBRL, fmtPct, fmtDate, fmtDateTime, lancamentosComSaldoConta, contaPorCodigo, generateId } from "../finance.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";

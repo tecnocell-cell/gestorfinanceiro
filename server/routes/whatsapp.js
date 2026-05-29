@@ -42,6 +42,37 @@ function sendReply(instanceName, number, text) {
  * @param {string} inboxId
  * @param {string} msgBody
  */
+/**
+ * Processa mensagem de mídia (áudio/imagem/vídeo/documento).
+ * Responde com mensagem de espera e atualiza inbox. Fire-and-forget.
+ */
+async function processMediaMessage(usuarioId, fromNumber, instanceName, inboxId, messageType, caption) {
+  const markInbox = (sent, error = null) =>
+    query(
+      "UPDATE whatsapp_inbox SET response_sent = $1, response_error = $2 WHERE id = $3",
+      [sent, error, inboxId]
+    ).catch(() => {});
+
+  let reply;
+  if (messageType === "audio") {
+    reply = "🎵 Recebi seu áudio. Em breve vou transcrever e preparar o lançamento.";
+  } else if (messageType === "image") {
+    reply = caption
+      ? `🧾 Recebi seu comprovante com legenda: "${caption}". Em breve vou ler os dados e preparar o lançamento.`
+      : "🧾 Recebi seu comprovante. Em breve vou ler os dados e preparar o lançamento.";
+  } else if (messageType === "document") {
+    reply = caption
+      ? `📄 Recebi seu documento com legenda: "${caption}". Em breve vou processar.`
+      : "📄 Recebi seu documento. Em breve vou processar.";
+  } else {
+    reply = "📎 Recebi seu arquivo. Em breve vou processar.";
+  }
+
+  sendReply(instanceName, fromNumber, reply);
+  await markInbox(true);
+  console.log(`[whatsapp/media] usuario=${usuarioId} tipo=${messageType} from=${fromNumber}`);
+}
+
 async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgBody) {
   const body = String(msgBody || "").trim();
 
@@ -935,8 +966,13 @@ router.post("/webhook/:instanceName", async (req, res) => {
     }
 
     if (event === "MESSAGES_UPSERT") {
-      const fromNumber = data?.fromNumber || data?.from || req.body?.fromNumber || null;
-      const msgBody    = data?.body       || data?.text || req.body?.body       || "";
+      const fromNumber   = data?.fromNumber || data?.from || req.body?.fromNumber || null;
+      const msgBody      = data?.body       || data?.text || req.body?.body       || "";
+      const messageType  = data?.messageType || "text";
+      const mediaInfo    = data?.media       || null;
+      // caption: da mídia ou do body (imagens/vídeos já trazem caption no body)
+      const captionText  = mediaInfo?.caption || null;
+      const isMedia      = messageType !== "text";
 
       if (isAdminInstance) {
         // ── Modo PF: allowlist obrigatoria ──────────────────────────────
@@ -953,19 +989,34 @@ router.post("/webhook/:instanceName", async (req, res) => {
         ).catch(() => {});
         console.log(
           `[whatsapp/webhook] MESSAGES_UPSERT PF usuario=${authRow.usuario_id}` +
-          ` from=${fromNumber} body=${String(msgBody).slice(0, 120)}`
+          ` from=${fromNumber} type=${messageType} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta e processar (parse + confirmação)
-        if (msgBody) {
+        // Salvar na inbox (texto ou mídia) e processar
+        if (msgBody || isMedia) {
           query(
-            `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO whatsapp_inbox
+               (usuario_id, from_number, instance_name, message_text,
+                message_type, media_mimetype, media_filename, media_path, caption)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING id`,
-            [authRow.usuario_id, fromNumber, instanceName, String(msgBody).trim()]
+            [
+              authRow.usuario_id, fromNumber, instanceName,
+              String(msgBody || captionText || "").trim(),
+              messageType,
+              mediaInfo?.mimetype   || null,
+              mediaInfo?.filename   || null,
+              mediaInfo?.localPath  || null,
+              captionText,
+            ]
           )
             .then(({ rows }) => {
-              if (rows[0]?.id) {
-                processMessage(authRow.usuario_id, fromNumber, instanceName, rows[0].id, msgBody)
+              if (!rows[0]?.id) return;
+              const inboxId = rows[0].id;
+              if (isMedia) {
+                processMediaMessage(authRow.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText)
+                  .catch(e => console.error("[whatsapp/processMedia] PF:", e.message));
+              } else {
+                processMessage(authRow.usuario_id, fromNumber, instanceName, inboxId, msgBody)
                   .catch(e => console.error("[whatsapp/processMessage] PF:", e.message));
               }
             })
@@ -991,19 +1042,34 @@ router.post("/webhook/:instanceName", async (req, res) => {
         }
         console.log(
           `[whatsapp/webhook] MESSAGES_UPSERT PJ instance=${instanceName}` +
-          ` usuario=${sess.usuario_id} from=${fromNumber || "?"} body=${String(msgBody).slice(0, 120)}`
+          ` usuario=${sess.usuario_id} from=${fromNumber || "?"} type=${messageType} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta e processar (parse + confirmação)
-        if (msgBody) {
+        // Salvar na inbox (texto ou mídia) e processar
+        if (msgBody || isMedia) {
           query(
-            `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO whatsapp_inbox
+               (usuario_id, from_number, instance_name, message_text,
+                message_type, media_mimetype, media_filename, media_path, caption)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING id`,
-            [sess.usuario_id, fromNumber || "", instanceName, String(msgBody).trim()]
+            [
+              sess.usuario_id, fromNumber || "", instanceName,
+              String(msgBody || captionText || "").trim(),
+              messageType,
+              mediaInfo?.mimetype   || null,
+              mediaInfo?.filename   || null,
+              mediaInfo?.localPath  || null,
+              captionText,
+            ]
           )
             .then(({ rows }) => {
-              if (rows[0]?.id && fromNumber) {
-                processMessage(sess.usuario_id, fromNumber, instanceName, rows[0].id, msgBody)
+              if (!rows[0]?.id || !fromNumber) return;
+              const inboxId = rows[0].id;
+              if (isMedia) {
+                processMediaMessage(sess.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText)
+                  .catch(e => console.error("[whatsapp/processMedia] PJ:", e.message));
+              } else {
+                processMessage(sess.usuario_id, fromNumber, instanceName, inboxId, msgBody)
                   .catch(e => console.error("[whatsapp/processMessage] PJ:", e.message));
               }
             })
@@ -1295,6 +1361,48 @@ async function handleGetAuthorized(req, res) {
 router.get("/my-authorized", ...auth, handleGetAuthorized);
 router.get("/authorized",    ...auth, handleGetAuthorized);
 
+// ── Limites de números autorizados por plano ─────────────────────────────────
+
+const PLAN_LIMITS = {
+  PF_BASIC:   1,
+  PF_PLUS:    3,
+  PF_PREMIUM: 5,
+  PJ_BASIC:   1,
+  PJ_PLUS:    3,
+  PJ_PREMIUM: 5,
+};
+
+/**
+ * Retorna { plan, limit, used } para o usuário autenticado.
+ * Se não houver linha em whatsapp_user_plan, o plano padrão é PJ_BASIC.
+ */
+async function getUserPlanInfo(usuarioId) {
+  const { rows: planRows } = await query(
+    "SELECT plan_type FROM whatsapp_user_plan WHERE usuario_id = $1",
+    [usuarioId]
+  );
+  const plan  = planRows[0]?.plan_type || "PJ_BASIC";
+  const limit = PLAN_LIMITS[plan] ?? 1;
+  const { rows: countRows } = await query(
+    "SELECT COUNT(*)::int AS total FROM whatsapp_authorized_numbers WHERE usuario_id = $1",
+    [usuarioId]
+  );
+  const used = countRows[0]?.total || 0;
+  return { plan, limit, used };
+}
+
+// GET /api/whatsapp/plan-limit
+// Retorna { plan, limit, used } para o usuário autenticado.
+router.get("/plan-limit", ...auth, async (req, res) => {
+  try {
+    const info = await getUserPlanInfo(req.user.id);
+    res.json(info);
+  } catch (err) {
+    console.error("[whatsapp/plan-limit GET]:", err.message);
+    res.status(500).json({ error: "Erro ao consultar limite de plano." });
+  }
+});
+
 // POST /api/whatsapp/authorized
 // Body: { phone_number, label? }
 // usuario_id sempre inferido do JWT — nunca aceitar do body.
@@ -1308,6 +1416,17 @@ router.post("/authorized", ...auth, async (req, res) => {
   }
 
   try {
+    // Verificar limite de plano
+    const { plan, limit, used } = await getUserPlanInfo(usuarioId);
+    if (used >= limit) {
+      return res.status(403).json({
+        error: `Limite de ${limit} número(s) atingido para o plano ${plan}. Faça upgrade para adicionar mais.`,
+        plan,
+        limit,
+        used,
+      });
+    }
+
     const { rows } = await query(
       `INSERT INTO whatsapp_authorized_numbers (usuario_id, phone_number, label)
        VALUES ($1, $2, $3)

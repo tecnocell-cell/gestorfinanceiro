@@ -613,6 +613,7 @@ function PfModePanel({ adminPhone }) {
 // ── Painel de numeros autorizados (PJ) ───────────────────────────────────────
 function PjAuthorizedPanel() {
   const [numbers, setNumbers] = React.useState(null); // null = carregando
+  const [planInfo, setPlanInfo] = React.useState(null); // { plan, limit, used }
   const [form, setForm]       = React.useState({ phone_number: "", label: "" });
   const [addError, setAddError] = React.useState(null);
   const [adding, setAdding]   = React.useState(false);
@@ -622,6 +623,9 @@ function PjAuthorizedPanel() {
       whatsappApi.listAuthorized()
         .then(d => setNumbers(d?.authorized || []))
         .catch(() => setNumbers([]));
+      whatsappApi.planLimit()
+        .then(d => setPlanInfo(d))
+        .catch(() => {});
     });
   }, []);
 
@@ -637,6 +641,8 @@ function PjAuthorizedPanel() {
       const d = await whatsappApi.addAuthorized({ phone_number: phone, label: form.label });
       setNumbers(prev => [...(prev || []), d.authorized]);
       setForm({ phone_number: "", label: "" });
+      // Atualiza contador de limite
+      whatsappApi.planLimit().then(d => setPlanInfo(d)).catch(() => {});
     } catch (e) {
       setAddError(e.message);
     } finally {
@@ -683,12 +689,43 @@ function PjAuthorizedPanel() {
       padding: "28px 32px",
       boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
     }}>
-      <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: C.text }}>
-        Numeros autorizados
-      </h3>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.text }}>
+          Numeros autorizados
+        </h3>
+        {planInfo && (
+          <span style={{
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "3px 10px",
+            borderRadius: 99,
+            background: planInfo.used >= planInfo.limit ? C.redLight : C.greenLight,
+            color: planInfo.used >= planInfo.limit ? C.red : C.green,
+            border: `1px solid ${planInfo.used >= planInfo.limit ? C.redBorder : C.greenBorder}`,
+          }}>
+            {planInfo.used} de {planInfo.limit} números
+          </span>
+        )}
+      </div>
       <p style={{ margin: "0 0 20px", fontSize: 13, color: C.textMuted }}>
         Numeros que podem enviar comandos para esta conta. Se vazio, so o numero da conta conectada e aceito.
       </p>
+
+      {/* Aviso de limite atingido */}
+      {planInfo && planInfo.used >= planInfo.limit && (
+        <div style={{
+          background: "#fffbeb",
+          border: "1px solid #f59e0b",
+          color: "#92400e",
+          borderRadius: 8,
+          padding: "10px 14px",
+          fontSize: 13,
+          marginBottom: 16,
+        }}>
+          ⚠️ Limite de números atingido para o plano <strong>{planInfo.plan}</strong>.
+          Remova um número existente ou entre em contato para fazer upgrade.
+        </div>
+      )}
 
       {/* Formulario de adicao */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end", marginBottom: addError ? 8 : 16 }}>
@@ -716,7 +753,7 @@ function PjAuthorizedPanel() {
         </div>
         <button
           onClick={add}
-          disabled={adding || !form.phone_number}
+          disabled={adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)}
           style={{
             padding: "8px 14px",
             borderRadius: 6,
@@ -725,8 +762,8 @@ function PjAuthorizedPanel() {
             color: "#fff",
             fontSize: 13,
             fontWeight: 600,
-            cursor: adding || !form.phone_number ? "not-allowed" : "pointer",
-            opacity: adding || !form.phone_number ? 0.55 : 1,
+            cursor: (adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)) ? "not-allowed" : "pointer",
+            opacity: (adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)) ? 0.45 : 1,
             whiteSpace: "nowrap",
           }}
         >
