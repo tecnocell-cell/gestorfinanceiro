@@ -816,7 +816,14 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PF usuario=${authRow.usuario_id}` +
           ` from=${fromNumber} body=${String(msgBody).slice(0, 120)}`
         );
-        // TODO Fase 3b: processar mensagem para usuario PF authRow.usuario_id
+        // Salvar mensagem bruta na inbox
+        if (msgBody) {
+          query(
+            `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
+             VALUES ($1, $2, $3, $4)`,
+            [authRow.usuario_id, fromNumber, instanceName, String(msgBody).trim()]
+          ).catch(e => console.error("[whatsapp/webhook] inbox PF insert:", e.message));
+        }
 
       } else {
         // ── Modo PJ: verificar allowlist do tenant ──────────────────────
@@ -839,7 +846,14 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PJ instance=${instanceName}` +
           ` usuario=${sess.usuario_id} from=${fromNumber || "?"} body=${String(msgBody).slice(0, 120)}`
         );
-        // TODO Fase 3b: processar mensagem para tenant sess.usuario_id
+        // Salvar mensagem bruta na inbox
+        if (msgBody) {
+          query(
+            `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
+             VALUES ($1, $2, $3, $4)`,
+            [sess.usuario_id, fromNumber || "", instanceName, String(msgBody).trim()]
+          ).catch(e => console.error("[whatsapp/webhook] inbox PJ insert:", e.message));
+        }
       }
       return;
     }
@@ -1180,6 +1194,50 @@ router.delete("/authorized/:id", ...auth, async (req, res) => {
   } catch (err) {
     console.error("[whatsapp/authorized DELETE]:", err.message);
     res.status(500).json({ error: "Erro ao remover numero." });
+  }
+});
+
+// GET /api/whatsapp/inbox
+// Retorna as ultimas mensagens brutas recebidas do usuario autenticado.
+// Query param: ?limit=50&offset=0&status=pending
+router.get("/inbox", ...auth, async (req, res) => {
+  const usuarioId = req.user.id;
+  const limit  = Math.min(parseInt(req.query.limit  || "50",  10), 200);
+  const offset = Math.max(parseInt(req.query.offset || "0",   10), 0);
+  const status = req.query.status; // opcional: pending | processed | ignored
+
+  try {
+    const conditions = ["usuario_id = $1"];
+    const filterVals = [usuarioId];
+    let i = 2;
+
+    if (status && ["pending", "processed", "ignored"].includes(status)) {
+      conditions.push(`status = $${i++}`);
+      filterVals.push(status);
+    }
+
+    const limitIdx = i;
+    const offsetIdx = i + 1;
+    const listVals = [...filterVals, limit, offset];
+
+    const { rows } = await query(
+      `SELECT id, from_number, instance_name, message_text, status, created_at
+         FROM whatsapp_inbox
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      listVals
+    );
+
+    const { rows: countRows } = await query(
+      `SELECT COUNT(*)::int AS total FROM whatsapp_inbox WHERE ${conditions.join(" AND ")}`,
+      filterVals
+    );
+
+    res.json({ inbox: rows, total: countRows[0]?.total || 0 });
+  } catch (err) {
+    console.error("[whatsapp/inbox GET]:", err.message);
+    res.status(500).json({ error: "Erro ao buscar inbox." });
   }
 });
 

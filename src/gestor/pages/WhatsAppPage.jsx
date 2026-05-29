@@ -822,6 +822,129 @@ function PjAuthorizedPanel() {
   );
 }
 
+// ── Inbox de mensagens recebidas ────────────────────────────────────────────
+function WhatsAppInbox() {
+  const [msgs, setMsgs]         = React.useState(null); // null = carregando
+  const [total, setTotal]       = React.useState(0);
+  const [loading, setLoading]   = React.useState(false);
+  const [offset, setOffset]     = React.useState(0);
+  const LIMIT = 20;
+
+  const load = React.useCallback(async (off = 0) => {
+    setLoading(true);
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const d = await whatsappApi.inbox({ limit: LIMIT, offset: off });
+      setMsgs(d?.inbox || []);
+      setTotal(d?.total || 0);
+      setOffset(off);
+    } catch { setMsgs([]); } finally { setLoading(false); }
+  }, []);
+
+  React.useEffect(() => { load(0); }, [load]);
+
+  const fmtPhone = (p) =>
+    p ? p.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4") : p;
+
+  const fmtTime = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div style={{
+      maxWidth: 560, margin: "24px auto 0",
+      background: "#fff", border: `1px solid ${C.greyBorder}`,
+      borderRadius: 16, padding: "28px 32px",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.text }}>
+          WhatsApp Inbox
+        </h3>
+        <button
+          onClick={() => load(0)}
+          disabled={loading}
+          style={{
+            padding: "4px 12px", borderRadius: 6, fontSize: 12,
+            border: `1px solid ${C.greyBorder}`, background: "#fff",
+            color: C.textMuted, cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
+          }}
+        >
+          ↺ Atualizar
+        </button>
+      </div>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.textMuted }}>
+        Mensagens recebidas via WhatsApp. Somente leitura.
+      </p>
+
+      {msgs === null ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Carregando...
+        </p>
+      ) : msgs.length === 0 ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Nenhuma mensagem recebida ainda.
+        </p>
+      ) : (
+        <>
+          {msgs.map(m => (
+            <div key={m.id} style={{
+              display: "flex", gap: 12, alignItems: "flex-start",
+              padding: "10px 0", borderBottom: `1px solid ${C.greyBorder}`,
+            }}>
+              <span style={{ fontSize: 11, color: C.textMuted, whiteSpace: "nowrap", marginTop: 2, minWidth: 70 }}>
+                {fmtTime(m.created_at)}
+              </span>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 12, color: C.textMuted, display: "block", marginBottom: 2 }}>
+                  {fmtPhone(m.from_number)}
+                </span>
+                <span style={{ fontSize: 14, color: C.text }}>
+                  {m.message_text}
+                </span>
+              </div>
+              <span style={{
+                padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
+                background: m.status === "processed" ? C.greenLight : m.status === "ignored" ? C.greyLight : "oklch(0.97 0.04 60)",
+                color:      m.status === "processed" ? C.green      : m.status === "ignored" ? C.grey      : "oklch(0.42 0.12 60)",
+                border: `1px solid ${m.status === "processed" ? C.greenBorder : m.status === "ignored" ? C.greyBorder : "oklch(0.80 0.10 60)"}`,
+              }}>
+                {m.status === "processed" ? "Processado" : m.status === "ignored" ? "Ignorado" : "Pendente"}
+              </span>
+            </div>
+          ))}
+
+          {/* Paginacao simples */}
+          {total > LIMIT && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+              <span style={{ fontSize: 12, color: C.textMuted }}>{total} mensagem(s) no total</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => load(Math.max(0, offset - LIMIT))}
+                  disabled={offset === 0 || loading}
+                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${C.greyBorder}`, background: "#fff", cursor: offset === 0 ? "not-allowed" : "pointer", opacity: offset === 0 ? 0.4 : 1 }}
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => load(offset + LIMIT)}
+                  disabled={offset + LIMIT >= total || loading}
+                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${C.greyBorder}`, background: "#fff", cursor: offset + LIMIT >= total ? "not-allowed" : "pointer", opacity: offset + LIMIT >= total ? 0.4 : 1 }}
+                >
+                  Próximo →
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // -- Pagina principal --
 export default function WhatsAppPage() {
   const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
@@ -846,7 +969,10 @@ export default function WhatsAppPage() {
   return (
     <PfPageShell title="WhatsApp">
       {isPF ? (
-        <PfModePanel adminPhone={adminPhone} />
+        <>
+          <PfModePanel adminPhone={adminPhone} />
+          <WhatsAppInbox />
+        </>
       ) : (
         <>
           {gatewayOk === false && (
@@ -878,6 +1004,7 @@ export default function WhatsAppPage() {
 
           {/* Numeros autorizados — sempre visivel para PJ */}
           <PjAuthorizedPanel />
+          <WhatsAppInbox />
         </>
       )}
     </PfPageShell>
