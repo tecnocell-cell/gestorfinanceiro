@@ -438,6 +438,218 @@ function PfModePanel({ adminPhone, myNumbers }) {
   );
 }
 
+// ── Painel de numeros autorizados (PJ) ───────────────────────────────────────
+function PjAuthorizedPanel() {
+  const [numbers, setNumbers] = React.useState(null); // null = carregando
+  const [form, setForm]       = React.useState({ phone_number: "", label: "" });
+  const [addError, setAddError] = React.useState(null);
+  const [adding, setAdding]   = React.useState(false);
+
+  const load = React.useCallback(() => {
+    import("../api.js").then(({ whatsappApi }) => {
+      whatsappApi.listAuthorized()
+        .then(d => setNumbers(d?.authorized || []))
+        .catch(() => setNumbers([]));
+    });
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const add = async () => {
+    setAddError(null);
+    setAdding(true);
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const phone = form.phone_number.replace(/\D/g, "");
+      if (!phone) { setAddError("Informe o telefone."); return; }
+      const d = await whatsappApi.addAuthorized({ phone_number: phone, label: form.label });
+      setNumbers(prev => [...(prev || []), d.authorized]);
+      setForm({ phone_number: "", label: "" });
+    } catch (e) {
+      setAddError(e.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const toggle = async (row) => {
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const d = await whatsappApi.updateAuthorized(row.id, { active: !row.active });
+      setNumbers(prev => prev.map(r => r.id === row.id ? { ...r, ...d.authorized } : r));
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  const remove = async (row) => {
+    if (!confirm(`Remover ${row.phone_number}?`)) return;
+    try {
+      const { whatsappApi } = await import("../api.js");
+      await whatsappApi.deleteAuthorized(row.id);
+      setNumbers(prev => prev.filter(r => r.id !== row.id));
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  const fmtPhone = (p) =>
+    p ? p.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4") : p;
+
+  const inp = {
+    width: "100%",
+    padding: "8px 10px",
+    border: `1px solid ${C.greyBorder}`,
+    borderRadius: 6,
+    fontSize: 14,
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{
+      maxWidth: 560,
+      margin: "24px auto 0",
+      background: "#fff",
+      border: `1px solid ${C.greyBorder}`,
+      borderRadius: 16,
+      padding: "28px 32px",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+    }}>
+      <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: C.text }}>
+        Numeros autorizados
+      </h3>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.textMuted }}>
+        Numeros que podem enviar comandos para esta conta. Se vazio, so o numero da conta conectada e aceito.
+      </p>
+
+      {/* Formulario de adicao */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end", marginBottom: addError ? 8 : 16 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 4 }}>
+            Telefone
+          </label>
+          <input
+            style={inp}
+            value={form.phone_number}
+            onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
+            placeholder="5511999999999"
+          />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 4 }}>
+            Descricao (opcional)
+          </label>
+          <input
+            style={inp}
+            value={form.label}
+            onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+            placeholder="Principal, Contador..."
+          />
+        </div>
+        <button
+          onClick={add}
+          disabled={adding || !form.phone_number}
+          style={{
+            padding: "8px 14px",
+            borderRadius: 6,
+            border: `1px solid ${C.green}`,
+            background: C.green,
+            color: "#fff",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: adding || !form.phone_number ? "not-allowed" : "pointer",
+            opacity: adding || !form.phone_number ? 0.55 : 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {adding ? "..." : "+ Adicionar"}
+        </button>
+      </div>
+
+      {addError && (
+        <div style={{
+          background: C.redLight,
+          border: `1px solid ${C.redBorder}`,
+          color: C.red,
+          borderRadius: 6,
+          padding: "8px 12px",
+          fontSize: 13,
+          marginBottom: 12,
+        }}>
+          {addError}
+        </div>
+      )}
+
+      {/* Lista */}
+      {numbers === null ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Carregando...
+        </p>
+      ) : numbers.length === 0 ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Nenhum numero cadastrado.
+        </p>
+      ) : (
+        numbers.map(row => (
+          <div key={row.id} style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 0",
+            borderBottom: `1px solid ${C.greyBorder}`,
+          }}>
+            <div>
+              <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14, color: C.text }}>
+                {fmtPhone(row.phone_number)}
+              </span>
+              {row.label && (
+                <span style={{ marginLeft: 8, fontSize: 12, color: C.textMuted }}>{row.label}</span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{
+                padding: "3px 10px",
+                borderRadius: 99,
+                fontSize: 12,
+                fontWeight: 600,
+                background: row.active ? C.greenLight : C.greyLight,
+                color:      row.active ? C.green      : C.grey,
+                border: `1px solid ${row.active ? C.greenBorder : C.greyBorder}`,
+              }}>
+                {row.active ? "Ativo" : "Inativo"}
+              </span>
+              <button
+                onClick={() => toggle(row)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${row.active ? C.redBorder : C.greenBorder}`,
+                  background: "#fff",
+                  color: row.active ? C.red : C.green,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {row.active ? "Desativar" : "Ativar"}
+              </button>
+              <button
+                onClick={() => remove(row)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${C.redBorder}`,
+                  background: C.redLight,
+                  color: C.red,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Remover
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 // -- Pagina principal --
 export default function WhatsAppPage() {
   const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
@@ -493,6 +705,9 @@ export default function WhatsAppPage() {
               error={error}
             />
           )}
+
+          {/* Numeros autorizados — visivel para PJ independente do estado da conexao */}
+          {status !== null && <PjAuthorizedPanel />}
         </>
       )}
     </PfPageShell>

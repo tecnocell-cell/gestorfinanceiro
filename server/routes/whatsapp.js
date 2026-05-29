@@ -1028,9 +1028,10 @@ router.get("/pf-config", ...auth, async (_req, res) => {
 });
 
 
-// GET /api/whatsapp/my-authorized
-// Retorna os numeros autorizados do proprio usuario (para exibir no painel PF/PJ).
-router.get("/my-authorized", ...auth, async (req, res) => {
+// GET /api/whatsapp/my-authorized  (alias legado)
+// GET /api/whatsapp/authorized
+// Retorna os numeros autorizados do proprio usuario.
+async function handleGetAuthorized(req, res) {
   try {
     const { rows } = await query(
       `SELECT id, phone_number, label, active, verified_at, last_used_at, created_at
@@ -1041,8 +1042,91 @@ router.get("/my-authorized", ...auth, async (req, res) => {
     );
     res.json({ authorized: rows });
   } catch (err) {
-    console.error("[whatsapp/my-authorized]:", err.message);
+    console.error("[whatsapp/authorized GET]:", err.message);
     res.status(500).json({ error: "Erro ao buscar numeros autorizados." });
+  }
+}
+router.get("/my-authorized", ...auth, handleGetAuthorized);
+router.get("/authorized",    ...auth, handleGetAuthorized);
+
+// POST /api/whatsapp/authorized
+// Body: { phone_number, label? }
+// usuario_id sempre inferido do JWT — nunca aceitar do body.
+router.post("/authorized", ...auth, async (req, res) => {
+  const { phone_number, label = "" } = req.body || {};
+  const usuarioId = req.user.id;
+
+  const phone = (phone_number || "").replace(/\D/g, "");
+  if (!phone || !/^\d{8,15}$/.test(phone)) {
+    return res.status(400).json({ error: "Formato de telefone invalido." });
+  }
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO whatsapp_authorized_numbers (usuario_id, phone_number, label)
+       VALUES ($1, $2, $3)
+       RETURNING id, phone_number, label, active, verified_at, last_used_at, created_at`,
+      [usuarioId, phone, String(label).trim()]
+    );
+    res.status(201).json({ authorized: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "Este numero ja esta cadastrado." });
+    }
+    console.error("[whatsapp/authorized POST]:", err.message);
+    res.status(500).json({ error: "Erro ao cadastrar numero." });
+  }
+});
+
+// PATCH /api/whatsapp/authorized/:id
+// Body: { active?, label? }
+// Apenas o proprio usuario pode atualizar seus numeros.
+router.patch("/authorized/:id", ...auth, async (req, res) => {
+  const { id } = req.params;
+  const { active, label } = req.body || {};
+  const usuarioId = req.user.id;
+
+  const sets = [];
+  const vals = [];
+  let i = 1;
+
+  if (active !== undefined) { sets.push(`active = $${i++}`); vals.push(!!active); }
+  if (label  !== undefined) { sets.push(`label  = $${i++}`); vals.push(String(label).trim()); }
+
+  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar." });
+
+  vals.push(id, usuarioId);
+  try {
+    const { rows } = await query(
+      `UPDATE whatsapp_authorized_numbers
+          SET ${sets.join(", ")}, updated_at = NOW()
+        WHERE id = $${i} AND usuario_id = $${i + 1}
+        RETURNING id, phone_number, label, active, verified_at, last_used_at, created_at`,
+      vals
+    );
+    if (!rows.length) return res.status(404).json({ error: "Numero nao encontrado." });
+    res.json({ authorized: rows[0] });
+  } catch (err) {
+    console.error("[whatsapp/authorized PATCH]:", err.message);
+    res.status(500).json({ error: "Erro ao atualizar numero." });
+  }
+});
+
+// DELETE /api/whatsapp/authorized/:id
+// Apenas o proprio usuario pode remover seus numeros.
+router.delete("/authorized/:id", ...auth, async (req, res) => {
+  const { id } = req.params;
+  const usuarioId = req.user.id;
+  try {
+    const { rowCount } = await query(
+      "DELETE FROM whatsapp_authorized_numbers WHERE id = $1 AND usuario_id = $2",
+      [id, usuarioId]
+    );
+    if (!rowCount) return res.status(404).json({ error: "Numero nao encontrado." });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[whatsapp/authorized DELETE]:", err.message);
+    res.status(500).json({ error: "Erro ao remover numero." });
   }
 });
 

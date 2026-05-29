@@ -93,13 +93,9 @@ export const adminApi = {
   getUserState:          (id)        => request(`/admin/users/${id}/state`),
   saveUserState:         (id, dados) => request(`/admin/users/${id}/state`, { method: "PUT", body: { dados } }),
   getUserRecorrencias:   (id)        => request(`/admin/users/${id}/recorrencias`),
-  // WhatsApp Admin
-  waConfig:           ()           => request("/whatsapp-admin/config"),
-  waSetConfig:        (data)       => request("/whatsapp-admin/config",           { method: "POST",   body: data }),
-  waListAuthorized:   ()           => request("/whatsapp-admin/authorized"),
-  waAddAuthorized:    (data)       => request("/whatsapp-admin/authorized",        { method: "POST",   body: data }),
-  waUpdateAuthorized: (id, data)   => request(`/whatsapp-admin/authorized/${id}`, { method: "PATCH",  body: data }),
-  waDeleteAuthorized: (id)         => request(`/whatsapp-admin/authorized/${id}`, { method: "DELETE" }),
+  // WhatsApp Admin (apenas config global da instancia)
+  waConfig:    ()     => request("/whatsapp-admin/config"),
+  waSetConfig: (data) => request("/whatsapp-admin/config", { method: "POST", body: data }),
 };
 
 // ─── Recorrências ─────────────────────────────────────────────────────────────
@@ -113,12 +109,17 @@ export const recorrenciasApi = {
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
 export const whatsappApi = {
-  connect:        ()  => request("/whatsapp/connect",         { method: "POST" }),
-  status:         ()  => request("/whatsapp/status"),
-  disconnect:     ()  => request("/whatsapp/disconnect",      { method: "POST" }),
-  gatewayHealth:  ()  => request("/whatsapp/gateway-health"),
-  pfConfig:       ()  => request("/whatsapp/pf-config"),
-  myAuthorized:   ()  => request("/whatsapp/my-authorized"),
+  connect:          ()       => request("/whatsapp/connect",            { method: "POST" }),
+  status:           ()       => request("/whatsapp/status"),
+  disconnect:       ()       => request("/whatsapp/disconnect",         { method: "POST" }),
+  gatewayHealth:    ()       => request("/whatsapp/gateway-health"),
+  pfConfig:         ()       => request("/whatsapp/pf-config"),
+  myAuthorized:     ()       => request("/whatsapp/my-authorized"),
+  // CRUD de numeros autorizados (usuario autenticado, sem UUID manual)
+  listAuthorized:   ()       => request("/whatsapp/authorized"),
+  addAuthorized:    (data)   => request("/whatsapp/authorized",         { method: "POST",  body: data }),
+  updateAuthorized: (id, d)  => request(`/whatsapp/authorized/${id}`,   { method: "PATCH", body: d }),
+  deleteAuthorized: (id)     => request(`/whatsapp/authorized/${id}`,   { method: "DELETE" }),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────
