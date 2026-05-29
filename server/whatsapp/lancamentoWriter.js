@@ -14,6 +14,7 @@
 
 import { randomUUID } from "crypto";
 import { query } from "../db.js";
+import { suggestCategory } from "./messageParser.js";
 
 // ── Utilitários ───────────────────────────────────────────────────────────────
 
@@ -87,14 +88,52 @@ export async function addLancamentoFromWhatsApp(usuarioId, parsed) {
   const tipoLanc   = isReceita ? "Entrada" : "Saida";
   const natureza   = isReceita ? "Credito" : "Debito";
 
-  // Plano compatível: preferir Receita/Despesa; fallback no primeiro disponível
-  const plano =
-    planoContas.find((p) => {
+  // Normaliza texto para busca (sem acentos, lowercase)
+  function normStr(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  }
+
+  // Sugerir categoria pelo mapeamento de palavras-chave
+  const categoriaHint = suggestCategory(String(parsed.descricao || ""), parsed.tipo);
+
+  // Busca plano: 1º por hint de categoria, 2º por tipo compatível, 3º fallback geral
+  let plano = null;
+  let planoMotivo = "fallback geral";
+
+  if (categoriaHint) {
+    const hintNorm = normStr(categoriaHint);
+    plano = planoContas.find((p) => {
+      if (p.inativo) return false;
+      const tipoCompativel = isReceita
+        ? p.tipo === "Receita"
+        : p.tipo === "Despesa" || p.tipo === "Custo";
+      if (!tipoCompativel) return false;
+      const descNorm = normStr(p.descricao);
+      // Match se a descricao do plano contém o hint ou vice-versa
+      return descNorm.includes(hintNorm) || hintNorm.includes(descNorm);
+    }) || null;
+    if (plano) planoMotivo = `categoria "${categoriaHint}"`;
+  }
+
+  if (!plano) {
+    plano = planoContas.find((p) => {
       if (p.inativo) return false;
       return isReceita
         ? p.tipo === "Receita"
         : p.tipo === "Despesa" || p.tipo === "Custo";
-    }) || planoContas[0] || null;
+    }) || null;
+    if (plano) planoMotivo = `primeiro ${isReceita ? "Receita" : "Despesa/Custo"} disponivel`;
+  }
+
+  if (!plano) {
+    plano = planoContas[0] || null;
+    planoMotivo = "primeiro plano (sem tipo)";
+  }
+
+  console.log(
+    `[lancamentoWriter] plano escolhido: "${plano?.descricao || "nenhum"}" (${planoMotivo})` +
+    ` | hint="${categoriaHint || "nenhum"}" | desc="${parsed.descricao}"`
+  );
 
   // ── 4. Conta destino/origem ──────────────────────────────────────────────
   // Caixa preferido; se não existir, qualquer conta ativa

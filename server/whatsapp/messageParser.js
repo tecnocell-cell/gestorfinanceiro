@@ -65,6 +65,104 @@ const DESPESA_PREFIXES = [
   "despesa",
 ];
 
+// ── Mapeamento de categorias ─────────────────────────────────────────────────
+//
+// Lista de { nome, keywords } usada para sugerir o plano de contas correto
+// a partir da descrição parseada. A busca é feita por substring normalizada.
+// Ordem importa: primeira correspondência vence.
+
+const CATEGORY_MAP = [
+  {
+    nome: "Transporte",
+    keywords: [
+      "gasolina", "combustivel", "posto", "etanol", "diesel",
+      "uber", "taxi", "99", "onibus", "metro", "trem", "brt",
+      "passagem", "pedagio", "estacionamento", "mototaxi",
+    ],
+  },
+  {
+    nome: "Alimentação",
+    keywords: [
+      "mercado", "supermercado", "feira", "hortifruti", "acougue",
+      "ifood", "rappi", "delivery", "restaurante", "lanchonete",
+      "lanche", "pizza", "hamburguer", "burguer", "sushi",
+      "cafe", "cafeteria", "padaria", "almoco", "jantar", "refeicao",
+      "bebida", "cerveja", "bar",
+    ],
+  },
+  {
+    nome: "Moradia",
+    keywords: [
+      "aluguel", "condominio", "iptu", "agua", "energia", "luz",
+      "gas", "casa", "apartamento", "reforma", "manutencao",
+    ],
+  },
+  {
+    nome: "Internet",
+    keywords: [
+      "internet", "fibra", "wifi", "vivo", "claro", "tim", "oi",
+      "net", "telefone", "celular", "plano", "recarga", "chip",
+    ],
+  },
+  {
+    nome: "Saúde",
+    keywords: [
+      "farmacia", "remedio", "medicamento", "medico", "consulta",
+      "exame", "clinica", "hospital", "plano de saude", "dentista",
+      "academia", "psicologia", "psicologo",
+    ],
+  },
+  {
+    nome: "Educação",
+    keywords: [
+      "escola", "faculdade", "curso", "livro", "material",
+      "mensalidade", "aula", "colegio", "uniforme",
+    ],
+  },
+  {
+    nome: "Lazer",
+    keywords: [
+      "cinema", "teatro", "show", "viagem", "hotel", "pousada",
+      "netflix", "spotify", "streaming", "jogo", "parque",
+    ],
+  },
+  {
+    nome: "Vestuário",
+    keywords: [
+      "roupa", "sapato", "tenis", "calcado", "vestuario",
+      "camisa", "calca", "vestido", "bolsa", "acessorio",
+    ],
+  },
+  // Receita
+  {
+    nome: "Salário",
+    keywords: ["salario", "salário", "pagamento mensal", "pro-labore", "prolabore"],
+  },
+  {
+    nome: "Freelance",
+    keywords: ["freelance", "freela", "servico prestado", "honorario", "projeto"],
+  },
+];
+
+/**
+ * Sugere nome de categoria com base na descrição e tipo.
+ * Retorna o primeiro nome de categoria que tiver algum keyword presente na descrição.
+ *
+ * @param {string} descricao  - texto normalizado ou original
+ * @param {"Receita"|"Despesa"} tipo
+ * @returns {string|null}  nome da categoria sugerida ou null
+ */
+export function suggestCategory(descricao, tipo) {
+  if (!descricao) return null;
+  const n = norm(descricao);
+  for (const cat of CATEGORY_MAP) {
+    for (const kw of cat.keywords) {
+      if (n.includes(norm(kw))) return cat.nome;
+    }
+  }
+  return null;
+}
+
 // ── Normalização ──────────────────────────────────────────────────────────────
 
 /**
@@ -182,5 +280,6 @@ export function parseMessage(text) {
   const tipo = detectTipo(normalized);
   const descricao = extractDescricao(text, tipo) || (tipo === "Receita" ? "Receita" : "Despesa");
 
-  return { tipo, valor, descricao };
+  const categoria = suggestCategory(descricao + " " + normalized, tipo);
+  return { tipo, valor, descricao, categoria };
 }

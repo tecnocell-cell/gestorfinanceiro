@@ -945,6 +945,169 @@ function WhatsAppInbox() {
   );
 }
 
+// ── Histórico de pré-lançamentos ───────────────────────────────────────────
+function WhatsAppPendingPanel() {
+  const [items, setItems]       = React.useState(null);
+  const [total, setTotal]       = React.useState(0);
+  const [loading, setLoading]   = React.useState(false);
+  const [offset, setOffset]     = React.useState(0);
+  const LIMIT = 20;
+
+  const load = React.useCallback(async (off = 0) => {
+    setLoading(true);
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const d = await whatsappApi.pending({ limit: LIMIT, offset: off });
+      setItems(d?.pending || []);
+      setTotal(d?.total || 0);
+      setOffset(off);
+    } catch { setItems([]); } finally { setLoading(false); }
+  }, []);
+
+  React.useEffect(() => { load(0); }, [load]);
+
+  const fmtTime = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const fmtValor = (v) =>
+    `R$ ${parseFloat(v || 0).toFixed(2).replace(".", ",")}`;
+
+  const STATUS_STYLE = {
+    pending_confirmation: {
+      label: "Aguardando",
+      bg: "oklch(0.97 0.04 60)",
+      color: "oklch(0.42 0.12 60)",
+      border: "oklch(0.80 0.10 60)",
+    },
+    confirmed: {
+      label: "Confirmado ✅",
+      bg: C.greenLight,
+      color: C.green,
+      border: C.greenBorder,
+    },
+    rejected: {
+      label: "Rejeitado",
+      bg: C.redLight,
+      color: C.red,
+      border: C.redBorder,
+    },
+  };
+
+  return (
+    <div style={{
+      maxWidth: 560, margin: "24px auto 0",
+      background: "#fff", border: `1px solid ${C.greyBorder}`,
+      borderRadius: 16, padding: "28px 32px",
+      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.text }}>
+          Pré-lançamentos WhatsApp
+        </h3>
+        <button
+          onClick={() => load(0)}
+          disabled={loading}
+          style={{
+            padding: "4px 12px", borderRadius: 6, fontSize: 12,
+            border: `1px solid ${C.greyBorder}`, background: "#fff",
+            color: C.textMuted, cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
+          }}
+        >
+          ↺ Atualizar
+        </button>
+      </div>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.textMuted }}>
+        Lançamentos identificados via WhatsApp. Responda SIM ou NAO no WhatsApp para confirmar.
+      </p>
+
+      {items === null ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Carregando...
+        </p>
+      ) : items.length === 0 ? (
+        <p style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: "16px 0" }}>
+          Nenhum pré-lançamento ainda.
+        </p>
+      ) : (
+        <>
+          {items.map(item => {
+            const st = STATUS_STYLE[item.status] || STATUS_STYLE.pending_confirmation;
+            const isReceita = item.tipo === "Receita";
+            return (
+              <div key={item.id} style={{
+                display: "flex", gap: 12, alignItems: "flex-start",
+                padding: "12px 0", borderBottom: `1px solid ${C.greyBorder}`,
+              }}>
+                {/* Tipo badge */}
+                <span style={{
+                  flexShrink: 0, marginTop: 2,
+                  padding: "2px 9px", borderRadius: 99, fontSize: 12, fontWeight: 700,
+                  background: isReceita ? C.greenLight : C.redLight,
+                  color:      isReceita ? C.green      : C.red,
+                  border: `1px solid ${isReceita ? C.greenBorder : C.redBorder}`,
+                  whiteSpace: "nowrap",
+                }}>
+                  {isReceita ? "↑ Receita" : "↓ Despesa"}
+                </span>
+
+                {/* Valor + descrição */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: C.text }}>
+                    {fmtValor(item.valor)}
+                  </span>
+                  {item.descricao && (
+                    <span style={{ marginLeft: 8, fontSize: 13, color: C.textMuted }}>
+                      {item.descricao}
+                    </span>
+                  )}
+                  <span style={{ display: "block", fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                    {fmtTime(item.created_at)}
+                  </span>
+                </div>
+
+                {/* Status */}
+                <span style={{
+                  flexShrink: 0,
+                  padding: "3px 9px", borderRadius: 99, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
+                  background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+                }}>
+                  {st.label}
+                </span>
+              </div>
+            );
+          })}
+
+          {total > LIMIT && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+              <span style={{ fontSize: 12, color: C.textMuted }}>{total} registro(s)</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => load(Math.max(0, offset - LIMIT))}
+                  disabled={offset === 0 || loading}
+                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${C.greyBorder}`, background: "#fff", cursor: offset === 0 ? "not-allowed" : "pointer", opacity: offset === 0 ? 0.4 : 1 }}
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => load(offset + LIMIT)}
+                  disabled={offset + LIMIT >= total || loading}
+                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${C.greyBorder}`, background: "#fff", cursor: offset + LIMIT >= total ? "not-allowed" : "pointer", opacity: offset + LIMIT >= total ? 0.4 : 1 }}
+                >
+                  Próximo →
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // -- Pagina principal --
 export default function WhatsAppPage() {
   const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
@@ -971,6 +1134,7 @@ export default function WhatsAppPage() {
       {isPF ? (
         <>
           <PfModePanel adminPhone={adminPhone} />
+          <WhatsAppPendingPanel />
           <WhatsAppInbox />
         </>
       ) : (
@@ -1004,6 +1168,7 @@ export default function WhatsAppPage() {
 
           {/* Numeros autorizados — sempre visivel para PJ */}
           <PjAuthorizedPanel />
+          <WhatsAppPendingPanel />
           <WhatsAppInbox />
         </>
       )}

@@ -124,6 +124,7 @@ export const whatsappApi = {
   updateAuthorized: (id, d)  => request(`/whatsapp/authorized/${id}`,   { method: "PATCH", body: d }),
   deleteAuthorized: (id)     => request(`/whatsapp/authorized/${id}`,   { method: "DELETE" }),
   inbox:            (p)      => request(`/whatsapp/inbox?limit=${p?.limit||50}&offset=${p?.offset||0}${p?.status ? "&status="+p.status : ""}`),
+  pending:          (p)      => request(`/whatsapp/pending?limit=${p?.limit||20}&offset=${p?.offset||0}${p?.status ? "&status="+p.status : ""}`),
 };
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────

@@ -1420,4 +1420,48 @@ router.get("/inbox", ...auth, async (req, res) => {
   }
 });
 
+// GET /api/whatsapp/pending
+// Retorna pré-lançamentos do usuário autenticado.
+// Query params: ?limit=20&offset=0&status=pending_confirmation|confirmed|rejected
+router.get("/pending", ...auth, async (req, res) => {
+  const usuarioId = req.user.id;
+  const limit  = Math.min(parseInt(req.query.limit  || "20",  10), 100);
+  const offset = Math.max(parseInt(req.query.offset || "0",   10), 0);
+  const status = req.query.status;
+
+  try {
+    const conditions = ["usuario_id = $1"];
+    const vals = [usuarioId];
+    let i = 2;
+
+    if (status && ["pending_confirmation", "confirmed", "rejected"].includes(status)) {
+      conditions.push(`status = $${i++}`);
+      vals.push(status);
+    }
+
+    const listVals = [...vals, limit, offset];
+    const { rows } = await query(
+      `SELECT id, inbox_id, from_number, instance_name,
+              tipo, valor, descricao, status, created_at, updated_at
+         FROM whatsapp_pending_transactions
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY created_at DESC
+        LIMIT $${i} OFFSET $${i + 1}`,
+      listVals
+    );
+
+    const { rows: countRows } = await query(
+      `SELECT COUNT(*)::int AS total
+         FROM whatsapp_pending_transactions
+        WHERE ${conditions.join(" AND ")}`,
+      vals
+    );
+
+    res.json({ pending: rows, total: countRows[0]?.total || 0 });
+  } catch (err) {
+    console.error("[whatsapp/pending GET]:", err.message);
+    res.status(500).json({ error: "Erro ao buscar pré-lançamentos." });
+  }
+});
+
 export default router;
