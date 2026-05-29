@@ -14,6 +14,7 @@
 import React from "react";
 import { useWhatsApp } from "../hooks/useWhatsApp.js";
 import { useAuth } from "../AuthContext.jsx";
+import { useGestor } from "../GestorContext.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 
 // ─── Paleta (inline — nunca tocamos em styles.js) ────────────────────────────
@@ -655,8 +656,10 @@ export default function WhatsAppPage() {
   const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
     useWhatsApp();
   const { user } = useAuth();
+  // tipo já resolve impersonação: impersonatingUser?.tipo_perfil ?? user?.tipo_perfil ?? empresa.tipo
+  const { tipo } = useGestor();
 
-  const isPF = user?.tipo_perfil === "fisica";
+  const isPF = tipo === "fisica";
 
   // PF: busca numero oficial e numeros autorizados ao montar
   const [adminPhone, setAdminPhone] = React.useState(null);
@@ -706,8 +709,8 @@ export default function WhatsAppPage() {
             />
           )}
 
-          {/* Numeros autorizados — visivel para PJ independente do estado da conexao */}
-          {status !== null && <PjAuthorizedPanel />}
+          {/* Numeros autorizados — sempre visivel para PJ */}
+          <PjAuthorizedPanel />
         </>
       )}
     </PfPageShell>
