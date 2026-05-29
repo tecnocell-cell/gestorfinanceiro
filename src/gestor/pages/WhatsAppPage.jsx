@@ -337,22 +337,196 @@ function GatewayDownBanner({ onRetry }) {
   );
 }
 
-// -- Modo PF: painel com numero oficial --
-function PfModePanel({ adminPhone, myNumbers }) {
-  const formatted = adminPhone
-    ? adminPhone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4")
-    : null;
-
+// -- Modo PF: painel com numero oficial + auto-gerenciamento de numero autorizado --
+function PfModePanel({ adminPhone }) {
   const fmtPhone = (p) =>
     p ? p.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 ($2) $3-$4") : p;
+
+  const formatted = fmtPhone(adminPhone);
+
+  // Estado do numero autorizado do proprio usuario
+  // undefined = carregando | null = nenhum cadastrado | objeto = cadastrado
+  const [myNumber, setMyNumber]     = React.useState(undefined);
+  const [inputPhone, setInputPhone] = React.useState("");
+  const [saving, setSaving]         = React.useState(false);
+  const [removing, setRemoving]     = React.useState(false);
+  const [editing, setEditing]       = React.useState(false);
+  const [apiError, setApiError]     = React.useState(null);
+  const [success, setSuccess]       = React.useState(null);
+
+  React.useEffect(() => {
+    import("../api.js").then(({ whatsappApi }) => {
+      whatsappApi.listAuthorized()
+        .then(d => {
+          const nums = d?.authorized || [];
+          setMyNumber(nums.length > 0 ? nums[0] : null);
+        })
+        .catch(() => setMyNumber(null));
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setApiError(null); setSuccess(null); setSaving(true);
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const phone = inputPhone.replace(/\D/g, "");
+      if (!phone || phone.length < 8) {
+        setApiError("Informe um numero valido com DDI e DDD. Ex: 5511999999999");
+        return;
+      }
+      if (editing && myNumber) {
+        await whatsappApi.deleteAuthorized(myNumber.id);
+      }
+      const d = await whatsappApi.addAuthorized({ phone_number: phone, label: "Meu numero" });
+      setMyNumber(d.authorized);
+      setInputPhone("");
+      setEditing(false);
+      setSuccess("Numero cadastrado! Agora voce pode enviar mensagens para o numero oficial CenterFlow.");
+    } catch (e) {
+      setApiError(e.message || "Erro ao cadastrar numero.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!myNumber) return;
+    if (!confirm("Remover seu numero autorizado? Voce nao podera mais usar o WhatsApp CenterFlow ate cadastrar novamente.")) return;
+    setApiError(null); setSuccess(null); setRemoving(true);
+    try {
+      const { whatsappApi } = await import("../api.js");
+      await whatsappApi.deleteAuthorized(myNumber.id);
+      setMyNumber(null);
+      setEditing(false);
+      setInputPhone("");
+      setSuccess(null);
+    } catch (e) {
+      setApiError(e.message || "Erro ao remover numero.");
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const inp = {
+    flex: 1, padding: "10px 12px",
+    border: `1px solid ${C.greyBorder}`, borderRadius: 8,
+    fontSize: 15, boxSizing: "border-box", letterSpacing: "0.3px",
+  };
+
+  let authorizedSection;
+  if (myNumber === undefined) {
+    authorizedSection = (
+      <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>Carregando...</p>
+    );
+  } else if (myNumber && !editing) {
+    // Numero ja cadastrado
+    authorizedSection = (
+      <div>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          background: C.greenLight, border: `1px solid ${C.greenBorder}`,
+          borderRadius: 8, padding: "12px 14px", marginBottom: 10,
+        }}>
+          <div>
+            <p style={{ margin: "0 0 2px", fontSize: 12, color: C.textMuted, fontWeight: 500 }}>
+              Seu numero autorizado
+            </p>
+            <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 17, color: C.text }}>
+              {fmtPhone(myNumber.phone_number)}
+            </span>
+          </div>
+          <span style={{
+            padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600,
+            background: myNumber.active ? C.greenLight : C.greyLight,
+            color: myNumber.active ? C.green : C.grey,
+            border: `1px solid ${myNumber.active ? C.greenBorder : C.greyBorder}`,
+          }}>
+            {myNumber.active ? "Ativo" : "Inativo"}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => { setEditing(true); setInputPhone(""); setApiError(null); setSuccess(null); }}
+            style={{
+              flex: 1, padding: "8px", borderRadius: 7,
+              border: `1px solid ${C.greyBorder}`, background: "#fff",
+              color: C.text, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Trocar numero
+          </button>
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            style={{
+              flex: 1, padding: "8px", borderRadius: 7,
+              border: `1px solid ${C.redBorder}`, background: C.redLight,
+              color: C.red, fontSize: 13, fontWeight: 600,
+              cursor: removing ? "not-allowed" : "pointer", opacity: removing ? 0.6 : 1,
+            }}
+          >
+            {removing ? "Removendo..." : "Remover numero"}
+          </button>
+        </div>
+      </div>
+    );
+  } else {
+    // Sem numero ou modo edicao
+    authorizedSection = (
+      <div>
+        {editing && (
+          <p style={{ margin: "0 0 10px", fontSize: 13, color: C.textMuted }}>
+            Informe o novo numero. O anterior sera substituido ao salvar.
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            style={inp}
+            value={inputPhone}
+            onChange={e => { setInputPhone(e.target.value); setApiError(null); }}
+            placeholder="5511999999999"
+            type="tel"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving || !inputPhone}
+            style={{
+              padding: "10px 18px", borderRadius: 8,
+              border: `1px solid ${C.green}`, background: C.green,
+              color: "#fff", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+              cursor: saving || !inputPhone ? "not-allowed" : "pointer",
+              opacity: saving || !inputPhone ? 0.55 : 1,
+            }}
+          >
+            {saving ? "Salvando..." : "Cadastrar"}
+          </button>
+          {editing && (
+            <button
+              onClick={() => { setEditing(false); setInputPhone(""); setApiError(null); }}
+              style={{
+                padding: "10px 14px", borderRadius: 8,
+                border: `1px solid ${C.greyBorder}`, background: "#fff",
+                color: C.textMuted, fontSize: 14, cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+        <p style={{ margin: "6px 0 0", fontSize: 12, color: C.textMuted }}>
+          Informe DDI + DDD + numero. Ex: 5511999999999
+        </p>
+      </div>
+    );
+  }
 
   return (
     <Card>
       <div style={{ fontSize: 56, marginBottom: 20, lineHeight: 1 }}>&#128172;</div>
       <Title>WhatsApp CenterFlow</Title>
       <Subtitle>
-        Envie mensagens para o numero oficial abaixo para registrar lancamentos financeiros
-        diretamente pelo WhatsApp.
+        Cadastre seu numero e envie mensagens para o numero oficial abaixo
+        para registrar lancamentos financeiros pelo WhatsApp.
       </Subtitle>
 
       {/* Numero oficial */}
@@ -377,7 +551,27 @@ function PfModePanel({ adminPhone, myNumbers }) {
         )}
       </div>
 
-      {/* Numeros autorizados do usuario */}
+      {/* Feedback erro / sucesso */}
+      {apiError && (
+        <div style={{
+          background: C.redLight, border: `1px solid ${C.redBorder}`,
+          color: C.red, borderRadius: 8, padding: "10px 14px",
+          marginBottom: 14, fontSize: 13, textAlign: "left",
+        }}>
+          {apiError}
+        </div>
+      )}
+      {success && (
+        <div style={{
+          background: C.greenLight, border: `1px solid ${C.greenBorder}`,
+          color: C.green, borderRadius: 8, padding: "10px 14px",
+          marginBottom: 14, fontSize: 13, textAlign: "left",
+        }}>
+          {success}
+        </div>
+      )}
+
+      {/* Numero autorizado do usuario */}
       <div style={{
         background: C.greyLight,
         border: `1px solid ${C.greyBorder}`,
@@ -386,55 +580,32 @@ function PfModePanel({ adminPhone, myNumbers }) {
         marginBottom: 20,
         textAlign: "left",
       }}>
-        <p style={{ margin: "0 0 10px", fontSize: 13, color: C.text, fontWeight: 600 }}>
-          Seu numero autorizado
+        <p style={{ margin: "0 0 12px", fontSize: 13, color: C.text, fontWeight: 600 }}>
+          Meu numero autorizado
         </p>
-        {!myNumbers ? (
-          <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>Carregando...</p>
-        ) : myNumbers.length === 0 ? (
-          <div style={{ fontSize: 13, color: "oklch(0.55 0.12 30)", background: "oklch(0.96 0.04 30)", border: "1px solid oklch(0.85 0.08 30)", borderRadius: 6, padding: "8px 12px" }}>
-            Nenhum numero autorizado. Solicite ao administrador para liberar seu acesso.
-          </div>
-        ) : (
-          myNumbers.map(n => (
-            <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid oklch(0.90 0.005 0)" }}>
-              <div>
-                <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: C.text }}>
-                  {fmtPhone(n.phone_number)}
-                </span>
-                {n.label && <span style={{ marginLeft: 8, fontSize: 12, color: C.textMuted }}>{n.label}</span>}
-              </div>
-              <span style={{
-                padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600,
-                background: n.active ? C.greenLight : C.greyLight,
-                color: n.active ? C.green : C.grey,
-                border: `1px solid ${n.active ? C.greenBorder : C.greyBorder}`,
-              }}>
-                {n.active ? "Autorizado" : "Inativo"}
-              </span>
-            </div>
-          ))
-        )}
+        {authorizedSection}
       </div>
 
-      {/* Instrucoes */}
-      <div style={{
-        background: C.greyLight,
-        border: `1px solid ${C.greyBorder}`,
-        borderRadius: 10,
-        padding: "14px 16px",
-        textAlign: "left",
-      }}>
-        <p style={{ margin: "0 0 6px", fontSize: 13, color: C.text, fontWeight: 600 }}>
-          Como usar:
-        </p>
-        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: C.textMuted, lineHeight: 1.8 }}>
-          <li>Salve o numero oficial na sua agenda</li>
-          <li>Envie uma mensagem descrevendo o lancamento pelo numero autorizado acima</li>
-          <li>Confirme respondendo <strong>sim</strong> ou <strong>confirmo</strong></li>
-          <li>O lancamento e registrado automaticamente</li>
-        </ol>
-      </div>
+      {/* Instrucoes — so exibe apos numero cadastrado */}
+      {myNumber && !editing && (
+        <div style={{
+          background: C.greyLight,
+          border: `1px solid ${C.greyBorder}`,
+          borderRadius: 10,
+          padding: "14px 16px",
+          textAlign: "left",
+        }}>
+          <p style={{ margin: "0 0 6px", fontSize: 13, color: C.text, fontWeight: 600 }}>
+            Como usar:
+          </p>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: C.textMuted, lineHeight: 1.8 }}>
+            <li>Salve o numero oficial na sua agenda</li>
+            <li>Envie uma mensagem descrevendo o lancamento do seu numero acima</li>
+            <li>Confirme respondendo <strong>sim</strong> ou <strong>confirmo</strong></li>
+            <li>O lancamento e registrado automaticamente</li>
+          </ol>
+        </div>
+      )}
     </Card>
   );
 }
@@ -661,25 +832,21 @@ export default function WhatsAppPage() {
 
   const isPF = tipo === "fisica";
 
-  // PF: busca numero oficial e numeros autorizados ao montar
+  // PF: busca numero oficial ao montar (numeros autorizados gerenciados dentro de PfModePanel)
   const [adminPhone, setAdminPhone] = React.useState(null);
-  const [myNumbers, setMyNumbers]   = React.useState(null); // null = carregando
   React.useEffect(() => {
     if (!isPF) return;
     import("../api.js").then(({ whatsappApi }) => {
       whatsappApi.pfConfig()
         .then(d => setAdminPhone(d?.admin_phone || null))
         .catch(() => {});
-      whatsappApi.myAuthorized()
-        .then(d => setMyNumbers(d?.authorized || []))
-        .catch(() => setMyNumbers([]));
     });
   }, [isPF]);
 
   return (
     <PfPageShell title="WhatsApp">
       {isPF ? (
-        <PfModePanel adminPhone={adminPhone} myNumbers={myNumbers} />
+        <PfModePanel adminPhone={adminPhone} />
       ) : (
         <>
           {gatewayOk === false && (
