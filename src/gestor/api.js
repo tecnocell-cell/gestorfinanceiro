@@ -94,8 +94,11 @@ export const adminApi = {
   saveUserState:         (id, dados) => request(`/admin/users/${id}/state`, { method: "PUT", body: { dados } }),
   getUserRecorrencias:   (id)        => request(`/admin/users/${id}/recorrencias`),
   // WhatsApp Admin (apenas config global da instancia)
-  waConfig:    ()     => request("/whatsapp-admin/config"),
-  waSetConfig: (data) => request("/whatsapp-admin/config", { method: "POST", body: data }),
+  waConfig:         ()     => request("/whatsapp-admin/config"),
+  waSetConfig:      (data) => request("/whatsapp-admin/config", { method: "POST", body: data }),
+  waInstanceStatus: ()     => request("/whatsapp-admin/instance-status"),
+  waConnect:        ()     => request("/whatsapp-admin/connect",    { method: "POST" }),
+  waDisconnect:     ()     => request("/whatsapp-admin/disconnect", { method: "POST" }),
 };
 
 // ─── Recorrências ─────────────────────────────────────────────────────────────

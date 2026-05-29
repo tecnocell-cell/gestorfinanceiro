@@ -206,21 +206,30 @@ function SuperAdminCard({ user }) {
 // ─── WhatsApp Admin Panel ─────────────────────────────────────────────────────
 
 function WhatsAppAdminPanel() {
-  const [config, setConfig]     = useState({ admin_instance: "", admin_phone: "" });
+  const [config, setConfig]         = useState({ admin_instance: "", admin_phone: "" });
   const [loadingCfg, setLoadingCfg] = useState(true);
   const [savingCfg, setSavingCfg]   = useState(false);
   const [cfgError, setCfgError]     = useState(null);
+  const [cfgSaved, setCfgSaved]     = useState(false);
+
+  // Instance connection state
+  const [inst, setInst]             = useState({ status: "disconnected", qrcode: null, phoneNumber: null, instanceName: null });
+  const [loadingInst, setLoadingInst] = useState(true);
+  const [connecting, setConnecting]   = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [instError, setInstError]     = useState(null);
 
   const S = {
-    card: { background: "#fff", border: "1px solid oklch(0.88 0.005 0)", borderRadius: 12, padding: "24px 28px", marginBottom: 24 },
-    title: { margin: "0 0 18px", fontSize: 17, fontWeight: 700, color: "oklch(0.20 0.015 155)", letterSpacing: "-0.2px" },
-    label: { display: "block", fontSize: 13, fontWeight: 600, color: "oklch(0.35 0.01 0)", marginBottom: 4 },
-    input: { width: "100%", padding: "8px 10px", border: "1px solid oklch(0.82 0.005 0)", borderRadius: 6, fontSize: 14, boxSizing: "border-box" },
-    btn: (color, bg, border) => ({ padding: "7px 16px", borderRadius: 6, border: `1px solid ${border}`, background: bg, color, fontSize: 13, fontWeight: 600, cursor: "pointer" }),
+    card:   { background: "#fff", border: "1px solid oklch(0.88 0.005 0)", borderRadius: 12, padding: "24px 28px", marginBottom: 24 },
+    title:  { margin: "0 0 18px", fontSize: 17, fontWeight: 700, color: "oklch(0.20 0.015 155)", letterSpacing: "-0.2px" },
+    label:  { display: "block", fontSize: 13, fontWeight: 600, color: "oklch(0.35 0.01 0)", marginBottom: 4 },
+    input:  { width: "100%", padding: "8px 10px", border: "1px solid oklch(0.82 0.005 0)", borderRadius: 6, fontSize: 14, boxSizing: "border-box" },
+    btn:    (color, bg, border) => ({ padding: "7px 16px", borderRadius: 6, border: `1px solid ${border}`, background: bg, color, fontSize: 13, fontWeight: 600, cursor: "pointer" }),
     errBox: { background: "oklch(0.96 0.04 27)", border: "1px solid oklch(0.80 0.12 27)", color: "oklch(0.58 0.22 27)", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginBottom: 12 },
-    badge: (active) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 12, fontWeight: 600, background: active ? "oklch(0.94 0.04 155)" : "oklch(0.96 0.005 0)", color: active ? "oklch(0.42 0.08 155)" : "oklch(0.55 0.01 0)" }),
+    okBox:  { background: "oklch(0.95 0.04 155)", border: "1px solid oklch(0.80 0.08 155)", color: "oklch(0.38 0.12 155)", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginBottom: 12 },
   };
 
+  // ── Config ──────────────────────────────────────────────────────────────────
   const loadConfig = useCallback(async () => {
     try {
       const d = await adminApi.waConfig();
@@ -231,11 +240,59 @@ function WhatsAppAdminPanel() {
   useEffect(() => { loadConfig(); }, [loadConfig]);
 
   const saveConfig = async () => {
-    setSavingCfg(true); setCfgError(null);
+    setSavingCfg(true); setCfgError(null); setCfgSaved(false);
     try {
       await adminApi.waSetConfig({ admin_instance: config.admin_instance, admin_phone: config.admin_phone });
+      setCfgSaved(true);
+      setTimeout(() => setCfgSaved(false), 3000);
     } catch (e) { setCfgError(e.message); } finally { setSavingCfg(false); }
   };
+
+  // ── Instance Status ─────────────────────────────────────────────────────────
+  const refreshInst = useCallback(async () => {
+    try {
+      const d = await adminApi.waInstanceStatus();
+      setInst({
+        status:       d.status       || "disconnected",
+        qrcode:       d.qrcode       || null,
+        phoneNumber:  d.phoneNumber  || null,
+        instanceName: d.instanceName || null,
+      });
+    } catch { /* ignore */ } finally { setLoadingInst(false); }
+  }, []);
+
+  useEffect(() => { refreshInst(); }, [refreshInst]);
+
+  // Poll while connecting
+  useEffect(() => {
+    if (inst.status !== "connecting") return;
+    const t = setInterval(refreshInst, 4000);
+    return () => clearInterval(t);
+  }, [inst.status, refreshInst]);
+
+  const handleConnect = async () => {
+    setConnecting(true); setInstError(null);
+    try {
+      await adminApi.waConnect();
+      setInst(i => ({ ...i, status: "connecting", qrcode: null }));
+      setTimeout(refreshInst, 1500);
+      setTimeout(refreshInst, 4000);
+    } catch (e) { setInstError(e.message); } finally { setConnecting(false); }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Desconectar a instancia global? Usuarios PF nao receberao mensagens.")) return;
+    setDisconnecting(true); setInstError(null);
+    try {
+      await adminApi.waDisconnect();
+      setInst({ status: "disconnected", qrcode: null, phoneNumber: null, instanceName: inst.instanceName });
+    } catch (e) { setInstError(e.message); } finally { setDisconnecting(false); }
+  };
+
+  // Status badge
+  const statusLabel = { connected: "● Conectado", connecting: "◌ Aguardando QR...", disconnected: "○ Desconectado" };
+  const statusColor = { connected: "oklch(0.42 0.08 155)", connecting: "oklch(0.55 0.12 270)", disconnected: "oklch(0.55 0.01 0)" };
+  const statusBg    = { connected: "oklch(0.94 0.04 155)", connecting: "oklch(0.94 0.04 270)", disconnected: "oklch(0.96 0.005 0)" };
 
   return (
     <div style={{ marginTop: 32 }}>
@@ -243,8 +300,9 @@ function WhatsAppAdminPanel() {
 
       {/* Config */}
       <div style={S.card}>
-        <p style={S.title}>Numero oficial CenterFlow (instancia global)</p>
+        <p style={S.title}>Configuracao da instancia global</p>
         {cfgError && <div style={S.errBox}>{cfgError}</div>}
+        {cfgSaved && <div style={S.okBox}>Configuracao salva com sucesso.</div>}
         {loadingCfg ? <p style={{ color: "oklch(0.55 0.01 0)", fontSize: 14 }}>Carregando...</p> : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
@@ -267,6 +325,91 @@ function WhatsAppAdminPanel() {
             {savingCfg ? "Salvando..." : "Salvar configuracao"}
           </button>
         </div>
+      </div>
+
+      {/* Connection */}
+      <div style={S.card}>
+        <p style={S.title}>Conexao WhatsApp do Sistema</p>
+        {instError && <div style={S.errBox}>{instError}</div>}
+
+        {loadingInst ? (
+          <p style={{ color: "oklch(0.55 0.01 0)", fontSize: 14 }}>Carregando...</p>
+        ) : (
+          <>
+            {/* Status row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <span style={{
+                display: "inline-block", padding: "3px 10px", borderRadius: 99, fontSize: 13,
+                fontWeight: 600,
+                background: statusBg[inst.status]  || statusBg.disconnected,
+                color:      statusColor[inst.status] || statusColor.disconnected,
+              }}>
+                {statusLabel[inst.status] || "○ Desconectado"}
+              </span>
+              {inst.phoneNumber && inst.status === "connected" && (
+                <span style={{ fontSize: 13, color: "oklch(0.45 0.01 0)" }}>
+                  📱 +{inst.phoneNumber}
+                </span>
+              )}
+              {inst.instanceName && (
+                <span style={{ fontSize: 12, color: "oklch(0.60 0.01 0)", marginLeft: "auto" }}>
+                  instancia: {inst.instanceName}
+                </span>
+              )}
+            </div>
+
+            {/* QR Code */}
+            {inst.status === "connecting" && inst.qrcode && (
+              <div style={{ textAlign: "center", margin: "0 0 16px" }}>
+                <p style={{ fontSize: 13, color: "oklch(0.45 0.01 0)", marginBottom: 8 }}>
+                  Escaneie o QR code com o WhatsApp do numero oficial:
+                </p>
+                <img
+                  src={inst.qrcode}
+                  alt="QR Code WhatsApp"
+                  style={{ width: 220, height: 220, border: "2px solid oklch(0.88 0.005 0)", borderRadius: 8 }}
+                />
+              </div>
+            )}
+
+            {inst.status === "connecting" && !inst.qrcode && (
+              <p style={{ fontSize: 13, color: "oklch(0.55 0.12 270)", marginBottom: 16 }}>
+                Aguardando QR code... (pode levar alguns segundos)
+              </p>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              {inst.status !== "connected" && (
+                <button
+                  style={S.btn("#fff", "oklch(0.42 0.08 155)", "oklch(0.42 0.08 155)")}
+                  onClick={handleConnect}
+                  disabled={connecting || !config.admin_instance}>
+                  {connecting ? "Conectando..." : inst.status === "connecting" ? "Reconectar" : "Conectar WhatsApp"}
+                </button>
+              )}
+              {(inst.status === "connected" || inst.status === "connecting") && (
+                <button
+                  style={S.btn("oklch(0.58 0.22 27)", "#fff", "oklch(0.75 0.15 27)")}
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}>
+                  {disconnecting ? "Desconectando..." : "Desconectar"}
+                </button>
+              )}
+              <button
+                style={{ ...S.btn("oklch(0.45 0.01 0)", "#fff", "oklch(0.82 0.005 0)"), marginLeft: "auto" }}
+                onClick={refreshInst}>
+                ↺ Atualizar
+              </button>
+            </div>
+
+            {!config.admin_instance && (
+              <p style={{ fontSize: 12, color: "oklch(0.55 0.12 27)", marginTop: 10 }}>
+                ⚠ Configure o nome da instancia acima antes de conectar.
+              </p>
+            )}
+          </>
+        )}
       </div>
 
     </div>

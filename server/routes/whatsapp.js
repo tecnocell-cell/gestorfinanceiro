@@ -720,17 +720,29 @@ router.post("/webhook/:instanceName", async (req, res) => {
   res.json({ ok: true });
 
   try {
-    const { rows } = await query(
-      "SELECT usuario_id, webhook_secret FROM whatsapp_sessions WHERE instance_name = $1",
-      [instanceName]
-    );
+    // ── Resolve sessao: instancia admin (PF) ou usuario (PJ) ─────────────────
+    const pfCfg = await getPfConfig();
+    const isAdminInstance = !!(pfCfg.adminInstance && instanceName === pfCfg.adminInstance);
 
-    if (!rows.length) {
-      console.warn(`[whatsapp/webhook] Instancia desconhecida: ${instanceName}`);
-      return;
+    let sess;
+    if (isAdminInstance) {
+      const { rows: scRows } = await query(
+        "SELECT value FROM system_config WHERE key = 'whatsapp_admin_webhook_secret'"
+      );
+      const adminSecret = scRows[0]?.value || null;
+      sess = { webhook_secret: adminSecret, usuario_id: null };
+    } else {
+      const { rows } = await query(
+        "SELECT usuario_id, webhook_secret FROM whatsapp_sessions WHERE instance_name = $1",
+        [instanceName]
+      );
+      if (!rows.length) {
+        console.warn(`[whatsapp/webhook] Instancia desconhecida: ${instanceName}`);
+        return;
+      }
+      sess = rows[0];
     }
 
-    const sess = rows[0];
     const authVia = validateWebhookAuth(sess, req);
 
     if (!authVia) {
@@ -750,6 +762,28 @@ router.post("/webhook/:instanceName", async (req, res) => {
 
     if (event === "QRCODE_UPDATED") {
       console.log(`[whatsapp/webhook] QRCODE_UPDATED via ${authVia}: ${instanceName}`);
+      if (isAdminInstance) {
+        // Armazena QR da instancia admin em system_config
+        const qrBase64 = await qrFromEvolutionResponses(data, req.body);
+        if (!qrBase64) {
+          console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido (admin): ${instanceName}`);
+          logQrcodeKeys("webhook", data);
+          logHashShape("webhook", data);
+          return;
+        }
+        await query(
+          `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_qrcode', $1)
+           ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+          [qrBase64]
+        );
+        await query(
+          `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_status', 'connecting')
+           ON CONFLICT (key) DO UPDATE SET value = 'connecting', updated_at = NOW()`
+        );
+        _pfConfigCache = null;
+        console.log(`[whatsapp/webhook] QR admin atualizado: ${instanceName}`);
+        return;
+      }
       const qrBase64 = await persistQrIfFound(instanceName, data, req.body);
       if (!qrBase64) {
         console.warn(`[whatsapp/webhook] QRCODE_UPDATED sem QR valido: ${instanceName}`);
@@ -765,10 +799,6 @@ router.post("/webhook/:instanceName", async (req, res) => {
       const fromNumber = data?.fromNumber || data?.from || req.body?.fromNumber || null;
       const msgBody    = data?.body       || data?.text || req.body?.body       || "";
 
-      // Detectar se e a instancia admin (modo PF)
-      const pfCfg = await getPfConfig();
-      const isAdminInstance = pfCfg.adminInstance && instanceName === pfCfg.adminInstance;
-
       if (isAdminInstance) {
         // ── Modo PF: allowlist obrigatoria ──────────────────────────────
         const authRow = await lookupAuthorizedPhone(fromNumber);
@@ -776,11 +806,8 @@ router.post("/webhook/:instanceName", async (req, res) => {
           console.warn(
             `[whatsapp/webhook] MESSAGES_UPSERT PF -- numero NAO autorizado: ${fromNumber || "?"}`
           );
-          // Numero nao cadastrado ou inativo: ignorar silenciosamente.
-          // (Fase futura: responder mensagem generica de rejeicao via Gateway)
           return;
         }
-        // Atualizar last_used_at sem bloquear o fluxo
         query(
           "UPDATE whatsapp_authorized_numbers SET last_used_at = NOW() WHERE id = $1",
           [authRow.id]
@@ -801,7 +828,6 @@ router.post("/webhook/:instanceName", async (req, res) => {
           );
           return;
         }
-        // Atualizar last_used_at se existir entrada na allowlist
         if (fromNumber) {
           query(
             `UPDATE whatsapp_authorized_numbers SET last_used_at = NOW()
@@ -824,19 +850,33 @@ router.post("/webhook/:instanceName", async (req, res) => {
         data?.data?.state || data?.data?.status || data?.data?.connection;
 
       if (state === "open") {
+        const phoneNumber = extractPhoneFromWebhookPayload(data, req.body);
+
+        if (isAdminInstance) {
+          await query(
+            `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_status', 'connected')
+             ON CONFLICT (key) DO UPDATE SET value = 'connected', updated_at = NOW()`
+          );
+          await query(
+            `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_qrcode', '')
+             ON CONFLICT (key) DO UPDATE SET value = '', updated_at = NOW()`
+          );
+          if (phoneNumber) {
+            await query(
+              `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_phone', $1)
+               ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+              [phoneNumber]
+            );
+          }
+          _pfConfigCache = null;
+          console.log(`[whatsapp/webhook] Admin conectado: ${instanceName} phone=${phoneNumber || "?"}`);
+          return;
+        }
+
         console.log(
           `[whatsapp/webhook] CONNECTION_UPDATE open -- payload keys:`,
           Object.keys(data || {})
         );
-        console.log(`[whatsapp/webhook] phone candidates:`, {
-          phone:       data?.phone,
-          number:      data?.number,
-          phoneNumber: data?.phoneNumber,
-          ownerJid:    data?.ownerJid,
-          jid:         data?.jid,
-        });
-
-        const phoneNumber = extractPhoneFromWebhookPayload(data, req.body);
         await query(
           `UPDATE whatsapp_sessions
              SET status = 'connected', phone_number = $1,
@@ -853,6 +893,19 @@ router.post("/webhook/:instanceName", async (req, res) => {
       }
 
       if (state === "close" || state === "closed") {
+        if (isAdminInstance) {
+          await query(
+            `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_status', 'disconnected')
+             ON CONFLICT (key) DO UPDATE SET value = 'disconnected', updated_at = NOW()`
+          );
+          await query(
+            `INSERT INTO system_config (key, value) VALUES ('whatsapp_admin_qrcode', '')
+             ON CONFLICT (key) DO UPDATE SET value = '', updated_at = NOW()`
+          );
+          _pfConfigCache = null;
+          console.log(`[whatsapp/webhook] Admin desconectado: ${instanceName}`);
+          return;
+        }
         await query(
           `UPDATE whatsapp_sessions
              SET status = 'disconnected', qrcode_base64 = NULL, updated_at = NOW()
