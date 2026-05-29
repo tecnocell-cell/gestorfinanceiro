@@ -16,7 +16,7 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
-import { whatsappRouter } from "./routes/whatsapp.js";
+import whatsappRouter from "./routes/whatsapp.js";
 import { whatsappAdminRouter } from "./routes/whatsappAdmin.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
