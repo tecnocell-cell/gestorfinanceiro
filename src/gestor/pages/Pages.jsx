@@ -263,7 +263,15 @@ export function LancamentosPage() {
                   <tr key={l.id}>
                     <td className="td-mono">{l.codigo ?? "?"}</td>
                     <td className="td-mono" style={{ fontSize: 12, color: "var(--text3)" }}>{l.lote}</td>
-                    <td className="td-mono">{fmtDate(l.data)}</td>
+                    <td className="td-mono">
+                      {fmtDate(l.data)}
+                      {l.createdAt && (
+                        <span style={{ display: "block", fontSize: 10, color: "var(--text3)", marginTop: 1 }}>
+                          {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {l.source === "whatsapp" && " 📱"}
+                        </span>
+                      )}
+                    </td>
                     <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "?"}</td>
                     <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "?" : "")}</td>
                     <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "?"}</td>

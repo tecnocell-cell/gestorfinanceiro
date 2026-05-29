@@ -136,8 +136,9 @@ export async function addLancamentoFromWhatsApp(usuarioId, parsed) {
   );
 
   // ── 4. Conta destino/origem ──────────────────────────────────────────────
-  // Caixa preferido; se não existir, qualquer conta ativa
+  // Prioridade: 1) marcada como padrao, 2) Caixa ativa, 3) qualquer ativa, 4) primeira
   const conta =
+    contas.find((c) => !c.inativo && c.padrao === true) ||
     contas.find((c) => !c.inativo && c.tipo === "Caixa") ||
     contas.find((c) => !c.inativo) ||
     contas[0] ||
@@ -150,6 +151,8 @@ export async function addLancamentoFromWhatsApp(usuarioId, parsed) {
     data:           todayIso(),
     tipo:           tipoLanc,
     valor:          parseFloat(parsed.valor),
+    // historico = campo exibido e pesquisável na tela de lançamentos
+    historico:      String(parsed.descricao || "").trim(),
     descricao:      String(parsed.descricao || "").trim(),
     planoId:        plano?.id  || "",
     contaEntradaId: isReceita  ? (conta?.id   || null) : null,
@@ -164,6 +167,9 @@ export async function addLancamentoFromWhatsApp(usuarioId, parsed) {
     consiliado:     false,
     clienteId:      null,
     fornecedorId:   null,
+    // Metadados de origem — usados para ordenação e exibição de hora
+    createdAt:      new Date().toISOString(),
+    source:         "whatsapp",
   };
 
   // ── 6. Persistir estado atualizado ───────────────────────────────────────

@@ -26,6 +26,20 @@ export const fmtDate = (d) => {
   return new Date(key + "T00:00:00").toLocaleDateString("pt-BR");
 };
 
+/**
+ * Formata ISO timestamp para "DD/MM/YYYY HH:mm".
+ * Usado em lançamentos com createdAt (ex: origem WhatsApp).
+ */
+export const fmtDateTime = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+};
+
 export const getSaldoConta = (contaId, contas, lancamentos) => {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) return 0;
@@ -63,7 +77,16 @@ export const filterLancamentos = (lancamentos, { ano, mes, tipo, search, contaId
       }
       return true;
     })
-    .sort((a, b) => new Date(a.data) - new Date(b.data) || a.id.localeCompare(b.id));
+    .sort((a, b) => {
+      // Mais recente primeiro.
+      // Tiebreaker 1: createdAt (lançamentos WhatsApp têm timestamp completo)
+      // Tiebreaker 2: id (estável)
+      const aKey = a.createdAt ? new Date(a.createdAt).getTime()
+                               : new Date((a.data || "1970-01-01") + "T00:00:00").getTime();
+      const bKey = b.createdAt ? new Date(b.createdAt).getTime()
+                               : new Date((b.data || "1970-01-01") + "T00:00:00").getTime();
+      return bKey - aKey || b.id.localeCompare(a.id);
+    });
 };
 
 const periodStart = (ano, mes) => {

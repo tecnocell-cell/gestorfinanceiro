@@ -5,7 +5,7 @@ import {
   AreaChart, Area,
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
-import { fmtBRL, fmtDate, getDRE, generateId, filterLancamentos } from "../finance.js";
+import { fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos } from "../finance.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
@@ -201,7 +201,15 @@ export function LancamentosPFPage() {
                 const rowClass = info ? `lanc-row lanc-row-${situacao}` : "";
                 return (
                 <tr key={l.id} className={rowClass}>
-                  <td className="td-mono">{fmtDate(l.data)}</td>
+                  <td className="td-mono">
+                    {fmtDate(l.data)}
+                    {l.createdAt && (
+                      <span style={{ display: "block", fontSize: 10, color: "var(--text3)", marginTop: 1 }}>
+                        {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        {l.source === "whatsapp" && " 📱"}
+                      </span>
+                    )}
+                  </td>
                   <td className={`td-mono${situacao === "vencida" ? " td-red" : situacao === "proximo" ? " td-amber" : ""}`}>
                     {l.tipo === "Saida" ? fmtDate(venc) : "—"}
                   </td>
