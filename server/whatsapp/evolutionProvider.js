@@ -192,3 +192,20 @@ export async function deleteInstance(instanceName) {
 export async function gatewayHealth() {
   return evoFetch("GET", "/health", undefined, 5_000);
 }
+
+/**
+ * Envia mensagem de texto via Gateway.
+ *
+ * @param {string} instanceName  - nome da instância (ex: "cf-admin", "cf-{uuid}")
+ * @param {string} number        - numero de telefone so digitos (ex: "559481406316")
+ * @param {string} text          - texto a enviar
+ * @returns {Promise<{status: string}>}
+ */
+export async function sendText(instanceName, number, text) {
+  return evoFetch(
+    "POST",
+    `/message/sendText/${encodeURIComponent(instanceName)}`,
+    { number: String(number), text: String(text) },
+    10_000
+  );
+}

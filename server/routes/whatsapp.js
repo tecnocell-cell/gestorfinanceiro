@@ -10,9 +10,42 @@ import {
   logoutInstance,
   deleteInstance,
   gatewayHealth,
+  sendText,
 } from "../whatsapp/evolutionProvider.js";
 
 const router = Router();
+
+const REPLY_TEXT = (body) =>
+  `Recebi: ${body}. Vou preparar isso para lançamento financeiro.`;
+
+/**
+ * Envia resposta automática e registra resultado na whatsapp_inbox.
+ * Fire-and-forget: nunca bloqueia o webhook.
+ *
+ * @param {string} inboxId       - UUID do registro recém-inserido
+ * @param {string} instanceName  - instância WhatsApp a usar para envio
+ * @param {string} number        - numero destino (apenas digitos)
+ * @param {string} msgBody       - texto original recebido
+ */
+function sendAutoReply(inboxId, instanceName, number, msgBody) {
+  const replyText = REPLY_TEXT(String(msgBody).slice(0, 200));
+  sendText(instanceName, number, replyText)
+    .then(() => {
+      query(
+        "UPDATE whatsapp_inbox SET response_sent = true, response_error = NULL WHERE id = $1",
+        [inboxId]
+      ).catch(() => {});
+      console.log(`[whatsapp/autoreply] enviado para ${number} (inbox=${inboxId})`);
+    })
+    .catch((err) => {
+      const errMsg = String(err?.message || err).slice(0, 500);
+      query(
+        "UPDATE whatsapp_inbox SET response_sent = false, response_error = $1 WHERE id = $2",
+        [errMsg, inboxId]
+      ).catch(() => {});
+      console.error(`[whatsapp/autoreply] erro para ${number} (inbox=${inboxId}):`, errMsg);
+    });
+}
 
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
 const evoFetchListCooldown = new Map();
@@ -816,13 +849,20 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PF usuario=${authRow.usuario_id}` +
           ` from=${fromNumber} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta na inbox
+        // Salvar mensagem bruta na inbox e responder automaticamente
         if (msgBody) {
           query(
             `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
-             VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
             [authRow.usuario_id, fromNumber, instanceName, String(msgBody).trim()]
-          ).catch(e => console.error("[whatsapp/webhook] inbox PF insert:", e.message));
+          )
+            .then(({ rows }) => {
+              if (rows[0]?.id) {
+                sendAutoReply(rows[0].id, instanceName, fromNumber, msgBody);
+              }
+            })
+            .catch(e => console.error("[whatsapp/webhook] inbox PF insert:", e.message));
         }
 
       } else {
@@ -846,13 +886,20 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PJ instance=${instanceName}` +
           ` usuario=${sess.usuario_id} from=${fromNumber || "?"} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta na inbox
+        // Salvar mensagem bruta na inbox e responder automaticamente
         if (msgBody) {
           query(
             `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
-             VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
             [sess.usuario_id, fromNumber || "", instanceName, String(msgBody).trim()]
-          ).catch(e => console.error("[whatsapp/webhook] inbox PJ insert:", e.message));
+          )
+            .then(({ rows }) => {
+              if (rows[0]?.id && fromNumber) {
+                sendAutoReply(rows[0].id, instanceName, fromNumber, msgBody);
+              }
+            })
+            .catch(e => console.error("[whatsapp/webhook] inbox PJ insert:", e.message));
         }
       }
       return;
