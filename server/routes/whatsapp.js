@@ -998,8 +998,43 @@ function digitsOnly(raw) {
 }
 
 /**
+ * Gera variantes de um numero BR para lidar com o digito 9 apos o DDD.
+ * Retorna lista unica com o original mais variante(s).
+ *
+ * Regras (apenas para numeros que comecam com DDI 55):
+ *   55 + DDD(2) + 9 + 8 digitos = 13 digitos → variante sem o 9: 55+DDD+8dig = 12 digitos
+ *   55 + DDD(2) + 8 digitos     = 12 digitos → variante com o 9: 55+DDD+9+8dig = 13 digitos
+ *
+ * Numeros internacionais (sem 55) sao retornados como lista de um elemento.
+ *
+ * @param {string} digits  - apenas digitos (saida de digitsOnly)
+ * @returns {string[]}     - lista unica de variantes
+ */
+function phoneVariantsBR(digits) {
+  if (!digits) return [];
+  const variants = new Set([digits]);
+
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const withoutDdi = digits.slice(2); // remove "55"
+    // withoutDdi: DDD(2) + numero
+    const ddd = withoutDdi.slice(0, 2);
+    const num = withoutDdi.slice(2);
+
+    if (num.length === 9 && num.startsWith("9")) {
+      // 55 + DDD + 9XXXXXXXX → variante sem o 9: 55 + DDD + XXXXXXXX
+      variants.add("55" + ddd + num.slice(1));
+    } else if (num.length === 8) {
+      // 55 + DDD + XXXXXXXX → variante com 9: 55 + DDD + 9XXXXXXXX
+      variants.add("55" + ddd + "9" + num);
+    }
+  }
+
+  return [...variants];
+}
+
+/**
  * Busca entrada ativa na allowlist pelo numero de telefone.
- * Tenta exato e sem DDI 55.
+ * Compara contra todas as variantes BR (com/sem o 9 pos-DDD).
  * @param {string} fromNumber
  * @returns {object|null} linha de whatsapp_authorized_numbers ou null
  */
@@ -1008,28 +1043,16 @@ async function lookupAuthorizedPhone(fromNumber) {
   const digits = digitsOnly(fromNumber);
   if (!digits) return null;
 
+  const variants = phoneVariantsBR(digits);
+
   const { rows } = await query(
     `SELECT id, usuario_id, phone_number, label
        FROM whatsapp_authorized_numbers
-      WHERE phone_number = $1 AND active = true
+      WHERE phone_number = ANY($1) AND active = true
       LIMIT 1`,
-    [digits]
+    [variants]
   );
-  if (rows.length) return rows[0];
-
-  // Fallback sem DDI 55 (Baileys as vezes entrega sem o 55)
-  if (digits.length >= 12 && digits.startsWith("55")) {
-    const sem55 = digits.slice(2);
-    const { rows: r2 } = await query(
-      `SELECT id, usuario_id, phone_number, label
-         FROM whatsapp_authorized_numbers
-        WHERE phone_number = $1 AND active = true
-        LIMIT 1`,
-      [sem55]
-    );
-    if (r2.length) return r2[0];
-  }
-  return null;
+  return rows[0] || null;
 }
 
 /**
@@ -1045,10 +1068,11 @@ async function lookupAuthorizedPhone(fromNumber) {
  * @returns {Promise<boolean>}
  */
 async function isPjFromNumberAllowed(usuarioId, fromNumber) {
-  // Sem numero de origem: nao autorizado
   if (!fromNumber) return false;
   const digits = digitsOnly(fromNumber);
   if (!digits) return false;
+
+  const variants = phoneVariantsBR(digits);
 
   // Verificar allowlist do tenant
   const { rows: allowList } = await query(
@@ -1057,23 +1081,23 @@ async function isPjFromNumberAllowed(usuarioId, fromNumber) {
   );
 
   if (allowList.length === 0) {
-    // Sem allowlist: aceitar apenas o dono da sessao
+    // Sem allowlist: aceitar apenas o dono da sessao (com variantes BR)
     const { rows: sess } = await query(
       "SELECT phone_number FROM whatsapp_sessions WHERE usuario_id = $1 LIMIT 1",
       [usuarioId]
     );
     if (!sess.length || !sess[0].phone_number) return false;
-    const sessPhone = digitsOnly(sess[0].phone_number);
-    return digits === sessPhone || (digits.length >= 12 && digits.startsWith("55") && digits.slice(2) === sessPhone);
+    const sessVariants = phoneVariantsBR(digitsOnly(sess[0].phone_number));
+    return variants.some(v => sessVariants.includes(v));
   }
 
   // Com allowlist: verificar active = true
   const { rows: active } = await query(
     `SELECT id FROM whatsapp_authorized_numbers
       WHERE usuario_id = $1 AND active = true
-        AND (phone_number = $2 OR phone_number = $3)
+        AND phone_number = ANY($2)
       LIMIT 1`,
-    [usuarioId, digits, digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits]
+    [usuarioId, variants]
   );
   return active.length > 0;
 }
@@ -1242,4 +1266,3 @@ router.get("/inbox", ...auth, async (req, res) => {
 });
 
 export default router;
-
