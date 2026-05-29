@@ -12,39 +12,145 @@ import {
   gatewayHealth,
   sendText,
 } from "../whatsapp/evolutionProvider.js";
+import { parseMessage, detectConfirmation } from "../whatsapp/messageParser.js";
+import { addLancamentoFromWhatsApp } from "../whatsapp/lancamentoWriter.js";
 
 const router = Router();
 
-const REPLY_TEXT = (body) =>
-  `Recebi: ${body}. Vou preparar isso para lançamento financeiro.`;
+/**
+ * Envia mensagem de texto para o usuário. Fire-and-forget.
+ */
+function sendReply(instanceName, number, text) {
+  sendText(instanceName, number, text).catch((err) => {
+    console.error(`[whatsapp/reply] erro para ${number}:`, err.message);
+  });
+}
 
 /**
- * Envia resposta automática e registra resultado na whatsapp_inbox.
- * Fire-and-forget: nunca bloqueia o webhook.
+ * Processa mensagem recebida: detecta SIM/NAO ou tenta criar pré-lançamento.
+ * Fire-and-forget — nunca bloqueia o webhook.
  *
- * @param {string} inboxId       - UUID do registro recém-inserido
- * @param {string} instanceName  - instância WhatsApp a usar para envio
- * @param {string} number        - numero destino (apenas digitos)
- * @param {string} msgBody       - texto original recebido
+ * Fluxo:
+ *   SIM → confirmar pending → criar lançamento real no estado
+ *   NAO → rejeitar pending
+ *   msg com número → parsear → inserir pending → pedir confirmação
+ *   msg sem número → orientar usuário
+ *
+ * @param {string} usuarioId
+ * @param {string} fromNumber
+ * @param {string} instanceName
+ * @param {string} inboxId
+ * @param {string} msgBody
  */
-function sendAutoReply(inboxId, instanceName, number, msgBody) {
-  const replyText = REPLY_TEXT(String(msgBody).slice(0, 200));
-  sendText(instanceName, number, replyText)
-    .then(() => {
-      query(
-        "UPDATE whatsapp_inbox SET response_sent = true, response_error = NULL WHERE id = $1",
-        [inboxId]
-      ).catch(() => {});
-      console.log(`[whatsapp/autoreply] enviado para ${number} (inbox=${inboxId})`);
-    })
-    .catch((err) => {
-      const errMsg = String(err?.message || err).slice(0, 500);
-      query(
-        "UPDATE whatsapp_inbox SET response_sent = false, response_error = $1 WHERE id = $2",
-        [errMsg, inboxId]
-      ).catch(() => {});
-      console.error(`[whatsapp/autoreply] erro para ${number} (inbox=${inboxId}):`, errMsg);
-    });
+async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgBody) {
+  const body = String(msgBody || "").trim();
+
+  // ── Helpers inline ──────────────────────────────────────────────────────
+  const markInbox = (sent, error = null) =>
+    query(
+      "UPDATE whatsapp_inbox SET response_sent = $1, response_error = $2 WHERE id = $3",
+      [sent, error, inboxId]
+    ).catch(() => {});
+
+  // ── 1. Verificar se é SIM ou NAO ────────────────────────────────────────
+  const confirmation = detectConfirmation(body);
+
+  if (confirmation) {
+    const variants = phoneVariantsBR(digitsOnly(fromNumber));
+    const { rows: pending } = await query(
+      `SELECT id, tipo, valor, descricao
+         FROM whatsapp_pending_transactions
+        WHERE usuario_id = $1
+          AND from_number = ANY($2)
+          AND status = 'pending_confirmation'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [usuarioId, variants]
+    );
+
+    if (!pending.length) {
+      sendReply(instanceName, fromNumber,
+        "Não há lançamento pendente. Envie uma mensagem como: paguei 50 gasolina");
+      await markInbox(true);
+      return;
+    }
+
+    const pt = pending[0];
+
+    if (confirmation === "nao") {
+      await query(
+        "UPDATE whatsapp_pending_transactions SET status = 'rejected', updated_at = NOW() WHERE id = $1",
+        [pt.id]
+      );
+      sendReply(instanceName, fromNumber, "Ok, cancelado.");
+      await markInbox(true);
+      console.log(`[whatsapp/confirm] rejeitado: usuario=${usuarioId} pending=${pt.id}`);
+      return;
+    }
+
+    // SIM → criar lançamento real
+    try {
+      await addLancamentoFromWhatsApp(usuarioId, {
+        tipo:      pt.tipo,
+        valor:     parseFloat(pt.valor),
+        descricao: pt.descricao,
+      });
+      await query(
+        "UPDATE whatsapp_pending_transactions SET status = 'confirmed', updated_at = NOW() WHERE id = $1",
+        [pt.id]
+      );
+      const valorFmt = `R$ ${parseFloat(pt.valor).toFixed(2).replace(".", ",")}`;
+      const tipoLabel = pt.tipo === "Receita" ? "Receita" : "Despesa";
+      sendReply(instanceName, fromNumber,
+        `✅ Lançamento criado!
+${tipoLabel}: ${valorFmt}
+Descrição: ${pt.descricao}`);
+      await markInbox(true);
+      console.log(`[whatsapp/confirm] lançamento criado: usuario=${usuarioId} tipo=${pt.tipo} valor=${pt.valor}`);
+    } catch (err) {
+      console.error(`[whatsapp/confirm] erro ao criar lançamento:`, err.message);
+      sendReply(instanceName, fromNumber, "Erro ao criar lançamento. Tente novamente.");
+      await markInbox(false, err.message.slice(0, 500));
+    }
+    return;
+  }
+
+  // ── 2. Tentar parsear como novo lançamento ───────────────────────────────
+  const parsed = parseMessage(body);
+
+  if (!parsed) {
+    sendReply(instanceName, fromNumber,
+      `Não entendi. Envie no formato:\npaguei 50 gasolina\nou: recebi 1200 cliente João`);
+    await markInbox(true);
+    return;
+  }
+
+  // ── 3. Inserir pré-lançamento e solicitar confirmação ────────────────────
+  try {
+    await query(
+      `INSERT INTO whatsapp_pending_transactions
+         (usuario_id, inbox_id, from_number, instance_name, tipo, valor, descricao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [usuarioId, inboxId, fromNumber, instanceName, parsed.tipo, parsed.valor, parsed.descricao]
+    );
+    const tipoLabel = parsed.tipo === "Receita" ? "Receita 💚" : "Despesa 🔴";
+    const valorFmt  = `R$ ${parsed.valor.toFixed(2).replace(".", ",")}`;
+    sendReply(instanceName, fromNumber,
+      `Identifiquei:
+${tipoLabel}
+Valor: ${valorFmt}
+Descrição: ${parsed.descricao}
+
+Responda SIM para confirmar ou NAO para cancelar.`);
+    await markInbox(true);
+    console.log(
+      `[whatsapp/parse] pending criado: usuario=${usuarioId}` +
+      ` tipo=${parsed.tipo} valor=${parsed.valor} desc=${parsed.descricao}`
+    );
+  } catch (err) {
+    console.error(`[whatsapp/parse] erro ao inserir pending:`, err.message);
+    await markInbox(false, err.message.slice(0, 500));
+  }
 }
 
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
@@ -849,7 +955,7 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PF usuario=${authRow.usuario_id}` +
           ` from=${fromNumber} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta na inbox e responder automaticamente
+        // Salvar mensagem bruta e processar (parse + confirmação)
         if (msgBody) {
           query(
             `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
@@ -859,7 +965,8 @@ router.post("/webhook/:instanceName", async (req, res) => {
           )
             .then(({ rows }) => {
               if (rows[0]?.id) {
-                sendAutoReply(rows[0].id, instanceName, fromNumber, msgBody);
+                processMessage(authRow.usuario_id, fromNumber, instanceName, rows[0].id, msgBody)
+                  .catch(e => console.error("[whatsapp/processMessage] PF:", e.message));
               }
             })
             .catch(e => console.error("[whatsapp/webhook] inbox PF insert:", e.message));
@@ -886,7 +993,7 @@ router.post("/webhook/:instanceName", async (req, res) => {
           `[whatsapp/webhook] MESSAGES_UPSERT PJ instance=${instanceName}` +
           ` usuario=${sess.usuario_id} from=${fromNumber || "?"} body=${String(msgBody).slice(0, 120)}`
         );
-        // Salvar mensagem bruta na inbox e responder automaticamente
+        // Salvar mensagem bruta e processar (parse + confirmação)
         if (msgBody) {
           query(
             `INSERT INTO whatsapp_inbox (usuario_id, from_number, instance_name, message_text)
@@ -896,7 +1003,8 @@ router.post("/webhook/:instanceName", async (req, res) => {
           )
             .then(({ rows }) => {
               if (rows[0]?.id && fromNumber) {
-                sendAutoReply(rows[0].id, instanceName, fromNumber, msgBody);
+                processMessage(sess.usuario_id, fromNumber, instanceName, rows[0].id, msgBody)
+                  .catch(e => console.error("[whatsapp/processMessage] PJ:", e.message));
               }
             })
             .catch(e => console.error("[whatsapp/webhook] inbox PJ insert:", e.message));
