@@ -3,8 +3,7 @@
  *
  * Tela de login real para a landing SPA.
  * Chama POST /api/auth/login via centerflowApi.
- * Salva token+user nas mesmas chaves do app autenticado.
- * Redireciona para VITE_CENTERFLOW_APP_URL após sucesso.
+ * Redireciona para VITE_CENTERFLOW_APP_URL?auth_token=… após sucesso.
  *
  * NÃO usa TanStack Router — usa <a> nativo e window.location.
  */
@@ -15,7 +14,7 @@ import {
   ShieldCheck, MessageCircle, Smartphone, ArrowRight, AlertCircle,
 } from "lucide-react";
 import {
-  login, saveSession, redirectToApp, APP_URL, type ApiError,
+  login, redirectToApp, APP_URL, type ApiError,
 } from "@/lib/centerflowApi";
 
 // ── Componentes internos ──────────────────────────────────────────────────────
@@ -67,10 +66,7 @@ export default function LoginPage() {
 
     try {
       const data = await login(form.email.trim(), form.senha);
-      // Salvar com as mesmas chaves que o app autenticado usa
-      saveSession(data.token, data.user);
-      // Redirecionar para o app
-      redirectToApp();
+      redirectToApp(data.token, data.user);
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && (apiErr.data as any)?.needs_verification) {

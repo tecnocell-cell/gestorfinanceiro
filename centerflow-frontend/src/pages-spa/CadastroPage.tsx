@@ -27,7 +27,7 @@ import {
   Bot, Sparkles, MailCheck, AlertCircle, KeyRound,
 } from "lucide-react";
 import {
-  register, verify, saveSession, redirectToApp,
+  register, verify, redirectToApp,
   savePendingPlan, type ApiError,
 } from "@/lib/centerflowApi";
 
@@ -204,11 +204,8 @@ export default function CadastroPage() {
     setLoading(true);
     try {
       const res = await verify(regEmail, codigo.trim());
-      // Salvar sessão igual ao app autenticado
-      saveSession(res.token, res.user);
-      setStep(4); // sucesso
-      // Redirecionar após 2s
-      setTimeout(redirectToApp, 2000);
+      setStep(4);
+      setTimeout(() => redirectToApp(res.token, res.user), 2000);
     } catch (err) {
       setError((err as ApiError).message || "Código inválido ou expirado.");
     } finally {

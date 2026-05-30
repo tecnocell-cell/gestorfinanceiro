@@ -9,9 +9,9 @@
  *   POST /api/auth/register → { ok, message, email, canal, ttl_minutos }
  *   POST /api/auth/verify   → { ok, token, user }
  *
- * Chaves de localStorage (DEVEM ser idênticas às do app autenticado):
- *   gestor_token  → JWT
- *   gestor_user   → JSON do usuário
+ * Handoff cross-domain (centerflow.app → financeiro.centertech.cloud):
+ *   redirectToApp() envia ?auth_token=… (&auth_user=… opcional)
+ *   O app principal consome e salva em gestor_token / gestor_user.
  */
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -97,17 +97,25 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 // ── Sessão ────────────────────────────────────────────────────────────────────
 
 /**
- * Salva token e user no localStorage com as mesmas chaves que o app usa.
- * Chaves: "gestor_token" e "gestor_user" (de src/gestor/api.js).
+ * Salva token e user no localStorage (útil apenas em dev same-origin).
+ * Em produção o handoff usa redirectToApp() — domínios diferentes não compartilham storage.
  */
 export function saveSession(token: string, user: CfUser): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-/** Redireciona para o app autenticado após login/verify bem-sucedido. */
-export function redirectToApp(): void {
-  window.location.href = APP_URL;
+/**
+ * Redireciona para o app autenticado após login/verify bem-sucedido.
+ * Passa token via query string; user opcional para evitar round-trip extra.
+ * O app remove auth_token da URL com replaceState imediatamente.
+ */
+export function redirectToApp(token: string, user?: CfUser): void {
+  const base = APP_URL.replace(/\/$/, "");
+  const params = new URLSearchParams();
+  params.set("auth_token", token);
+  if (user) params.set("auth_user", JSON.stringify(user));
+  window.location.href = `${base}?${params.toString()}`;
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
