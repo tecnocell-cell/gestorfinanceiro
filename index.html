@@ -10,6 +10,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#013e1f" />
     <title>Fluxiva</title>
+    <!-- Handoff landing→app: executa antes do bundle React (auth_token na URL) -->
+    <script>
+      (function () {
+        try {
+          var q = new URLSearchParams(window.location.search);
+          var token = q.get("auth_token");
+          if (!token) return;
+          localStorage.setItem("gestor_token", token);
+          var userRaw = q.get("auth_user");
+          if (userRaw) {
+            try { localStorage.setItem("gestor_user", userRaw); } catch (e) {}
+          }
+          q.delete("auth_token");
+          q.delete("auth_user");
+          var clean =
+            window.location.pathname +
+            (q.toString() ? "?" + q.toString() : "") +
+            window.location.hash;
+          window.history.replaceState(null, "", clean);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

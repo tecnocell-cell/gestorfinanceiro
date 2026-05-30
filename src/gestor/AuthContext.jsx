@@ -69,7 +69,11 @@ export function AuthProvider({ children }) {
     setProfileReady(false);
     authApi.me()
       .then(({ user: fresh }) => applyUser(fresh))
-      .catch(() => {})
+      .catch(() => {
+        tokenStorage.clear();
+        setToken(null);
+        setUser(null);
+      })
       .finally(() => setProfileReady(true));
   }, [token, applyUser]);
 

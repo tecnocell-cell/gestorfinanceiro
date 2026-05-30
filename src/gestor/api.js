@@ -38,7 +38,8 @@ async function request(path, options = {}) {
     const hadSession = !!localStorage.getItem("gestor_token");
     localStorage.removeItem("gestor_token");
     localStorage.removeItem("gestor_user");
-    if (hadSession) window.location.reload();
+    // /auth/me: AuthContext trata sessão inválida — reload aqui quebrava handoff da landing
+    if (hadSession && path !== "/auth/me") window.location.reload();
     throw new Error(apiError || "Sessão expirada.");
   }
 
