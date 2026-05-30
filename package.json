@@ -15,7 +15,9 @@
     "repair:tenants": "node server/repairTenants.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:landing": "cd centerflow-frontend && npm install && npx vite build --config vite.spa.config.ts",
+    "build:all": "npm run build && npm run build:landing"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
