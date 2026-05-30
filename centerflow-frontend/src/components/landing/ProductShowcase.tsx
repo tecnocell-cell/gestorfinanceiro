@@ -102,7 +102,7 @@ export function ProductShowcase() {
             O produto por dentro
           </span>
           <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
-            Veja o CenterFlow em ação
+            Veja a Fluxiva em ação
           </h2>
           <p className="mt-4 text-white/75">
             Do dashboard ao WhatsApp — uma visão completa do sistema real.

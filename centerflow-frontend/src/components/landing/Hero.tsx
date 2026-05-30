@@ -21,7 +21,7 @@ export function Hero() {
             no ritmo da sua vida.
           </h1>
           <p className="max-w-xl text-lg text-muted-foreground">
-            Lance gastos por texto, áudio ou foto do comprovante — a IA do CenterFlow organiza tudo para você, PF ou PJ, direto no WhatsApp.
+            Lance gastos por texto, áudio ou foto do comprovante — a IA da Fluxiva organiza tudo para você, PF ou PJ, direto no WhatsApp.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -59,7 +59,7 @@ export function Hero() {
                 <MessageCircle className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">CenterFlow Bot</p>
+                <p className="text-sm font-semibold text-foreground">Fluxiva IA</p>
                 <p className="text-xs text-muted-foreground">online no WhatsApp</p>
               </div>
             </div>

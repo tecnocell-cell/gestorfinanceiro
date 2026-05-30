@@ -36,7 +36,7 @@ const pfPlans: Plan[] = [
   {
     name: "PF Premium",
     price: "R$ 49,90",
-    tagline: "Toda a IA do CenterFlow.",
+    tagline: "Toda a IA da Fluxiva.",
     users: "1 usuário",
     numbers: "Até 5 números WhatsApp",
     ai: "Texto + áudio + comprovante (IA)",
@@ -83,7 +83,7 @@ export function Plans() {
     <section id="planos" className="relative mx-auto max-w-7xl px-6 py-24">
       <div className="mx-auto mb-10 max-w-2xl text-center">
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-          Planos CenterFlow
+          Planos Fluxiva
         </span>
         <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           Escolha o plano ideal para você
