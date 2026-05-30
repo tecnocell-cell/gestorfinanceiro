@@ -1385,38 +1385,83 @@ async function handleGetAuthorized(req, res) {
 router.get("/my-authorized", ...auth, handleGetAuthorized);
 router.get("/authorized",    ...auth, handleGetAuthorized);
 
-// ── Limites de números autorizados por plano ─────────────────────────────────
+// ── Planos e capacidades ─────────────────────────────────────────────────────
 
-const PLAN_LIMITS = {
-  PF_BASIC:   1,
-  PF_PLUS:    3,
-  PF_PREMIUM: 5,
-  PJ_BASIC:   1,
-  PJ_PLUS:    3,
-  PJ_PREMIUM: 5,
+/**
+ * Definições de plano — fonte de verdade para quando não há linha no banco.
+ * A migration 014 popula esses valores como colunas em whatsapp_user_plan,
+ * mas este mapa garante fallback e compatibilidade com planos legados.
+ */
+const PLAN_DEFAULTS = {
+  // PF
+  PF_BASIC:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
+  PF_PLUS:     { max_users: 1,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
+  PF_PREMIUM:  { max_users: 1,  max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
+  // PJ (novos)
+  PJ_START:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
+  PJ_PRO:      { max_users: 3,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
+  PJ_BUSINESS: { max_users: 10, max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
+  // PJ (legado)
+  PJ_BASIC:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
+  PJ_PLUS:     { max_users: 3,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
+  PJ_PREMIUM:  { max_users: 10, max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
 };
 
 /**
- * Retorna { plan, limit, used } para o usuário autenticado.
- * Se não houver linha em whatsapp_user_plan, o plano padrão é PJ_BASIC.
+ * Retorna capacidades completas do plano do usuário.
+ * Lê da tabela whatsapp_user_plan (migration 014).
+ * Fallback via PLAN_DEFAULTS se ainda não houver linha ou colunas antigas.
+ *
+ * @returns {{
+ *   plan:                    string,
+ *   max_users:               number,
+ *   max_authorized_numbers:  number,
+ *   used_authorized_numbers: number,
+ *   ai_text_enabled:         boolean,
+ *   ai_audio_enabled:        boolean,
+ *   ai_receipt_enabled:      boolean,
+ * }}
  */
 async function getUserPlanInfo(usuarioId) {
   const { rows: planRows } = await query(
-    "SELECT plan_type FROM whatsapp_user_plan WHERE usuario_id = $1",
+    `SELECT plan_type,
+            max_authorized_numbers, max_users,
+            ai_text_enabled, ai_audio_enabled, ai_receipt_enabled
+       FROM whatsapp_user_plan
+      WHERE usuario_id = $1`,
     [usuarioId]
   );
-  const plan  = planRows[0]?.plan_type || "PJ_BASIC";
-  const limit = PLAN_LIMITS[plan] ?? 1;
+
+  const row  = planRows[0] || null;
+  const plan = row?.plan_type || "PJ_BASIC";
+  const def  = PLAN_DEFAULTS[plan] || PLAN_DEFAULTS.PJ_BASIC;
+
+  // Prefer DB columns (migration 014) over JS defaults when present and non-null
+  const max_authorized_numbers = row?.max_authorized_numbers ?? def.max_authorized_numbers;
+  const max_users               = row?.max_users               ?? def.max_users;
+  const ai_text_enabled         = row?.ai_text_enabled         ?? def.ai_text_enabled;
+  const ai_audio_enabled        = row?.ai_audio_enabled        ?? def.ai_audio_enabled;
+  const ai_receipt_enabled      = row?.ai_receipt_enabled      ?? def.ai_receipt_enabled;
+
   const { rows: countRows } = await query(
     "SELECT COUNT(*)::int AS total FROM whatsapp_authorized_numbers WHERE usuario_id = $1",
     [usuarioId]
   );
-  const used = countRows[0]?.total || 0;
-  return { plan, limit, used };
+  const used_authorized_numbers = countRows[0]?.total || 0;
+
+  return {
+    plan,
+    max_users,
+    max_authorized_numbers,
+    used_authorized_numbers,
+    ai_text_enabled,
+    ai_audio_enabled,
+    ai_receipt_enabled,
+  };
 }
 
 // GET /api/whatsapp/plan-limit
-// Retorna { plan, limit, used } para o usuário autenticado.
+// Retorna capacidades completas do plano do usuário autenticado.
 router.get("/plan-limit", ...auth, async (req, res) => {
   try {
     const info = await getUserPlanInfo(req.user.id);
@@ -1441,13 +1486,14 @@ router.post("/authorized", ...auth, async (req, res) => {
 
   try {
     // Verificar limite de plano
-    const { plan, limit, used } = await getUserPlanInfo(usuarioId);
-    if (used >= limit) {
+    const planInfo = await getUserPlanInfo(usuarioId);
+    const { plan, max_authorized_numbers, used_authorized_numbers } = planInfo;
+    if (used_authorized_numbers >= max_authorized_numbers) {
       return res.status(403).json({
-        error: `Limite de ${limit} número(s) atingido para o plano ${plan}. Faça upgrade para adicionar mais.`,
+        error: `Limite de ${max_authorized_numbers} número(s) atingido para o plano ${plan}. Faça upgrade para adicionar mais.`,
         plan,
-        limit,
-        used,
+        limit: max_authorized_numbers,
+        used:  used_authorized_numbers,
       });
     }
 

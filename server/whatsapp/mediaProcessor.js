@@ -28,6 +28,25 @@ const GATEWAY_SESSIONS_DIR =
   process.env.SESSIONS_DIR ||
   path.join(process.cwd(), "sessions");
 
+/**
+ * Capacidades do plano do usuário — lidas do banco.
+ * Fallback conservador (tudo habilitado) se não conseguir ler.
+ */
+async function getUserPlanCaps(usuarioId) {
+  try {
+    const { rows } = await query(
+      `SELECT ai_audio_enabled, ai_receipt_enabled, ai_text_enabled
+         FROM whatsapp_user_plan WHERE usuario_id = $1`,
+      [usuarioId]
+    );
+    if (rows[0]) return rows[0];
+  } catch (err) {
+    console.warn("[mediaProcessor] getUserPlanCaps erro:", err.message);
+  }
+  // Fallback conservador: permite processamento (não bloqueia se banco falhar)
+  return { ai_audio_enabled: true, ai_receipt_enabled: true, ai_text_enabled: true };
+}
+
 const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 
 const useLocalFallback =
@@ -207,6 +226,37 @@ export async function processMediaInbox({
   sendReply,
 }) {
   await updateInbox(inboxId, { processing_status: "processing" });
+
+  // ── Verificar capacidades do plano ──────────────────────────────────────
+  const caps = await getUserPlanCaps(usuarioId);
+
+  if (messageType === "audio" && !caps.ai_audio_enabled) {
+    await updateInbox(inboxId, {
+      processing_status: "done",
+      processing_error:  "ai_audio_enabled=false para este plano",
+    });
+    sendReply(
+      "🔒 Seu plano atual não inclui lançamentos por áudio.\n" +
+      "Faça upgrade para usar este recurso.\n" +
+      "Por enquanto, envie um texto: paguei 50 gasolina"
+    );
+    console.log(`[mediaProcessor] gating: áudio bloqueado para usuario=${usuarioId}`);
+    return;
+  }
+
+  if ((messageType === "image" || messageType === "document") && !caps.ai_receipt_enabled) {
+    await updateInbox(inboxId, {
+      processing_status: "done",
+      processing_error:  "ai_receipt_enabled=false para este plano",
+    });
+    sendReply(
+      "🔒 Seu plano atual não inclui leitura de comprovantes.\n" +
+      "Faça upgrade para usar este recurso.\n" +
+      "Por enquanto, envie um texto: paguei 50 gasolina"
+    );
+    console.log(`[mediaProcessor] gating: comprovante bloqueado para usuario=${usuarioId}`);
+    return;
+  }
 
   let mediaFile = null;
   let isTemp = false;

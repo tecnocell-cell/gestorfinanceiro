@@ -613,7 +613,7 @@ function PfModePanel({ adminPhone }) {
 // ── Painel de numeros autorizados (PJ) ───────────────────────────────────────
 function PjAuthorizedPanel() {
   const [numbers, setNumbers] = React.useState(null); // null = carregando
-  const [planInfo, setPlanInfo] = React.useState(null); // { plan, limit, used }
+  const [planInfo, setPlanInfo] = React.useState(null); // { plan, max_authorized_numbers, used_authorized_numbers, ai_audio_enabled, ai_receipt_enabled, ai_text_enabled }
   const [form, setForm]       = React.useState({ phone_number: "", label: "" });
   const [addError, setAddError] = React.useState(null);
   const [adding, setAdding]   = React.useState(false);
@@ -699,20 +699,47 @@ function PjAuthorizedPanel() {
             fontWeight: 600,
             padding: "3px 10px",
             borderRadius: 99,
-            background: planInfo.used >= planInfo.limit ? C.redLight : C.greenLight,
-            color: planInfo.used >= planInfo.limit ? C.red : C.green,
-            border: `1px solid ${planInfo.used >= planInfo.limit ? C.redBorder : C.greenBorder}`,
+            background: planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers ? C.redLight : C.greenLight,
+            color: planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers ? C.red : C.green,
+            border: `1px solid ${planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers ? C.redBorder : C.greenBorder}`,
           }}>
-            {planInfo.used} de {planInfo.limit} números
+            {planInfo.used_authorized_numbers} de {planInfo.max_authorized_numbers} números
           </span>
         )}
       </div>
-      <p style={{ margin: "0 0 20px", fontSize: 13, color: C.textMuted }}>
+      <p style={{ margin: "0 0 12px", fontSize: 13, color: C.textMuted }}>
         Numeros que podem enviar comandos para esta conta. Se vazio, so o numero da conta conectada e aceito.
       </p>
 
+      {/* Badges de recursos IA */}
+      {planInfo && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99,
+            background: planInfo.ai_text_enabled ? C.greenLight : "#f1f5f9",
+            color: planInfo.ai_text_enabled ? C.green : C.textMuted,
+            border: `1px solid ${planInfo.ai_text_enabled ? C.greenBorder : C.greyBorder}` }}>
+            {planInfo.ai_text_enabled ? "✓" : "✗"} Texto
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99,
+            background: planInfo.ai_audio_enabled ? C.greenLight : "#f1f5f9",
+            color: planInfo.ai_audio_enabled ? C.green : C.textMuted,
+            border: `1px solid ${planInfo.ai_audio_enabled ? C.greenBorder : C.greyBorder}` }}>
+            {planInfo.ai_audio_enabled ? "✓" : "✗"} Áudio
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99,
+            background: planInfo.ai_receipt_enabled ? C.greenLight : "#f1f5f9",
+            color: planInfo.ai_receipt_enabled ? C.green : C.textMuted,
+            border: `1px solid ${planInfo.ai_receipt_enabled ? C.greenBorder : C.greyBorder}` }}>
+            {planInfo.ai_receipt_enabled ? "✓" : "✗"} Comprovante
+          </span>
+          <span style={{ fontSize: 11, color: C.textMuted, alignSelf: "center" }}>
+            Plano: <strong>{planInfo.plan}</strong>
+          </span>
+        </div>
+      )}
+
       {/* Aviso de limite atingido */}
-      {planInfo && planInfo.used >= planInfo.limit && (
+      {planInfo && planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers && (
         <div style={{
           background: "#fffbeb",
           border: "1px solid #f59e0b",
@@ -753,7 +780,7 @@ function PjAuthorizedPanel() {
         </div>
         <button
           onClick={add}
-          disabled={adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)}
+          disabled={adding || !form.phone_number || (planInfo && planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers)}
           style={{
             padding: "8px 14px",
             borderRadius: 6,
@@ -762,8 +789,8 @@ function PjAuthorizedPanel() {
             color: "#fff",
             fontSize: 13,
             fontWeight: 600,
-            cursor: (adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)) ? "not-allowed" : "pointer",
-            opacity: (adding || !form.phone_number || (planInfo && planInfo.used >= planInfo.limit)) ? 0.45 : 1,
+            cursor: (adding || !form.phone_number || (planInfo && planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers)) ? "not-allowed" : "pointer",
+            opacity: (adding || !form.phone_number || (planInfo && planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers)) ? 0.45 : 1,
             whiteSpace: "nowrap",
           }}
         >
