@@ -14,6 +14,7 @@
  *   GET    /instance/fetchInstances
  *   DELETE /instance/logout/:instanceName
  *   DELETE /instance/delete/:instanceName
+ *   GET    /media/:instanceName/:filename
  *
  * Autenticação: header `apikey: <EVOLUTION_API_KEY>`
  */
@@ -208,4 +209,56 @@ export async function sendText(instanceName, number, text) {
     { number: String(number), text: String(text) },
     10_000
   );
+}
+
+const SAFE_MEDIA_SEGMENT = /^[a-zA-Z0-9._-]+$/;
+
+/**
+ * Baixa arquivo de mídia do Gateway.
+ *
+ * @param {string} instanceName
+ * @param {string} filename
+ * @returns {Promise<Buffer>}
+ */
+export async function downloadMedia(instanceName, filename) {
+  if (!SAFE_MEDIA_SEGMENT.test(instanceName) || !SAFE_MEDIA_SEGMENT.test(filename)) {
+    throw new Error("Parâmetros de mídia inválidos");
+  }
+
+  const url =
+    `${base()}/media/${encodeURIComponent(instanceName)}/${encodeURIComponent(filename)}`;
+  const headers = { apikey: key(), "api-key": key() };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+
+  let res;
+  try {
+    res = await fetch(url, { method: "GET", headers, signal: controller.signal });
+  } catch (networkErr) {
+    if (networkErr.name === "AbortError") {
+      throw new Error(
+        `Gateway media timeout após 30s (GET /media/${instanceName}/${filename})`
+      );
+    }
+    throw new Error(
+      `Gateway media inacessível (GET /media/${instanceName}/${filename}): ${networkErr.message}`
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(
+      `Gateway media HTTP ${res.status}${errText ? `: ${errText.slice(0, 200)}` : ""}`
+    );
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (!buffer.length) {
+    throw new Error(`Gateway media vazio (${instanceName}/${filename})`);
+  }
+
+  return buffer;
 }

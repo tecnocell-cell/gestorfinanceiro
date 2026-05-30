@@ -14,6 +14,7 @@ import {
 } from "../whatsapp/evolutionProvider.js";
 import { parseMessage, detectConfirmation } from "../whatsapp/messageParser.js";
 import { addLancamentoFromWhatsApp } from "../whatsapp/lancamentoWriter.js";
+import { processMediaInbox }         from "../whatsapp/mediaProcessor.js";
 
 const router = Router();
 
@@ -44,33 +45,58 @@ function sendReply(instanceName, number, text) {
  */
 /**
  * Processa mensagem de mídia (áudio/imagem/vídeo/documento).
- * Responde com mensagem de espera e atualiza inbox. Fire-and-forget.
+ *
+ * Fluxo:
+ *   1. Envia ACK imediato ao usuário
+ *   2. Marca inbox response_sent=true (respondemos)
+ *   3. Dispara mediaProcessor assíncrono (transcrição/OCR → parse → pending)
+ *   4. mediaProcessor envia reply final com resultado ou fallback
+ *
+ * Fire-and-forget — nunca bloqueia o webhook.
  */
-async function processMediaMessage(usuarioId, fromNumber, instanceName, inboxId, messageType, caption) {
+async function processMediaMessage(
+  usuarioId, fromNumber, instanceName, inboxId,
+  messageType, caption, mediaPath, mediaMimetype
+) {
   const markInbox = (sent, error = null) =>
     query(
       "UPDATE whatsapp_inbox SET response_sent = $1, response_error = $2 WHERE id = $3",
       [sent, error, inboxId]
     ).catch(() => {});
 
-  let reply;
+  // ACK imediato
+  let ack;
   if (messageType === "audio") {
-    reply = "🎵 Recebi seu áudio. Em breve vou transcrever e preparar o lançamento.";
+    ack = "🎵 Recebi seu áudio. Transcrevendo...";
   } else if (messageType === "image") {
-    reply = caption
-      ? `🧾 Recebi seu comprovante com legenda: "${caption}". Em breve vou ler os dados e preparar o lançamento.`
-      : "🧾 Recebi seu comprovante. Em breve vou ler os dados e preparar o lançamento.";
+    ack = caption
+      ? `🧾 Recebi seu comprovante com legenda: "${caption}". Analisando...`
+      : "🧾 Recebi seu comprovante. Analisando...";
   } else if (messageType === "document") {
-    reply = caption
-      ? `📄 Recebi seu documento com legenda: "${caption}". Em breve vou processar.`
-      : "📄 Recebi seu documento. Em breve vou processar.";
+    ack = caption
+      ? `📄 Recebi seu documento com legenda: "${caption}". Analisando...`
+      : "📄 Recebi seu documento. Analisando...";
   } else {
-    reply = "📎 Recebi seu arquivo. Em breve vou processar.";
+    ack = "📎 Recebi seu arquivo. Analisando...";
   }
 
-  sendReply(instanceName, fromNumber, reply);
+  sendReply(instanceName, fromNumber, ack);
   await markInbox(true);
-  console.log(`[whatsapp/media] usuario=${usuarioId} tipo=${messageType} from=${fromNumber}`);
+
+  // Processar mídia de forma assíncrona (transcrição/OCR → parse → pending)
+  processMediaInbox({
+    usuarioId,
+    fromNumber,
+    instanceName,
+    inboxId,
+    messageType,
+    mediaPath:     mediaPath     || null,
+    mediaMimetype: mediaMimetype || null,
+    caption:       caption       || null,
+    sendReply: (text) => sendReply(instanceName, fromNumber, text),
+  }).catch(e => console.error("[whatsapp/processMediaInbox]:", e.message));
+
+  console.log(`[whatsapp/media] ack enviado: usuario=${usuarioId} tipo=${messageType} from=${fromNumber}`);
 }
 
 async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgBody) {
@@ -187,8 +213,6 @@ Responda SIM para confirmar ou NAO para cancelar.`);
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
 const evoFetchListCooldown = new Map();
 const evo404Warned = new Set();
-const lastWebhookConnState = new Map();
-const lastCloseIgnoreLog = new Map();
 const FETCH_INSTANCES_COOLDOWN_MS = 8_000;
 const QR_WAIT_TIMEOUT_MS = 120_000;
 
@@ -1013,7 +1037,7 @@ router.post("/webhook/:instanceName", async (req, res) => {
               if (!rows[0]?.id) return;
               const inboxId = rows[0].id;
               if (isMedia) {
-                processMediaMessage(authRow.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText)
+                processMediaMessage(authRow.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText, mediaInfo?.localPath, mediaInfo?.mimetype)
                   .catch(e => console.error("[whatsapp/processMedia] PF:", e.message));
               } else {
                 processMessage(authRow.usuario_id, fromNumber, instanceName, inboxId, msgBody)
@@ -1066,7 +1090,7 @@ router.post("/webhook/:instanceName", async (req, res) => {
               if (!rows[0]?.id || !fromNumber) return;
               const inboxId = rows[0].id;
               if (isMedia) {
-                processMediaMessage(sess.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText)
+                processMediaMessage(sess.usuario_id, fromNumber, instanceName, inboxId, messageType, captionText, mediaInfo?.localPath, mediaInfo?.mimetype)
                   .catch(e => console.error("[whatsapp/processMedia] PJ:", e.message));
               } else {
                 processMessage(sess.usuario_id, fromNumber, instanceName, inboxId, msgBody)
