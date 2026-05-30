@@ -29,6 +29,7 @@ import {
   OrcamentoPage, MetasPage, RelatoriosPFPage, PerfilPFPage, ContasPFPage,
 } from "./pages/PagesPF.jsx";
 import PfDueAlert from "./components/pf/PfDueAlert.jsx";
+import { BrandLogo } from "./components/BrandLogo.jsx";
 import { NavIcon, Shield, Menu, LogOut, Eye } from "./components/icons.jsx";
 
 const PAGE_MAP_PJ = {
@@ -113,13 +114,9 @@ export default function GestorApp() {
 
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
-            <img
-              src="/centerflow-logo-white.svg"
-              alt="CenterFlow"
-              className="sidebar-brand-logo"
-              width={188}
-              height={44}
-            />
+            <div className="sidebar-brand-logo-wrap">
+              <BrandLogo variant="fluxiva" theme="dark" markSize={38} />
+            </div>
           </div>
 
           {/* ── SUPER ADMIN — abre por padrão para role=admin ───── */}

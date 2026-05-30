@@ -22,7 +22,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  Wallet, User, Mail, Phone, Lock, Eye, EyeOff,
+  User, Mail, Phone, Lock, Eye, EyeOff,
   ArrowRight, ArrowLeft, Check, Users, Smartphone,
   Bot, Sparkles, MailCheck, AlertCircle, KeyRound,
 } from "lucide-react";
@@ -30,6 +30,7 @@ import {
   register, verify, redirectToApp,
   savePendingPlan, type ApiError,
 } from "@/lib/centerflowApi";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // ── Planos ───────────────────────────────────────────────────────────────────
 
@@ -220,13 +221,8 @@ export default function CadastroPage() {
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <a href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-              <Wallet className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-base font-bold text-foreground">
-              CenterFlow <span className="text-primary">Financeiro</span>
-            </span>
+          <a href="/" className="flex items-center">
+            <BrandLogo variant="fluxiva-financeiro" theme="light" markSize={36} />
           </a>
           <a href="/login" className="text-sm font-medium text-muted-foreground hover:text-primary">
             Já tenho conta

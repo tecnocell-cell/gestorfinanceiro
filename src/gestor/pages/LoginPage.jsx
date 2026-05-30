@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import { css } from "../styles.js";
 import { AlertTriangle } from "../components/icons.jsx";
+import { BrandLogo } from "../components/BrandLogo.jsx";
 
 export default function LoginPage({ onRegister }) {
   const { login, loading, error, clearError } = useAuth();
@@ -22,13 +23,9 @@ export default function LoginPage({ onRegister }) {
       <div className="login-page">
       <div className="login-card" style={{ maxWidth: 380, height: "auto" }}>
         <div className="login-header" style={{ padding: "22px 28px 16px" }}>
-          <img
-            src="/centerflow-logo-white.svg"
-            alt="CenterFlow"
-            className="login-brand-logo"
-            width={180}
-            height={42}
-          />
+          <div className="login-brand-logo-wrap">
+            <BrandLogo variant="fluxiva" theme="dark" markSize={40} />
+          </div>
           <p className="login-subtitle" style={{ marginTop: 6, fontSize: 13 }}>Entre com suas credenciais de acesso</p>
         </div>
 

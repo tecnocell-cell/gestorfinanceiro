@@ -2,22 +2,14 @@
  * landing-spa/Navbar.tsx
  * Versão da Navbar para o build SPA — usa <a> em vez de TanStack Link.
  */
-import { Wallet } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <a href="/" className="flex items-center gap-2">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            <Wallet className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            CenterFlow <span className="text-primary">Financeiro</span>
-          </span>
+        <a href="/" className="flex items-center">
+          <BrandLogo variant="fluxiva-financeiro" theme="light" markSize={36} />
         </a>
 
         <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">

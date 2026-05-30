@@ -1,17 +1,12 @@
-import { Wallet } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-10 md:flex-row">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--gradient-primary)" }}>
-            <Wallet className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-sm font-semibold text-foreground">CenterFlow Financeiro</span>
-        </div>
+        <BrandLogo variant="fluxiva-financeiro" theme="light" markSize={32} />
         <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} CenterFlow. Todos os direitos reservados.
+          © {new Date().getFullYear()} Fluxiva. Todos os direitos reservados.
         </p>
       </div>
     </footer>

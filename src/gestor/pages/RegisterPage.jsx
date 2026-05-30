@@ -2,6 +2,7 @@ import { useState } from "react";
 import { css } from "../styles.js";
 import { authApi, tokenStorage } from "../api.js";
 import { User, Building2, Mail, Smartphone, AlertTriangle } from "../components/icons.jsx";
+import { BrandLogo } from "../components/BrandLogo.jsx";
 
 const STEPS = { dados: "dados", verificacao: "verificacao" };
 
@@ -177,13 +178,9 @@ export default function RegisterPage({ onLogin, onVerified }) {
       <div className="login-page">
         <div className="login-card register-card">
           <div className="login-header">
-            <img
-              src="/centerflow-logo-white.svg"
-              alt="CenterFlow"
-              className="login-brand-logo"
-              width={200}
-              height={48}
-            />
+            <div className="login-brand-logo-wrap">
+              <BrandLogo variant="fluxiva" theme="dark" markSize={40} />
+            </div>
             <h1 className="login-title">{meta.title}</h1>
             <p className="login-subtitle">{meta.sub}</p>
           </div>

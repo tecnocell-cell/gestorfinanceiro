@@ -1,5 +1,5 @@
 /**
- * Handoff cross-domain: landing (centerflow.app) → app (financeiro.centertech.cloud).
+ * Handoff cross-domain: landing (fluxiva.app) → app (financeiro.fluxiva.app).
  * Lê auth_token da query, persiste em localStorage e limpa a URL imediatamente.
  * Nunca loga o token.
  */

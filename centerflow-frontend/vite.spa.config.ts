@@ -36,6 +36,8 @@ export default defineConfig({
 
   root: ".",
 
+  publicDir: resolve(__dirname, "../public"),
+
   build: {
     outDir: "../public-landing",
     emptyOutDir: true,

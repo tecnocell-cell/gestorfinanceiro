@@ -292,13 +292,57 @@ export const css = `
 
   .sidebar-brand-logo {
     display: block;
-    width: min(100%, 170px);
+    width: min(100%, 200px);
     height: auto;
-    max-height: 48px;
+    max-height: 52px;
     object-fit: contain;
     object-position: center;
     user-select: none;
     -webkit-user-drag: none;
+  }
+
+  .brand-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .brand-mark-circle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  }
+
+  .brand-logo-title {
+    font-family: var(--font-sans);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .brand-logo-title--dark { color: #ffffff; }
+  .brand-logo-title--light { color: var(--foreground, #111827); }
+
+  .brand-logo-accent { color: var(--rn-primary, #128547); }
+  .brand-logo-title--dark .brand-logo-accent { color: rgba(255, 255, 255, 0.92); }
+
+  .login-brand-logo-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+  }
+
+  .sidebar-brand-logo-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
   }
 
   .brand-row { display: flex; align-items: center; gap: 10px; }
@@ -1429,9 +1473,9 @@ export const css = `
 
   .login-brand-logo {
     display: block;
-    width: min(220px, 88%);
+    width: min(280px, 92%);
     height: auto;
-    max-height: 52px;
+    max-height: 56px;
     margin: 0 auto 1rem;
     object-fit: contain;
     object-position: center;

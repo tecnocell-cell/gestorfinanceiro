@@ -10,12 +10,13 @@
 
 import { useState } from "react";
 import {
-  Eye, EyeOff, Mail, Lock, Wallet,
+  Eye, EyeOff, Mail, Lock,
   ShieldCheck, MessageCircle, Smartphone, ArrowRight, AlertCircle,
 } from "lucide-react";
 import {
   login, redirectToApp, APP_URL, type ApiError,
 } from "@/lib/centerflowApi";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // ── Componentes internos ──────────────────────────────────────────────────────
 
@@ -92,11 +93,8 @@ export default function LoginPage() {
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
 
-        <a href="/" className="relative flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <Wallet className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold">CenterFlow Financeiro</span>
+        <a href="/" className="relative flex items-center">
+          <BrandLogo variant="fluxiva-financeiro" theme="dark" markSize={40} />
         </a>
 
         <div className="relative space-y-8">
@@ -104,7 +102,7 @@ export default function LoginPage() {
             Seu dinheiro,<br /> sob controle —<br /> no seu WhatsApp.
           </h2>
           <p className="max-w-md text-white/85">
-            Lance gastos por texto, áudio ou foto. A IA do CenterFlow organiza para você, PF e PJ.
+            Lance gastos por texto, áudio ou foto. A IA da Fluxiva organiza para você, PF e PJ.
           </p>
           <div className="space-y-3">
             <IllustrationCard icon={<MessageCircle className="h-4 w-4" />} title="WhatsApp financeiro" desc="Tudo no chat que você já usa." />
@@ -113,7 +111,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="relative text-xs text-white/70">© {new Date().getFullYear()} CenterFlow</p>
+        <p className="relative text-xs text-white/70">© {new Date().getFullYear()} Fluxiva</p>
       </aside>
 
       {/* Formulário */}
@@ -121,11 +119,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo mobile */}
           <div className="lg:hidden">
-            <a href="/" className="inline-flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-                <Wallet className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="text-base font-bold text-foreground">CenterFlow</span>
+            <a href="/" className="inline-flex items-center">
+              <BrandLogo variant="fluxiva-financeiro" theme="light" markSize={36} />
             </a>
           </div>
 
