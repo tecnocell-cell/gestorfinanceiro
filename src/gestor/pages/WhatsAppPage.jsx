@@ -381,7 +381,7 @@ function PfModePanel({ adminPhone }) {
       setMyNumber(d.authorized);
       setInputPhone("");
       setEditing(false);
-      setSuccess("Numero cadastrado! Agora voce pode enviar mensagens para o numero oficial CenterFlow.");
+      setSuccess("Numero cadastrado! Agora voce pode enviar mensagens para o numero oficial Fluxiva.");
     } catch (e) {
       setApiError(e.message || "Erro ao cadastrar numero.");
     } finally {
@@ -391,7 +391,7 @@ function PfModePanel({ adminPhone }) {
 
   const handleRemove = async () => {
     if (!myNumber) return;
-    if (!confirm("Remover seu numero autorizado? Voce nao podera mais usar o WhatsApp CenterFlow ate cadastrar novamente.")) return;
+    if (!confirm("Remover seu numero autorizado? Voce nao podera mais usar o WhatsApp Fluxiva ate cadastrar novamente.")) return;
     setApiError(null); setSuccess(null); setRemoving(true);
     try {
       const { whatsappApi } = await import("../api.js");
@@ -523,7 +523,7 @@ function PfModePanel({ adminPhone }) {
   return (
     <Card>
       <div style={{ fontSize: 56, marginBottom: 20, lineHeight: 1 }}>&#128172;</div>
-      <Title>WhatsApp CenterFlow</Title>
+      <Title>WhatsApp Fluxiva</Title>
       <Subtitle>
         Cadastre seu numero e envie mensagens para o numero oficial abaixo
         para registrar lancamentos financeiros pelo WhatsApp.
@@ -538,7 +538,7 @@ function PfModePanel({ adminPhone }) {
         marginBottom: 20,
       }}>
         <p style={{ margin: "0 0 6px", fontSize: 13, color: C.textMuted, fontWeight: 500 }}>
-          Numero oficial do CenterFlow
+          Numero oficial do Fluxiva
         </p>
         {formatted ? (
           <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: "0.5px" }}>
