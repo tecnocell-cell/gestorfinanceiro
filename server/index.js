@@ -16,6 +16,7 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
+import { conexoesRouter } from "./routes/conexoes.js";
 import whatsappRouter from "./routes/whatsapp.js";
 import { whatsappAdminRouter } from "./routes/whatsappAdmin.js";
 
@@ -390,6 +391,7 @@ app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, 
 
 // ─── Recorrências (despesas e receitas fixas) ─────────────────────────────────
 app.use("/api/recorrencias", recorrenciasRouter);
+app.use("/api/conexoes", conexoesRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
 app.use("/api/whatsapp", whatsappRouter);

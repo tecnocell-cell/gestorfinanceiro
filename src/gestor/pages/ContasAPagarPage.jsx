@@ -17,6 +17,10 @@ import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
 import { fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
 import { MESES }                from "../constants.js";
+import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
+import {
+  ArrowDownLeft, ArrowUpRight, AlertTriangle, Clock, CircleCheck,
+} from "../components/icons.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -171,25 +175,25 @@ export default function ContasAPagarPage() {
 
       <div className="pp-summary-grid">
         <div className="pp-summary-card pp-summary-out">
-          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <SummaryIcon icon={ArrowDownLeft} />
           <div className="pp-summary-label">A Pagar</div>
           <div className="pp-summary-value">{fmtBRL(kpis.aPagar)}</div>
           <div className="pp-summary-hint">Despesas em aberto</div>
         </div>
         <div className="pp-summary-card pp-summary-in">
-          <div className="pp-summary-icon" aria-hidden>↑</div>
+          <SummaryIcon icon={ArrowUpRight} />
           <div className="pp-summary-label">A Receber</div>
           <div className="pp-summary-value">{fmtBRL(kpis.aReceber)}</div>
           <div className="pp-summary-hint">Receitas em aberto</div>
         </div>
         <div className="pp-summary-card pp-summary-warn">
-          <div className="pp-summary-icon" aria-hidden>⚠</div>
+          <SummaryIcon icon={AlertTriangle} />
           <div className="pp-summary-label">Vencidos</div>
           <div className="pp-summary-value">{kpis.vencidos}</div>
           <div className="pp-summary-hint">Já passaram do prazo</div>
         </div>
         <div className="pp-summary-card pp-summary-info">
-          <div className="pp-summary-icon" aria-hidden>⌚</div>
+          <SummaryIcon icon={Clock} />
           <div className="pp-summary-label">Vence em 7 dias</div>
           <div className="pp-summary-value">{kpis.vencendo7}</div>
           <div className="pp-summary-hint">Próximos vencimentos</div>
@@ -251,7 +255,7 @@ export default function ContasAPagarPage() {
       <div className="pp-card">
         {visible.length === 0 ? (
           <div className="pp-empty">
-            <div className="pp-empty-icon" aria-hidden>✓</div>
+            <EmptyIcon icon={CircleCheck} />
             <div className="pp-empty-title">Nenhuma conta encontrada</div>
             <div className="pp-empty-text">Nenhuma conta encontrada para este filtro.</div>
           </div>

@@ -406,6 +406,7 @@ export default function DashboardPFV2Page() {
           <ChartCardV2
             title="Tendência de Resultado"
             sub={`Receitas vs Despesas em ${filterPeriodo.ano}`}
+            height={300}
           >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={mensalData}>

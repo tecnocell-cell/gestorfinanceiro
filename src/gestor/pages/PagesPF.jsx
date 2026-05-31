@@ -19,7 +19,8 @@ import {
 } from "../profileLabels.js";
 import { DEFAULT_CATS_PF } from "../defaultCategories.js";
 import { PF_PAGE_HINTS } from "../pfHints.js";
-import { PenLine, Trash2 } from "../components/icons.jsx";
+import { PenLine, Trash2, ClipboardList, ArrowDownLeft, CircleCheck, AlertTriangle, Target } from "../components/icons.jsx";
+import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -561,19 +562,19 @@ export function OrcamentoPage() {
 
       <div className="pp-summary-grid cols-3">
         <div className="pp-summary-card pp-summary-info">
-          <div className="pp-summary-icon" aria-hidden>📋</div>
+          <SummaryIcon icon={ClipboardList} />
           <div className="pp-summary-label">Total Orçado</div>
           <div className="pp-summary-value">{fmtBRL(totOrcado)}</div>
           <div className="pp-summary-hint">Planejado para o mês</div>
         </div>
         <div className="pp-summary-card pp-summary-out">
-          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <SummaryIcon icon={ArrowDownLeft} />
           <div className="pp-summary-label">Total Gasto</div>
           <div className="pp-summary-value">{fmtBRL(totRealizado)}</div>
           <div className="pp-summary-hint">Realizado no período</div>
         </div>
         <div className={`pp-summary-card ${totDiff >= 0 ? "pp-summary-in" : "pp-summary-warn"}`}>
-          <div className="pp-summary-icon" aria-hidden>{totDiff >= 0 ? "✓" : "⚠"}</div>
+          <SummaryIcon icon={totDiff >= 0 ? CircleCheck : AlertTriangle} />
           <div className="pp-summary-label">Saldo do Orçamento</div>
           <div className="pp-summary-value">{fmtBRL(totDiff)}</div>
           <div className="pp-summary-hint">{totDiff >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}</div>
@@ -667,7 +668,7 @@ export function MetasPage() {
       {metas.length === 0 && (
         <div className="pp-card">
           <div className="pp-empty">
-            <div className="pp-empty-icon" aria-hidden>🎯</div>
+            <EmptyIcon icon={Target} />
             <div className="pp-empty-title">Nenhuma meta cadastrada</div>
             <div className="pp-empty-text">Crie sua primeira meta de poupança com valor alvo e prazo.</div>
             <button type="button" className="pp-btn-primary" onClick={() => openModal("meta")}>
@@ -914,16 +915,9 @@ export function PerfilPFPage() {
 // ─── Contas PF ────────────────────────────────────────────────────────────────
 
 export function ContasPFPage() {
-  const hint = PF_PAGE_HINTS.contas;
   return (
     <PfPageShell pageId="contas">
-      <div className="pp-page-header">
-        <div className="pp-page-header-text">
-          <span className="pp-page-title">{hint?.title || "Contas"}</span>
-          <span className="pp-page-sub">{hint?.text}</span>
-        </div>
-      </div>
-      <ContasPage />
+      <ContasPage pfMode />
     </PfPageShell>
   );
 }

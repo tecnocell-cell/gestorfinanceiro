@@ -1,20 +1,19 @@
 import { memo, useMemo } from "react";
 import { fmtBRL } from "../../finance.js";
+import { WidgetTitle } from "../IconBox.jsx";
+import {
+  Wallet, Landmark, PiggyBank, CreditCard, Banknote,
+} from "../icons.jsx";
 
 const TIPO_ICON = {
-  Caixa:    "💵",
-  Banco:    "🏦",
-  Poupança: "🐷",
-  default:  "💳",
+  Caixa:    Banknote,
+  Banco:    Landmark,
+  Poupança: PiggyBank,
+  default:  CreditCard,
 };
 
 /**
  * ContasWidget — lista de contas com saldos (Etapa 4.2).
- *
- * Novidades 4.2:
- *  - Participação % no patrimônio (sobre |total|)
- *  - Destaque da conta principal (maior saldo positivo)
- *  - Barras com cores tonalizadas
  */
 function ContasWidget({ contas, getSaldoConta }) {
   const ativas = useMemo(() => contas.filter((c) => !c.inativo), [contas]);
@@ -37,12 +36,12 @@ function ContasWidget({ contas, getSaldoConta }) {
       <div className="dash-accounts-card">
         <div className="chart-card-v2-header">
           <div>
-            <div className="chart-card-v2-title">🏦 Contas</div>
+            <div className="chart-card-v2-title"><WidgetTitle icon={Wallet}>Contas</WidgetTitle></div>
             <div className="chart-card-v2-sub">Nenhuma conta cadastrada</div>
           </div>
         </div>
         <div className="dash-accounts-empty">
-          <span style={{ fontSize: 32 }}>🏦</span>
+          <span className="dash-accounts-empty-icon" aria-hidden><Wallet size={32} strokeWidth={1.5} /></span>
           <span>Cadastre uma conta para acompanhar saldos aqui.</span>
         </div>
       </div>
@@ -55,7 +54,7 @@ function ContasWidget({ contas, getSaldoConta }) {
     <div className="dash-accounts-card">
       <div className="chart-card-v2-header">
         <div>
-          <div className="chart-card-v2-title">🏦 Contas</div>
+          <div className="chart-card-v2-title"><WidgetTitle icon={Wallet}>Contas</WidgetTitle></div>
           <div className="chart-card-v2-sub">
             {items.length} conta{items.length !== 1 ? "s" : ""} ativa{items.length !== 1 ? "s" : ""}
           </div>
@@ -74,10 +73,11 @@ function ContasWidget({ contas, getSaldoConta }) {
           const pctTxt = pct >= 10 ? pct.toFixed(0) : pct.toFixed(1);
           const positivo = c.saldo >= 0;
           const isPrincipal = c.id === principalId;
+          const Icon = TIPO_ICON[c.tipo] ?? TIPO_ICON.default;
           return (
             <div key={c.id} className={`dash-account-item${isPrincipal ? " dash-account-item--principal" : ""}`}>
               <div className="dash-account-info">
-                <span className="dash-account-icon">{TIPO_ICON[c.tipo] ?? TIPO_ICON.default}</span>
+                <span className="dash-account-icon" aria-hidden><Icon size={15} strokeWidth={2} /></span>
                 <div className="dash-account-meta">
                   <div className="dash-account-name-row">
                     <div className="dash-account-name">{c.apelido || c.nome}</div>

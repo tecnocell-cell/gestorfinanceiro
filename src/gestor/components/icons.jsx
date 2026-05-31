@@ -32,6 +32,7 @@ import {
   Smartphone,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowDownLeft,
   Minus,
   Sparkles,
   Landmark,
@@ -41,43 +42,68 @@ import {
   Pause,
   Play,
   CircleCheck,
+  MessageCircle,
+  BarChart3,
+  Layers,
+  Scale,
+  ClipboardList,
+  Receipt,
+  Banknote,
+  PiggyBank,
+  CreditCard,
+  LineChart,
+  Loader2,
+  Inbox,
+  CalendarDays,
+  Star,
+  Circle,
+  Plus,
+  X,
+  FolderTree,
+  Clock,
+  FileText,
+  Table,
+  AlertCircle,
+  ArrowRight,
+  Bell,
 } from "lucide-react";
 
 /** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
 export const NAV_ICON_MAP = {
   dashboard: LayoutDashboard,
-  lancamentos: ArrowLeftRight,
+  lancamentos: Receipt,
   recorrencias: Repeat,
   "contas-pagar": CalendarClock,
   categorias: Tags,
   orcamento: PieChart,
   metas: Target,
   contas: Wallet,
-  relatorios: FileBarChart,
+  relatorios: ClipboardList,
+  whatsapp: MessageCircle,
   "open-finance": Link2,
   perfil: User,
-  dre: FileBarChart,
-  plano: List,
+  dre: BarChart3,
+  plano: FolderTree,
   impostos: Percent,
   clientes: Users,
   fornecedores: Truck,
   importacoes: Upload,
   conciliacao: GitCompare,
-  balancete: List,
+  balancete: Scale,
   fechamento: Lock,
   empresa: Building2,
 };
 
-export function NavIcon({ name, size = 18, strokeWidth = 1.75, className = "" }) {
+export function NavIcon({ name, size = 16, strokeWidth = 2, className = "" }) {
   const Icon = NAV_ICON_MAP[name];
   if (!Icon) return <Minus size={size} strokeWidth={strokeWidth} className={className} aria-hidden />;
   return <Icon size={size} strokeWidth={strokeWidth} className={className} aria-hidden />;
 }
 
 export function TrendIcon({ dir, size = 14 }) {
-  if (dir === "up") return <ArrowUpRight size={size} strokeWidth={2} aria-hidden />;
-  if (dir === "down") return <ArrowDownRight size={size} strokeWidth={2} aria-hidden />;
-  return <Minus size={size} strokeWidth={2} aria-hidden />;
+  if (dir === "up") return <ArrowUpRight size={size} strokeWidth={2.25} aria-hidden />;
+  if (dir === "down") return <ArrowDownRight size={size} strokeWidth={2.25} aria-hidden />;
+  return <Minus size={size} strokeWidth={2.25} aria-hidden />;
 }
 
 export {
@@ -112,4 +138,27 @@ export {
   Pause,
   Play,
   CircleCheck,
+  ArrowUpRight,
+  ArrowDownRight,
+  ArrowDownLeft,
+  Banknote,
+  PiggyBank,
+  CreditCard,
+  LineChart,
+  Loader2,
+  Inbox,
+  CalendarDays,
+  Star,
+  Circle,
+  Plus,
+  X,
+  ClipboardList,
+  Receipt,
+  Clock,
+  FolderTree,
+  FileText,
+  Table,
+  AlertCircle,
+  ArrowRight,
+  Bell,
 };

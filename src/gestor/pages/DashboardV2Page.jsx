@@ -373,6 +373,7 @@ export default function DashboardV2Page() {
           <ChartCardV2
             title="Tendência do Lucro Líquido"
             sub={`Evolução em ${filterPeriodo.ano}`}
+            height={300}
           >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={mensal}>

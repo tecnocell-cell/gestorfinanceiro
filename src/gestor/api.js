@@ -129,6 +129,13 @@ export const whatsappApi = {
   pending:          (p)      => request(`/whatsapp/pending?limit=${p?.limit||20}&offset=${p?.offset||0}${p?.status ? "&status="+p.status : ""}`),
 };
 
+// ─── Conexões Bancárias (interesse / roadmap) ─────────────────────────────────
+export const conexoesApi = {
+  listInteresse: () => request("/conexoes/interesse"),
+  registerInteresse: (banco_slug) =>
+    request("/conexoes/interesse", { method: "POST", body: { banco_slug } }),
+};
+
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 export const tokenStorage = {
   get:     () => localStorage.getItem("gestor_token"),

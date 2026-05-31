@@ -8,7 +8,8 @@ import { useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
 import { fmtBRL, fmtDate, generateId, toDateKey } from "../finance.js";
-import { PenLine, Trash2, Pause, Play, CircleCheck } from "../components/icons.jsx";
+import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2 } from "../components/icons.jsx";
+import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -579,25 +580,25 @@ export default function RecorrenciasPage() {
       {/* Resumo */}
       <div className="pp-summary-grid">
         <div className="pp-summary-card pp-summary-info">
-          <div className="pp-summary-icon" aria-hidden>↺</div>
+          <SummaryIcon icon={Repeat} />
           <div className="pp-summary-label">Ativas</div>
           <div className="pp-summary-value">{resumo.ativas}</div>
           <div className="pp-summary-hint">recorrências em curso</div>
         </div>
         <div className="pp-summary-card pp-summary-out">
-          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <SummaryIcon icon={ArrowDownLeft} />
           <div className="pp-summary-label">Despesas mensais</div>
           <div className="pp-summary-value">{fmtBRL(resumo.totalMensalDespesas)}</div>
           <div className="pp-summary-hint">compromisso fixo / mês</div>
         </div>
         <div className="pp-summary-card pp-summary-in">
-          <div className="pp-summary-icon" aria-hidden>↑</div>
+          <SummaryIcon icon={ArrowUpRight} />
           <div className="pp-summary-label">Receitas mensais</div>
           <div className="pp-summary-value">{fmtBRL(resumo.totalMensalReceitas)}</div>
           <div className="pp-summary-hint">entradas previstas / mês</div>
         </div>
         <div className="pp-summary-card pp-summary-warn">
-          <div className="pp-summary-icon" aria-hidden>⌚</div>
+          <SummaryIcon icon={Clock} />
           <div className="pp-summary-label">Vencendo em 7 dias</div>
           <div className="pp-summary-value">{resumo.vencendo7}</div>
           <div className="pp-summary-hint">precisam de atenção</div>
@@ -644,13 +645,13 @@ export default function RecorrenciasPage() {
 
       {/* Conteúdo */}
       {loading ? (
-        <div className="pp-card"><div className="pp-empty"><div className="pp-empty-icon" aria-hidden>⏳</div><div className="pp-empty-text">Carregando recorrências…</div></div></div>
+        <div className="pp-card"><div className="pp-empty"><EmptyIcon icon={Loader2} /><div className="pp-empty-text">Carregando recorrências…</div></div></div>
       ) : error ? (
-        <div className="pp-card"><div className="pp-empty"><div className="pp-empty-icon" aria-hidden>⚠</div><div className="pp-empty-title">Não foi possível carregar</div><div className="pp-empty-text">{error}</div></div></div>
+        <div className="pp-card"><div className="pp-empty"><EmptyIcon icon={AlertTriangle} /><div className="pp-empty-title">Não foi possível carregar</div><div className="pp-empty-text">{error}</div></div></div>
       ) : lista.length === 0 ? (
         <div className="pp-card">
           <div className="pp-empty">
-            <div className="pp-empty-icon" aria-hidden>↺</div>
+            <EmptyIcon icon={Repeat} />
             <div className="pp-empty-title">
               {filtroTipo !== "Todos" || filtroStatus !== "ativa"
                 ? "Nenhuma recorrência com este filtro"
@@ -696,7 +697,11 @@ export default function RecorrenciasPage() {
                       </td>
                       <td>
                         <span className={`rec-type-pill rec-type-${tipoCls}`}>
-                          <span className="rec-type-icon" aria-hidden>{r.tipo === "Receita" ? "↑" : "↓"}</span>
+                          <span className="rec-type-icon" aria-hidden>
+                            {r.tipo === "Receita"
+                              ? <ArrowUpRight size={13} strokeWidth={2.25} />
+                              : <ArrowDownLeft size={13} strokeWidth={2.25} />}
+                          </span>
                           {r.tipo}
                         </span>
                       </td>

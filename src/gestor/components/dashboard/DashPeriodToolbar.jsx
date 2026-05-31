@@ -9,7 +9,7 @@ export default function DashPeriodToolbar({ title = "Visão geral", subtitle, ic
     <div className="dash-hero-toolbar">
       <div className="dash-hero-heading">
         <span className="dash-hero-heading-icon" aria-hidden>
-          <Icon size={20} strokeWidth={1.75} />
+          <Icon size={18} strokeWidth={2} />
         </span>
         <div>
           <div className="dash-hero-label">{title}</div>

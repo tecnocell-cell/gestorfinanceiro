@@ -44,7 +44,7 @@ function KpiCardV2({
     if (up)   deltaCls = delta.invert ? "down" : "up";
     if (down) deltaCls = delta.invert ? "up"   : "down";
   }
-  const deltaArrow = deltaCls === "up" ? "↑" : deltaCls === "down" ? "↓" : "→";
+  const deltaArrow = deltaCls === "up" ? "up" : deltaCls === "down" ? "down" : "flat";
   const deltaText  = delta && Number.isFinite(delta.pct)
     ? `${delta.pct > 0 ? "+" : ""}${(delta.pct * 100).toFixed(1)}%`
     : null;
@@ -66,7 +66,7 @@ function KpiCardV2({
       <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
       {deltaText && (
         <div className={`kpi-v2-delta kpi-v2-delta--${deltaCls}`} title={delta.label || ""}>
-          <span className="kpi-v2-delta-arrow">{deltaArrow}</span>
+          <span className="kpi-v2-delta-arrow"><TrendIcon dir={deltaArrow === "flat" ? null : deltaArrow} size={12} /></span>
           <span className="kpi-v2-delta-pct">{deltaText}</span>
           {delta.label && <span className="kpi-v2-delta-lbl">{delta.label}</span>}
         </div>

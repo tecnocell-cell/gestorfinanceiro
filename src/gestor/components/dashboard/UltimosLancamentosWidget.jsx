@@ -2,11 +2,13 @@ import { memo, useMemo } from "react";
 import { useGestor } from "../../GestorContext.jsx";
 import { fmtBRL, fmtDate } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
+import { WidgetTitle } from "../IconBox.jsx";
+import { Receipt, Inbox, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from "../icons.jsx";
 
 const TIPO_META = {
-  Entrada:       { cls: "in",  label: "Entrada",       icon: "↑" },
-  Saida:         { cls: "out", label: "Saída",         icon: "↓" },
-  Transferencia: { cls: "tr",  label: "Transferência", icon: "↔" },
+  Entrada:       { cls: "in",  label: "Entrada",       Icon: ArrowUpRight },
+  Saida:         { cls: "out", label: "Saída",         Icon: ArrowDownLeft },
+  Transferencia: { cls: "tr",  label: "Transferência", Icon: ArrowLeftRight },
 };
 
 // Etapa 4.2: data relativa estilo Linear/Notion (Hoje, Ontem, 3d atrás)
@@ -55,12 +57,12 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
       <div className="dash-list-widget">
         <div className="dash-list-widget-header">
           <div>
-            <div className="dash-list-widget-title">🧾 Últimos lançamentos</div>
+            <div className="dash-list-widget-title"><WidgetTitle icon={Receipt}>Últimos lançamentos</WidgetTitle></div>
             <div className="dash-list-widget-sub">Movimentações mais recentes</div>
           </div>
         </div>
         <EmptyState
-          icon="📭"
+          icon={Inbox}
           title="Nenhum lançamento ainda"
           description="Registre uma entrada ou saída para acompanhar suas movimentações em tempo real."
           hint="Use o botão ‘+ Lançamento’ no topo da página."
@@ -73,7 +75,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
     <div className="dash-list-widget">
       <div className="dash-list-widget-header">
         <div>
-          <div className="dash-list-widget-title">🧾 Últimos lançamentos</div>
+          <div className="dash-list-widget-title"><WidgetTitle icon={Receipt}>Últimos lançamentos</WidgetTitle></div>
           <div className="dash-list-widget-sub">{items.length} mais recentes</div>
         </div>
         {onVerTodos && (
@@ -86,6 +88,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
       <ul className="dash-list-widget-list dash-list-widget-list--cozy">
         {items.map((l) => {
           const meta = TIPO_META[l.tipo] || TIPO_META.Saida;
+          const TipoIcon = meta.Icon;
           const conta = contaById[l.contaId];
           const plano = planoById[l.planoId];
           const cat = plano ? `${plano.icone ? plano.icone + " " : ""}${plano.descricao}` : null;
@@ -93,7 +96,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
           return (
             <li key={l.id} className="dash-list-widget-row">
               <span className={`dash-tipo-pill dash-tipo-pill--${meta.cls}`} title={meta.label}>
-                {meta.icon}
+                <TipoIcon size={13} strokeWidth={2.25} />
               </span>
               <div className="dash-list-widget-main">
                 <div className="dash-list-widget-hist" title={l.historico || ""}>

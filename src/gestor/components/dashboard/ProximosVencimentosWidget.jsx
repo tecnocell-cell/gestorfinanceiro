@@ -3,6 +3,8 @@ import { useGestor } from "../../GestorContext.jsx";
 import { useRecorrencias } from "../../hooks/useRecorrencias.js";
 import { fmtBRL, fmtDate } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
+import { WidgetTitle } from "../IconBox.jsx";
+import { CalendarDays, CircleCheck, ArrowUpRight, ArrowDownLeft } from "../icons.jsx";
 
 const hojeStr  = () => new Date().toISOString().slice(0, 10);
 const emNStr   = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
@@ -68,7 +70,7 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
       <div className="dash-list-widget">
         <div className="dash-list-widget-header">
           <div>
-            <div className="dash-list-widget-title">📅 Próximos vencimentos</div>
+            <div className="dash-list-widget-title"><WidgetTitle icon={CalendarDays}>Próximos vencimentos</WidgetTitle></div>
             <div className="dash-list-widget-sub">Carregando…</div>
           </div>
         </div>
@@ -81,12 +83,12 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
       <div className="dash-list-widget">
         <div className="dash-list-widget-header">
           <div>
-            <div className="dash-list-widget-title">📅 Próximos vencimentos</div>
+            <div className="dash-list-widget-title"><WidgetTitle icon={CalendarDays}>Próximos vencimentos</WidgetTitle></div>
             <div className="dash-list-widget-sub">Tudo em dia</div>
           </div>
         </div>
         <EmptyState
-          icon="✅"
+          icon={CircleCheck}
           tone="success"
           title="Sem vencimentos próximos"
           description="Configure recorrências para automatizar lembretes de contas regulares."
@@ -127,7 +129,7 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
           return (
             <li key={i.id} className="dash-list-widget-row">
               <span className={`dash-tipo-pill dash-tipo-pill--${isOut ? "out" : "in"}`}>
-                {isOut ? "↓" : "↑"}
+                {isOut ? <ArrowDownLeft size={13} strokeWidth={2.25} /> : <ArrowUpRight size={13} strokeWidth={2.25} />}
               </span>
               <div className="dash-list-widget-main">
                 <div className="dash-list-widget-hist" title={i.descricao}>

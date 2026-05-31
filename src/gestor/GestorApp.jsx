@@ -306,7 +306,7 @@ export default function GestorApp() {
           <div className={`content${viewOnly ? " content-view-only" : ""}`}>
             {isAdminPage
               ? <AdminPanel embedded onEnterTenant={handleEnterTenant} />
-              : <PageComponent />
+              : <PageComponent onNavigate={goTo} />
             }
           </div>
         </main>

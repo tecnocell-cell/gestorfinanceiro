@@ -23,7 +23,8 @@ import {
 } from "../importExport.js";
 import { nextLote } from "../finance.js";
 import { DEFAULT_CATS_PJ } from "../defaultCategories.js";
-import { PenLine, Trash2 } from "../components/icons.jsx";
+import { PenLine, Trash2, Wallet, ClipboardList, Landmark, Banknote, FolderTree } from "../components/icons.jsx";
+import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 
 function PeriodToolbar() {
   const { filterPeriodo, setFilterPeriodo } = useGestor();
@@ -732,7 +733,7 @@ export function DREPage() {
   );
 }
 
-export function ContasPage() {
+export function ContasPage({ pfMode = false } = {}) {
   const { contas, getSaldoConta, getSaldoTotal, openModal, contaCrud } = useGestor();
   const [sortBy, setSortBy] = useState("codigo");
 
@@ -745,12 +746,79 @@ export function ContasPage() {
     });
   }, [contas, sortBy, getSaldoConta]);
 
+  const resumo = useMemo(() => {
+    const ativas = contas.filter((c) => !c.inativo);
+    const saldoBanco = ativas
+      .filter((c) => String(c.tipo || "").toLowerCase() === "banco")
+      .reduce((s, c) => s + getSaldoConta(c.id), 0);
+    const saldoOutros = ativas
+      .filter((c) => String(c.tipo || "").toLowerCase() !== "banco")
+      .reduce((s, c) => s + getSaldoConta(c.id), 0);
+    return {
+      total: getSaldoTotal(),
+      qtd: ativas.length,
+      saldoBanco,
+      saldoOutros,
+    };
+  }, [contas, getSaldoConta, getSaldoTotal]);
+
   const sortLabels = { codigo: "Código", nome: "Nome", tipo: "Tipo", saldo: "Saldo" };
 
+  const contaTipoBadge = (tipo) => {
+    const t = String(tipo || "").toLowerCase();
+    if (t === "banco") return "pp-badge-blue";
+    if (t === "poupança" || t === "poupanca") return "pp-badge-violet";
+    return "pp-badge-amber";
+  };
+
+  const pageTitle = pfMode ? "Contas" : "Contas bancárias";
+  const pageSub = pfMode
+    ? "Cadastre carteira, banco e poupança. Todo lançamento usa uma conta — o saldo é calculado automaticamente."
+    : "Contas caixa, banco e contábeis vinculadas aos lançamentos da empresa.";
+
   return (
-    <div>
+    <div className="lanc-premium">
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{pageTitle}</span>
+          <span className="pp-page-sub">{pageSub}</span>
+        </div>
+        <div className="pp-page-actions">
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("conta")}>
+            <span aria-hidden>＋</span> Nova conta
+          </button>
+        </div>
+      </div>
+
+      <div className="pp-summary-grid">
+        <div className="pp-summary-card pp-summary-info">
+          <SummaryIcon icon={Wallet} />
+          <div className="pp-summary-label">Saldo total</div>
+          <div className="pp-summary-value">{fmtBRL(resumo.total)}</div>
+          <div className="pp-summary-hint">todas as contas ativas</div>
+        </div>
+        <div className="pp-summary-card pp-summary-muted">
+          <SummaryIcon icon={ClipboardList} />
+          <div className="pp-summary-label">Contas ativas</div>
+          <div className="pp-summary-value">{resumo.qtd}</div>
+          <div className="pp-summary-hint">cadastradas no sistema</div>
+        </div>
+        <div className="pp-summary-card pp-summary-in">
+          <SummaryIcon icon={Landmark} />
+          <div className="pp-summary-label">Em banco</div>
+          <div className="pp-summary-value">{fmtBRL(resumo.saldoBanco)}</div>
+          <div className="pp-summary-hint">contas tipo banco</div>
+        </div>
+        <div className="pp-summary-card pp-summary-warn">
+          <SummaryIcon icon={Banknote} />
+          <div className="pp-summary-label">Caixa / poupança</div>
+          <div className="pp-summary-value">{fmtBRL(resumo.saldoOutros)}</div>
+          <div className="pp-summary-hint">demais tipos de conta</div>
+        </div>
+      </div>
+
       <div className="pp-toolbar">
-        <span style={{ fontSize: 12, color: "var(--text2)", fontWeight: 500 }}>Ordenar por:</span>
+        <span className="pp-toolbar-label">Ordenar por</span>
         {["codigo", "nome", "tipo", "saldo"].map((s) => (
           <button
             key={s}
@@ -761,25 +829,12 @@ export function ContasPage() {
             {sortLabels[s]}
           </button>
         ))}
-        <span className="pp-toolbar-spacer" />
-        <button type="button" className="pp-btn-primary" onClick={() => openModal("conta")}>
-          <span aria-hidden>＋</span> Nova conta
-        </button>
-      </div>
-
-      <div className="pp-summary-grid cols-3">
-        <div className="pp-summary-card pp-summary-info">
-          <div className="pp-summary-icon" aria-hidden>🏦</div>
-          <div className="pp-summary-label">Saldo total</div>
-          <div className="pp-summary-value">{fmtBRL(getSaldoTotal())}</div>
-          <div className="pp-summary-hint">{contas.length} conta{contas.length !== 1 ? "s" : ""} cadastrada{contas.length !== 1 ? "s" : ""}</div>
-        </div>
       </div>
 
       <div className="pp-card">
         {sorted.length === 0 ? (
           <div className="pp-empty">
-            <div className="pp-empty-icon" aria-hidden>🏦</div>
+            <EmptyIcon icon={Wallet} />
             <div className="pp-empty-title">Nenhuma conta cadastrada</div>
             <div className="pp-empty-text">Cadastre carteira, banco ou poupança para registrar lançamentos.</div>
             <button type="button" className="pp-btn-primary" onClick={() => openModal("conta")}>
@@ -787,41 +842,46 @@ export function ContasPage() {
             </button>
           </div>
         ) : (
-          <div className="pp-table-wrap">
-            <table className="pp-table">
-              <thead>
-                <tr>
-                  <th>Cód.</th><th>Nome</th><th>Apelido</th><th>Tipo</th><th>Contábil</th>
-                  <th className="pp-th-num">Inicial</th><th className="pp-th-num">Atual</th><th>Status</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((c) => (
-                  <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : undefined}>
-                    <td className="td-mono">{c.codigo}</td>
-                    <td>{c.nome}</td>
-                    <td style={{ fontSize: 12, color: "var(--text2)" }}>{c.apelido || "—"}</td>
-                    <td><span className={`pp-badge ${c.tipo === "Banco" ? "pp-badge-blue" : "pp-badge-amber"}`}>{c.tipo}</span></td>
-                    <td className="td-mono" style={{ fontSize: 12 }}>{c.contaContabil || "—"}</td>
-                    <td className="pp-cell-value">{fmtBRL(c.saldoInicial)}</td>
-                    <td className="pp-cell-value pp-cell-value-in">{fmtBRL(getSaldoConta(c.id))}</td>
-                    <td>{c.inativo ? <span className="pp-badge pp-badge-red">Inativo</span> : <span className="pp-badge pp-badge-green">Ativo</span>}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className="pp-row-actions">
-                        <button type="button" className="pp-icon-btn" title="Editar conta" onClick={() => openModal("conta", c)}>
-                          <PenLine size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                        <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir conta" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead>
+                  <tr>
+                    <th>Cód.</th><th>Nome</th><th>Apelido</th><th>Tipo</th><th>Contábil</th>
+                    <th className="pp-th-num">Inicial</th><th className="pp-th-num">Atual</th><th>Status</th>
+                    <th style={{ textAlign: "right" }}>Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {sorted.map((c) => (
+                    <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : undefined}>
+                      <td className="td-mono">{c.codigo}</td>
+                      <td>{c.nome}</td>
+                      <td className="lanc-cell-quiet lanc-cell-clip">{c.apelido || "—"}</td>
+                      <td><span className={`pp-badge ${contaTipoBadge(c.tipo)}`}>{c.tipo}</span></td>
+                      <td className="td-mono lanc-cell-quiet" style={{ fontSize: 12 }}>{c.contaContabil || "—"}</td>
+                      <td className="pp-cell-value">{fmtBRL(c.saldoInicial)}</td>
+                      <td className={`pp-cell-value ${getSaldoConta(c.id) >= 0 ? "pp-cell-value-in" : "pp-cell-value-out"}`}>{fmtBRL(getSaldoConta(c.id))}</td>
+                      <td>{c.inativo ? <span className="pp-badge pp-badge-red">Inativo</span> : <span className="pp-badge pp-badge-green">Ativo</span>}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <div className="pp-row-actions">
+                          <button type="button" className="pp-icon-btn" title="Editar conta" onClick={() => openModal("conta", c)}>
+                            <PenLine size={14} strokeWidth={2} aria-hidden />
+                          </button>
+                          <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir conta" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>
+                            <Trash2 size={14} strokeWidth={2} aria-hidden />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="lanc-footer">
+              <span>{sorted.length} conta{sorted.length !== 1 ? "s" : ""}</span>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -865,7 +925,7 @@ export function PlanoContasPage() {
       <div className="pp-card">
         {planoContas.length === 0 ? (
           <div className="pp-empty">
-            <div className="pp-empty-icon" aria-hidden>▤</div>
+            <EmptyIcon icon={FolderTree} />
             <div className="pp-empty-title">Plano de contas vazio</div>
             <div className="pp-empty-text">Adicione contas contábeis ou importe as sugestões padrão.</div>
             <button type="button" className="pp-btn-primary" onClick={() => openModal("plano")}>

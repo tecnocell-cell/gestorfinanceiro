@@ -1,19 +1,16 @@
 /**
- * ConexoesBancariasPage — Open Finance / Conexões Bancárias (Fase 5b)
+ * ConexoesBancariasPage — Open Finance / Conexões Bancárias
  *
- * PREPARATÓRIO — nenhuma integração real implementada.
- * - Bancos mostrados com status "Em breve"
- * - "Avise-me" registra interesse localmente (visual)
- * - Seção de importação manual redireciona para ImportacoesPage
- * - Estrutura visual pronta para receber conectores reais futuramente
- *
- * Rollback: remover import + entradas nos PAGE_MAPs em GestorApp.jsx
- *           e os nav items em constants.js
+ * Etapa Conexões 1 (roadmap honesto):
+ * - Tela clara de "em preparação" — sem prometer conexão real
+ * - "Avise-me" persiste em conexoes_interesse (PostgreSQL)
+ * - Cards de importação manual navegam para Importações / Lançamentos
+ * - Estrutura visual pronta para conectores futuros (Pluggy/Belvo/etc.)
  */
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
-
-// ─── Dados dos bancos ─────────────────────────────────────────────────────────
+import { conexoesApi } from "../api.js";
+import { Bell, FileText, Table, PenLine, ArrowRight, Link2, AlertCircle } from "../components/icons.jsx";
 
 const BANCOS = [
   { slug: "nubank",    nome: "Nubank",         sigla: "Nu",   cor: "oklch(0.52 0.22 295)", descricao: "Conta + Cartão de crédito"   },
@@ -26,44 +23,50 @@ const BANCOS = [
   { slug: "santander", nome: "Santander",       sigla: "San",  cor: "oklch(0.48 0.22 27)",  descricao: "Conta Corrente e Investimentos" },
 ];
 
-// ─── Roadmap ──────────────────────────────────────────────────────────────────
-
 const ROADMAP = [
-  { fase: "Concluído",  data: "Fase 1–5",  titulo: "Importação Manual",        descricao: "OFX, CSV, XLSX — disponível agora",                    done: true  },
-  { fase: "Em breve",   data: "2025",      titulo: "Conector Open Finance",    descricao: "Integração com APIs do Banco Central do Brasil",        done: false },
-  { fase: "Planejado",  data: "2026",      titulo: "Sincronização Automática", descricao: "Lançamentos direto da conta, sem upload manual",        done: false },
-  { fase: "Futuro",     data: "2026+",     titulo: "Multi-banco + Alertas",    descricao: "Controle de todas as contas em um único painel",        done: false },
+  { fase: "Disponível", data: "Agora",     titulo: "Importação Manual",        descricao: "OFX, CSV e XLSX via menu Importações (PJ) ou lançamentos manuais (PF)", done: true  },
+  { fase: "Em breve",   data: "2025–2026", titulo: "Conector Open Finance",    descricao: "Integração com APIs reguladas — ainda não implementada",                done: false },
+  { fase: "Planejado",  data: "2026",      titulo: "Sincronização Automática", descricao: "Extratos direto da conta, sem upload manual",                          done: false },
+  { fase: "Futuro",     data: "2026+",     titulo: "Multi-banco + Alertas",    descricao: "Painel unificado de contas conectadas",                                done: false },
 ];
-
-// ─── Formatos de importação manual ───────────────────────────────────────────
 
 const IMPORT_TIPOS = [
   {
-    icon: "📄",
+    id: "ofx",
+    icon: FileText,
     titulo: "OFX / QIF",
     descricao: "Formato padrão exportado pela maioria dos bancos brasileiros. Compatível com Itaú, Bradesco, BB, Caixa e mais.",
     dica: "No app do banco → Extrato → Exportar → OFX",
-    badge: "Disponível",
+    pjPage: "importacoes",
+    pfPage: "lancamentos",
+    pjLabel: "Ir para Importações",
+    pfLabel: "Cadastrar manualmente",
   },
   {
-    icon: "📊",
+    id: "csv",
+    icon: Table,
     titulo: "CSV / XLSX",
     descricao: "Planilha de extrato. Exportada pelo Mercado Pago, Nubank, Inter e outros bancos digitais.",
     dica: "No app do banco → Extrato → Exportar CSV",
-    badge: "Disponível",
+    pjPage: "importacoes",
+    pfPage: "lancamentos",
+    pjLabel: "Ir para Importações",
+    pfLabel: "Cadastrar manualmente",
   },
   {
-    icon: "✏️",
+    id: "manual",
+    icon: PenLine,
     titulo: "Extrato Manual",
-    descricao: "Cadastre lançamentos manualmente a partir do extrato impresso ou PDF. Total controle sobre os dados.",
+    descricao: "Cadastre lançamentos a partir do extrato impresso ou PDF. Total controle sobre os dados.",
     dica: "Menu → Lançamentos → + Novo Lançamento",
-    badge: "Disponível",
+    pjPage: "lancamentos",
+    pfPage: "lancamentos",
+    pjLabel: "Ir para Lançamentos",
+    pfLabel: "Ir para Lançamentos",
   },
 ];
 
-// ─── Componentes ──────────────────────────────────────────────────────────────
-
-function BancoCard({ banco, avisado, onAviso }) {
+function BancoCard({ banco, avisado, loading, disabled, onAviso }) {
   return (
     <div className="of-banco-card">
       <div className="of-banco-header">
@@ -79,10 +82,17 @@ function BancoCard({ banco, avisado, onAviso }) {
       <button
         type="button"
         className={`btn btn-sm of-aviso-btn${avisado ? " of-aviso-btn-done" : ""}`}
-        onClick={() => !avisado && onAviso(banco.slug)}
-        disabled={avisado}
+        onClick={() => !avisado && !disabled && onAviso(banco.slug)}
+        disabled={avisado || disabled || loading}
       >
-        {avisado ? "✓ Interesse registrado" : "🔔 Avise-me"}
+        {avisado ? (
+          <>✓ Interesse registrado</>
+        ) : (
+          <>
+            <Bell size={14} strokeWidth={2} aria-hidden />
+            Avise-me
+          </>
+        )}
       </button>
     </div>
   );
@@ -109,32 +119,72 @@ function RoadmapItem({ item, isLast }) {
   );
 }
 
-function ImportCard({ tipo }) {
+function ImportCard({ tipo, isPF, onNavigate }) {
+  const Icon = tipo.icon;
+  const targetPage = isPF ? tipo.pfPage : tipo.pjPage;
+  const actionLabel = isPF ? tipo.pfLabel : tipo.pjLabel;
+
   return (
-    <div className="of-import-card">
-      <div className="of-import-icon">{tipo.icon}</div>
+    <div className="of-import-card of-import-card--action">
+      <div className="of-import-icon-wrap" aria-hidden>
+        <Icon size={22} strokeWidth={1.75} />
+      </div>
       <div className="of-import-titulo">{tipo.titulo}</div>
       <div className="of-import-desc">{tipo.descricao}</div>
-      <div className="of-import-dica">💡 {tipo.dica}</div>
-      <div style={{ marginTop: "auto", paddingTop: 12 }}>
-        <span className="badge badge-cp-pago" style={{ fontSize: 10 }}>{tipo.badge}</span>
+      <div className="of-import-dica">{tipo.dica}</div>
+      <div className="of-import-footer">
+        <span className="badge badge-cp-pago of-import-badge">Disponível agora</span>
+        {onNavigate && (
+          <button
+            type="button"
+            className="btn btn-sm of-import-action-btn"
+            onClick={() => onNavigate(targetPage)}
+          >
+            {actionLabel}
+            <ArrowRight size={14} strokeWidth={2} aria-hidden />
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
-export default function ConexoesBancariasPage() {
-  const { tipo } = useGestor();
+export default function ConexoesBancariasPage({ onNavigate }) {
+  const { tipo, viewOnly } = useGestor();
   const isPF = tipo === "fisica";
 
-  // Estado local de interesse — "Avise-me" por slug de banco
-  // (sem backend agora — visual/preparatório)
   const [avisados, setAvisados] = useState(new Set());
+  const [loadingInteresse, setLoadingInteresse] = useState(true);
+  const [savingSlug, setSavingSlug] = useState(null);
+  const [interesseError, setInteresseError] = useState(null);
 
-  const handleAviso = (slug) => {
-    setAvisados((prev) => new Set([...prev, slug]));
+  const loadInteresses = useCallback(async () => {
+    setLoadingInteresse(true);
+    setInteresseError(null);
+    try {
+      const { interesses } = await conexoesApi.listInteresse();
+      setAvisados(new Set((interesses || []).map((i) => i.banco_slug)));
+    } catch {
+      setInteresseError("Não foi possível carregar seus avisos. Tente recarregar a página.");
+    } finally {
+      setLoadingInteresse(false);
+    }
+  }, []);
+
+  useEffect(() => { loadInteresses(); }, [loadInteresses]);
+
+  const handleAviso = async (slug) => {
+    if (viewOnly) return;
+    setSavingSlug(slug);
+    setInteresseError(null);
+    try {
+      await conexoesApi.registerInteresse(slug);
+      setAvisados((prev) => new Set([...prev, slug]));
+    } catch (err) {
+      setInteresseError(err.message || "Erro ao registrar interesse.");
+    } finally {
+      setSavingSlug(null);
+    }
   };
 
   const totalAvisados = avisados.size;
@@ -142,35 +192,46 @@ export default function ConexoesBancariasPage() {
   return (
     <div className="of-page">
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div className="of-hero">
-        <div className="of-hero-inner">
-
-          <div className="of-hero-badge">⚡ Open Finance · Em preparação</div>
-          <h2 className="of-hero-title">Conexões Bancárias</h2>
-          <p className="of-hero-sub">
-            Em breve você poderá conectar suas contas bancárias diretamente ao Gestor,
-            via Open Finance. Seus lançamentos serão importados automaticamente,
-            com total segurança e sem armazenar senhas.
-          </p>
-
-          <div className="of-hero-chips">
-            <span className="of-chip">🔐 Sem armazenar senhas</span>
-            <span className="of-chip">🏦 Padrão Banco Central BR</span>
-            <span className="of-chip">🔄 Sync automático</span>
-            <span className="of-chip">✋ Você controla o acesso</span>
-          </div>
-
+      {/* Status honesto */}
+      <div className="of-status-banner" role="status">
+        <AlertCircle size={18} strokeWidth={2} aria-hidden />
+        <div>
+          <strong>Conexão automática ainda não disponível.</strong>
+          {" "}Esta área é um roadmap — nenhum banco pode ser conectado agora.
+          Use a importação manual abaixo enquanto o Open Finance não estiver pronto.
         </div>
       </div>
 
-      {/* ── Bancos disponíveis ────────────────────────────────────────────── */}
+      {/* Hero */}
+      <div className="of-hero">
+        <div className="of-hero-inner">
+          <div className="of-hero-badge">
+            <Link2 size={13} strokeWidth={2} aria-hidden />
+            Open Finance · Em preparação
+          </div>
+          <h2 className="of-hero-title">Conexões Bancárias</h2>
+          <p className="of-hero-sub">
+            Estamos preparando a integração com Open Finance Brasil para importar
+            extratos automaticamente — com consentimento regulado e sem armazenar senhas.
+            Por enquanto, utilize importação manual ou cadastro de lançamentos.
+          </p>
+
+          <div className="of-hero-chips">
+            <span className="of-chip">Sem armazenar senhas</span>
+            <span className="of-chip">Padrão Banco Central BR</span>
+            <span className="of-chip">Sync automático (futuro)</span>
+            <span className="of-chip">Você controla o acesso</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bancos */}
       <div className="of-section">
         <div className="of-section-header">
           <div>
-            <div className="of-section-title">Bancos suportados em breve</div>
+            <div className="of-section-title">Bancos na fila de integração</div>
             <div className="of-section-sub">
-              Clique em "Avise-me" para ser notificado quando o conector estiver disponível.
+              Registre interesse para ser avisado quando o conector estiver disponível.
               {totalAvisados > 0 && (
                 <span className="of-interesse-count">
                   {totalAvisados} interesse{totalAvisados !== 1 ? "s" : ""} registrado{totalAvisados !== 1 ? "s" : ""}
@@ -180,23 +241,29 @@ export default function ConexoesBancariasPage() {
           </div>
         </div>
 
+        {interesseError && (
+          <div className="alert alert-warn" style={{ marginBottom: 14 }}>{interesseError}</div>
+        )}
+
         <div className="of-bancos-grid">
           {BANCOS.map((banco) => (
             <BancoCard
               key={banco.slug}
               banco={banco}
               avisado={avisados.has(banco.slug)}
+              loading={loadingInteresse || savingSlug === banco.slug}
+              disabled={viewOnly}
               onAviso={handleAviso}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Roadmap ───────────────────────────────────────────────────────── */}
+      {/* Roadmap */}
       <div className="of-section of-section-alt">
         <div className="of-section-title">Roadmap de integração</div>
         <div className="of-section-sub" style={{ marginBottom: 24 }}>
-          Como planejamos evoluir as conexões ao longo do tempo.
+          Evolução planejada — apenas a importação manual está operacional hoje.
         </div>
         <div className="of-roadmap">
           {ROADMAP.map((item, i) => (
@@ -205,52 +272,39 @@ export default function ConexoesBancariasPage() {
         </div>
       </div>
 
-      {/* ── Importação manual ─────────────────────────────────────────────── */}
+      {/* Importação manual */}
       <div className="of-section">
         <div className="of-section-title">Importação manual — disponível agora</div>
         <div className="of-section-sub" style={{ marginBottom: 20 }}>
-          Enquanto as conexões automáticas não estão disponíveis, você pode importar
-          extratos manualmente nos formatos abaixo.
-          {!isPF && (
-            <span style={{ marginLeft: 6 }}>
-              Acesse <strong>Menu → Importações</strong> para usar esses recursos.
-            </span>
-          )}
+          {isPF
+            ? "Como Pessoa Física, cadastre lançamentos manualmente. A importação de arquivos OFX/CSV está disponível no perfil Pessoa Jurídica."
+            : "Enquanto o Open Finance não está pronto, importe extratos OFX, CSV ou XLSX pelo menu Importações."}
         </div>
 
         <div className="of-import-grid">
-          {IMPORT_TIPOS.map((tipo) => (
-            <ImportCard key={tipo.titulo} tipo={tipo} />
+          {IMPORT_TIPOS.map((t) => (
+            <ImportCard key={t.id} tipo={t} isPF={isPF} onNavigate={onNavigate} />
           ))}
         </div>
 
-        {!isPF && (
-          <div className="of-import-hint">
-            <span style={{ fontSize: 16 }}>📥</span>
-            <span>
-              Acesse <strong>Importações</strong> no menu lateral para fazer upload de arquivos OFX, CSV ou XLSX.
-              Os lançamentos são importados diretamente na conta selecionada.
-            </span>
-          </div>
-        )}
-        {isPF && (
-          <div className="of-import-hint">
-            <span style={{ fontSize: 16 }}>📥</span>
-            <span>
-              Use <strong>Lançamentos → + Novo</strong> para cadastrar entradas e saídas manualmente,
-              ou aguarde os conectores automáticos desta página.
-            </span>
-          </div>
-        )}
+        <div className="of-import-hint">
+          <span style={{ fontSize: 16 }}>📥</span>
+          <span>
+            {isPF ? (
+              <>Use <strong>Lançamentos → + Novo</strong> para registrar entradas e saídas manualmente.</>
+            ) : (
+              <>Acesse <strong>Importações</strong> no menu lateral para upload de OFX, CSV ou XLSX.</>
+            )}
+          </span>
+        </div>
       </div>
 
-      {/* ── Rodapé informativo ────────────────────────────────────────────── */}
+      {/* Rodapé */}
       <div className="of-footer-note">
         <span style={{ fontSize: 15 }}>🔒</span>
         <span>
-          As conexões bancárias seguirão o padrão <strong>Open Finance Brasil</strong> regulamentado pelo Banco Central.
-          Nenhuma senha ou token bancário será armazenado em nossos servidores.
-          Você poderá revogar o acesso a qualquer momento diretamente no app do seu banco.
+          Quando implementado, o Open Finance seguirá o padrão regulado pelo Banco Central.
+          Nenhuma senha bancária será armazenada — apenas tokens de consentimento gerenciados pelo provedor.
         </span>
       </div>
 

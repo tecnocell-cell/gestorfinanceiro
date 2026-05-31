@@ -6,6 +6,7 @@ import {
 import { CHART, MESES } from "../../constants.js";
 import { fmtBRL } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
+import { Star, Circle, LineChart } from "../icons.jsx";
 
 const fmtK = (v) => {
   const n = Math.abs(v);
@@ -93,9 +94,9 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
           {subtitle && <div className="dash-hero-chart-sub">{subtitle}</div>}
           {bestMonth && (
             <div className="dash-hero-chart-meta">
-              <span className="dash-hero-chip dash-hero-chip--best">★ Melhor mês: {bestMonth.name}</span>
+              <span className="dash-hero-chip dash-hero-chip--best"><Star size={11} strokeWidth={2.25} aria-hidden /> Melhor mês: {bestMonth.name}</span>
               {hasCurrent && (
-                <span className="dash-hero-chip dash-hero-chip--current">● Mês atual: {currentMonthName}</span>
+                <span className="dash-hero-chip dash-hero-chip--current"><Circle size={7} strokeWidth={3} fill="currentColor" aria-hidden /> Mês atual: {currentMonthName}</span>
               )}
             </div>
           )}
@@ -119,7 +120,7 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
       <div className="dash-hero-chart-body">
         {!hasData ? (
           <EmptyState
-            icon="📈"
+            icon={LineChart}
             title="Sem movimentação nos últimos 12 meses"
             description="Lance receitas e despesas para visualizar a evolução completa."
             hint="Dica: cadastre recorrências para automatizar a entrada de dados."
