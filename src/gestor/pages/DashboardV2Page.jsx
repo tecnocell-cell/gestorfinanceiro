@@ -1,14 +1,13 @@
 /**
  * DashboardV2Page — Dashboard Premium (Pessoa Jurídica)
  *
- * Etapa 4: layout reestruturado
- *  - KPIs compactos (modo `compact` do KpiCardV2)
- *  - Gráfico hero Receitas × Despesas (12 meses) com gradientes e linha de saldo
- *  - Widgets de Últimos lançamentos e Próximos vencimentos
- *  - Estados vazios elegantes
+ * Etapa 4.2: refinamento de UX/UI premium
+ *  - KPIs com delta % vs mês anterior (apenas leitura dos dados já existentes)
+ *  - Widget ResumoInteligente (insights automáticos sem IA / sem backend)
+ *  - Hero chart com destaque de mês atual e melhor mês
+ *  - Layout reorganizado: feed de últimos lançamentos em destaque
  *
  * Sem alterações em backend, API, banco, autenticação ou fórmulas financeiras.
- * Apenas reutiliza dados já existentes do GestorContext / useRecorrencias.
  */
 import { useMemo, memo } from "react";
 import {
@@ -28,6 +27,7 @@ import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
 import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx";
 import DashInsight          from "../components/dashboard/DashInsight.jsx";
 import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
+import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
@@ -42,7 +42,6 @@ import {
 } from "../components/icons.jsx";
 
 // ─── Helpers locais ───────────────────────────────────────────────────────────
-
 const hojeStr   = () => new Date().toISOString().slice(0, 10);
 const em7Str    = () => new Date(Date.now() +  7 * 86_400_000).toISOString().slice(0, 10);
 const em30Str   = () => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
@@ -54,12 +53,15 @@ const fmtK = (v) => {
   return String(Math.round(v));
 };
 
+const safePct = (cur, prev) => {
+  if (!Number.isFinite(prev) || prev === 0) return null;
+  return (cur - prev) / Math.abs(prev);
+};
+
 const PIE_COLORS = [
   CHART.despesas, CHART.custo, CHART.pie[2],
   CHART.pie[3], CHART.pie[4], CHART.pie[1],
 ];
-
-// ─── Legenda customizada para o Pie (aceita icone via categoriasData) ────────
 
 const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   if (!payload?.length) return null;
@@ -79,8 +81,6 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   );
 });
 
-// ─── Página principal ────────────────────────────────────────────────────────
-
 export default function DashboardV2Page() {
   const {
     dreAtual, mensal, contas, planoContas, lancamentos,
@@ -89,8 +89,6 @@ export default function DashboardV2Page() {
   } = useGestor();
 
   const { recorrencias, loading: recLoading } = useRecorrencias();
-
-  // ── Cálculos derivados (memoizados) ────────────────────────────────────────
 
   const saldoTotal  = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
   const lucroLiq    = dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido;
@@ -114,8 +112,6 @@ export default function DashboardV2Page() {
       );
   }, [recorrencias]);
 
-  // Dados do gráfico hero (12 meses, Receitas × Despesas)
-  // mensal já vem com { name, Receita, Custo, Despesas, "Lucro Líquido" } — apenas converte schema.
   const hero12m = useMemo(
     () => mensal.map((m) => ({
       name: m.name,
@@ -125,6 +121,25 @@ export default function DashboardV2Page() {
     [mensal]
   );
 
+  // ── Etapa 4.2: deltas vs mês anterior (apenas leitura) ──────────────────
+  const deltas = useMemo(() => {
+    if (!hero12m.length) return null;
+    const mesAtualIdx = filterPeriodo.mes
+      ? Math.max(0, parseInt(filterPeriodo.mes, 10) - 1)
+      : new Date().getMonth();
+    const cur = hero12m[mesAtualIdx]   || { Receitas: 0, Despesas: 0 };
+    const prev = hero12m[mesAtualIdx - 1] || null;
+    const lucroCur  = (mensal[mesAtualIdx]?.["Lucro Líquido"]) ?? 0;
+    const lucroPrev = (mensal[mesAtualIdx - 1]?.["Lucro Líquido"]) ?? null;
+    return {
+      receitas: prev ? safePct(cur.Receitas, prev.Receitas) : null,
+      despesas: prev ? safePct(cur.Despesas, prev.Despesas) : null,
+      lucro:    prev ? safePct(lucroCur,    lucroPrev ?? 0)    : null,
+      mesAtual: MESES[mesAtualIdx],
+      mesAnterior: mesAtualIdx > 0 ? MESES[mesAtualIdx - 1] : null,
+    };
+  }, [hero12m, mensal, filterPeriodo.mes]);
+
   const categoriasData = useMemo(() => {
     const h = {};
     const meta = {};
@@ -132,10 +147,8 @@ export default function DashboardV2Page() {
       const d = new Date(l.data + "T00:00:00");
       if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) continue;
       if (filterPeriodo.mes && (d.getMonth() + 1).toString().padStart(2, "0") !== filterPeriodo.mes) continue;
-
       const plano = planoContas.find((p) => p.id === l.planoId);
       if (!plano || plano.tipo === "Receita") continue;
-
       const nome = plano.descricao;
       h[nome] = (h[nome] || 0) + l.valor;
       if (!meta[nome]) meta[nome] = { fill: plano.cor, icone: plano.icone };
@@ -166,6 +179,63 @@ export default function DashboardV2Page() {
     return `Operação lucrativa: lucro ${fmtBRL(lucroLiq)} com margem de ${fmtPct(margem)} no período.`;
   }, [dreAtual, lucroLiq, margem, recProximas.length]);
 
+  // ── Etapa 4.2: bullets do ResumoInteligente ────────────────────────────
+  const resumoItems = useMemo(() => {
+    const items = [];
+    if (deltas?.receitas !== null && deltas?.receitas !== undefined) {
+      const dir = deltas.receitas >= 0 ? "cresceram" : "caíram";
+      items.push({
+        tone: deltas.receitas >= 0 ? "success" : "danger",
+        icon: deltas.receitas >= 0 ? "up" : "down",
+        text: `Receitas ${dir} ${Math.abs(deltas.receitas * 100).toFixed(1)}% vs ${deltas.mesAnterior}`,
+      });
+    }
+    if (deltas?.despesas !== null && deltas?.despesas !== undefined) {
+      const dir = deltas.despesas >= 0 ? "subiram" : "recuaram";
+      items.push({
+        tone: deltas.despesas <= 0 ? "success" : "warning",
+        icon: deltas.despesas <= 0 ? "down" : "up",
+        text: `Despesas ${dir} ${Math.abs(deltas.despesas * 100).toFixed(1)}% vs ${deltas.mesAnterior}`,
+      });
+    }
+    if (categoriasData.length > 0) {
+      const totalDesp = categoriasData.reduce((s, c) => s + c.value, 0);
+      const top = categoriasData[0];
+      const pct = totalDesp > 0 ? (top.value / totalDesp) * 100 : 0;
+      items.push({
+        tone: pct > 40 ? "warning" : "info",
+        icon: "money",
+        text: `${top.icone ? top.icone + " " : ""}${top.name} representa ${pct.toFixed(0)}% das despesas`,
+      });
+    }
+    if (recProximas.length > 0) {
+      items.push({
+        tone: "warning",
+        icon: "time",
+        text: `${recProximas.length} vencimento${recProximas.length !== 1 ? "s" : ""} nos próximos 7 dias`,
+      });
+    }
+    if (Math.abs(fluxoPrevisto) > 0) {
+      items.push({
+        tone: fluxoPrevisto >= 0 ? "success" : "danger",
+        icon: fluxoPrevisto >= 0 ? "up" : "down",
+        text: fluxoPrevisto >= 0
+          ? `Fluxo previsto positivo de ${fmtBRL(fluxoPrevisto)} nos próximos 30 dias`
+          : `Fluxo previsto negativo de ${fmtBRL(Math.abs(fluxoPrevisto))} nos próximos 30 dias`,
+      });
+    }
+    if (lucroLiq !== 0) {
+      items.push({
+        tone: lucroLiq >= 0 ? "success" : "danger",
+        icon: "money",
+        text: lucroLiq >= 0
+          ? `Margem do período em ${fmtPct(margem)}`
+          : `Resultado no vermelho — margem ${fmtPct(margem)}`,
+      });
+    }
+    return items.slice(0, 5);
+  }, [deltas, categoriasData, recProximas.length, fluxoPrevisto, lucroLiq, margem]);
+
   const kpis = [
     {
       icon: Wallet,
@@ -184,6 +254,8 @@ export default function DashboardV2Page() {
       sparkline: sparkReceitas,
       tone: "success",
       compact: true,
+      delta: deltas?.receitas !== null && deltas?.receitas !== undefined
+        ? { pct: deltas.receitas, label: `vs ${deltas.mesAnterior}` } : undefined,
     },
     {
       icon: TrendingDown,
@@ -194,6 +266,8 @@ export default function DashboardV2Page() {
       sparkline: sparkDespesas,
       tone: "danger",
       compact: true,
+      delta: deltas?.despesas !== null && deltas?.despesas !== undefined
+        ? { pct: deltas.despesas, label: `vs ${deltas.mesAnterior}`, invert: true } : undefined,
     },
     {
       icon: CircleDollarSign,
@@ -204,6 +278,8 @@ export default function DashboardV2Page() {
       sparkline: sparkLucro,
       tone: lucroLiq >= 0 ? "success" : "danger",
       compact: true,
+      delta: deltas?.lucro !== null && deltas?.lucro !== undefined && Number.isFinite(deltas.lucro)
+        ? { pct: deltas.lucro, label: `vs ${deltas.mesAnterior}` } : undefined,
     },
     {
       icon: Repeat,
@@ -245,7 +321,6 @@ export default function DashboardV2Page() {
         </div>
       </div>
 
-      {/* ── Hero chart + widgets laterais ──────────────────────────────── */}
       <div className="dash-section">
 
         <div className="dash-alerts-row">
@@ -262,7 +337,8 @@ export default function DashboardV2Page() {
             />
           </div>
           <div className="dash-main-grid-side">
-            <UltimosLancamentosWidget limit={7} />
+            <ResumoInteligente items={resumoItems} />
+            <UltimosLancamentosWidget limit={6} />
           </div>
         </div>
 
@@ -271,7 +347,6 @@ export default function DashboardV2Page() {
           <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
         </div>
 
-        {/* Gráficos detalhados (mantidos da etapa anterior) */}
         <div className="dash-section-title">Desempenho mensal</div>
         <div className="dash-charts-grid dash-charts-grid--featured" style={{ marginBottom: 16 }}>
 
@@ -340,11 +415,9 @@ export default function DashboardV2Page() {
           </ChartCardV2>
         </div>
 
-        {/* Gráficos linha 2 */}
         <div className="dash-section-title">Composição</div>
         <div className="dash-charts-grid">
 
-          {/* Pie: Despesas por categoria */}
           <ChartCardV2
             title="Despesas por Categoria"
             sub={filterPeriodo.mes

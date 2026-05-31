@@ -4286,4 +4286,251 @@ export const css = `
     .dash-list-widget { min-height: 240px; padding: 0.85rem 0.9rem; }
   }
 
+  /* ═════════════════════════════════════════════════════════════════════════
+   * ETAPA 4.2 — Premium UX/UI polish
+   *  - Delta badges nos KPIs (Stripe/Linear-like)
+   *  - ResumoInteligente widget
+   *  - Hero chart: chips de mês atual / melhor mês, tooltip premium
+   *  - Sidebar mais compacta (Linear/Vercel)
+   *  - ContasWidget com participação %
+   * ═════════════════════════════════════════════════════════════════════════ */
+
+  /* ── KPI delta badge ─────────────────────────────────────────────────── */
+  .dash-v2-root .kpi-v2 .kpi-v2-delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px; font-weight: 700;
+    line-height: 1.3;
+    background: color-mix(in oklab, var(--muted-foreground) 10%, transparent);
+    color: var(--muted-foreground);
+    width: fit-content;
+    letter-spacing: 0.01em;
+    transition: background .15s ease, color .15s ease;
+  }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta-arrow { font-size: 11px; line-height: 1; }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta-pct   { font-variant-numeric: tabular-nums; }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta-lbl {
+    color: color-mix(in oklab, currentColor 70%, transparent);
+    font-weight: 500;
+    margin-left: 2px;
+  }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta--up {
+    background: color-mix(in oklab, var(--success) 18%, transparent);
+    color: var(--success-fg);
+  }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta--down {
+    background: color-mix(in oklab, var(--danger) 18%, transparent);
+    color: var(--danger);
+  }
+  .dash-v2-root .kpi-v2 .kpi-v2-delta--flat {
+    background: color-mix(in oklab, var(--muted-foreground) 12%, transparent);
+    color: var(--muted-foreground);
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact .kpi-v2-delta {
+    margin-top: 3px; padding: 1px 6px; font-size: 10px;
+  }
+
+  /* ── Hero chart: chips e tooltip premium ────────────────────────────── */
+  .dash-hero-chart-meta {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 6px;
+  }
+  .dash-hero-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+  }
+  .dash-hero-chip--best {
+    background: color-mix(in oklab, var(--success) 14%, transparent);
+    color: var(--success-fg);
+    border-color: color-mix(in oklab, var(--success) 30%, transparent);
+  }
+  .dash-hero-chip--current {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+  .dash-hero-tooltip-chip {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 9.5px; font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .dash-hero-tooltip-chip--current {
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+    color: var(--primary);
+  }
+  .dash-hero-tooltip-chip--best {
+    background: color-mix(in oklab, var(--success) 18%, transparent);
+    color: var(--success-fg);
+  }
+
+  /* ── ResumoInteligente widget ────────────────────────────────────────── */
+  .dash-resumo-card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.95rem 1.05rem 0.9rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 14px -8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .dash-resumo-card::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg,
+      var(--primary) 0%,
+      color-mix(in oklab, var(--success) 80%, transparent) 50%,
+      color-mix(in oklab, var(--warning, #f59e0b) 80%, transparent) 100%);
+    opacity: 0.85;
+  }
+  .dash-resumo-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .dash-resumo-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--primary) 14%, transparent);
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+  .dash-resumo-title {
+    font-size: 12.5px; font-weight: 700; color: var(--foreground);
+    letter-spacing: -0.005em;
+  }
+  .dash-resumo-sub {
+    font-size: 10.5px; color: var(--muted-foreground);
+    margin-top: 1px;
+  }
+  .dash-resumo-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .dash-resumo-item {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--muted-foreground) 5%, transparent);
+    font-size: 12px; line-height: 1.4; color: var(--foreground);
+    transition: background .15s ease, transform .15s ease;
+  }
+  .dash-resumo-item:hover { background: color-mix(in oklab, var(--muted-foreground) 9%, transparent); }
+  .dash-resumo-bullet {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .dash-resumo-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
+  }
+  .dash-resumo-item--success .dash-resumo-bullet {
+    background: color-mix(in oklab, var(--success) 22%, transparent); color: var(--success-fg);
+  }
+  .dash-resumo-item--danger .dash-resumo-bullet {
+    background: color-mix(in oklab, var(--danger) 22%, transparent); color: var(--danger);
+  }
+  .dash-resumo-item--warning .dash-resumo-bullet {
+    background: color-mix(in oklab, var(--warning, #f59e0b) 22%, transparent); color: var(--warning, #b45309);
+  }
+  .dash-resumo-item--info .dash-resumo-bullet {
+    background: color-mix(in oklab, var(--primary) 22%, transparent); color: var(--primary);
+  }
+  .dash-resumo-item--neutral .dash-resumo-bullet {
+    background: color-mix(in oklab, var(--muted-foreground) 18%, transparent); color: var(--muted-foreground);
+  }
+  .dash-resumo-text { flex: 1; min-width: 0; }
+
+  /* ── ContasWidget — chip de principal & melhor leitura ──────────────── */
+  .dash-account-item--principal {
+    background: color-mix(in oklab, var(--primary) 6%, transparent);
+    border-radius: 10px;
+    padding: 6px 8px;
+    margin: 0 -8px;
+  }
+  .dash-account-name-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .dash-account-chip {
+    display: inline-flex; align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 9.5px; font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: color-mix(in oklab, var(--primary) 16%, transparent);
+    color: var(--primary);
+  }
+
+  /* ── Sidebar Etapa 4.2: mais compacta, Linear/Vercel feel ───────────── */
+  .sidebar .nav-section { padding: 6px 10px 10px; }
+  .sidebar .nav-section .nav-label {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, currentColor 50%, transparent);
+    padding: 8px 10px 6px;
+  }
+  .sidebar .nav-list { gap: 1px; display: flex; flex-direction: column; }
+  .sidebar .nav-item {
+    height: auto;
+    min-height: 30px;
+    padding: 6px 10px;
+    gap: 9px;
+    border-radius: 7px;
+    font-size: 13px;
+    transition: background .12s ease, color .12s ease, transform .12s ease;
+  }
+  .sidebar .nav-item:hover {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+  .sidebar .nav-item.active {
+    background: color-mix(in oklab, var(--primary) 14%, transparent);
+    color: var(--primary-foreground, #fff);
+    font-weight: 600;
+  }
+  .sidebar .nav-item.active::before {
+    content: ""; position: absolute;
+    left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 16px;
+    border-radius: 0 3px 3px 0;
+    background: var(--primary);
+  }
+  .sidebar .nav-item .nav-icon {
+    width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+  .sidebar .nav-item.active .nav-icon { opacity: 1; }
+  .sidebar .nav-item span:last-child { font-size: 13px; font-weight: 500; }
+  .sidebar .nav-item.active span:last-child { font-weight: 600; }
+
+  /* ── Layout: side column do main-grid agora empilha resumo + lançamentos ─ */
+  .dash-main-grid-side {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* ── Responsividade 4.2 ────────────────────────────────────────────── */
+  @media (max-width: 1180px) {
+    .dash-main-grid-side { flex-direction: column; }
+  }
+  @media (max-width: 540px) {
+    .dash-resumo-card { padding: 0.8rem 0.85rem; }
+    .dash-resumo-item { font-size: 11.5px; padding: 6px 8px; }
+  }
+
 `;
+

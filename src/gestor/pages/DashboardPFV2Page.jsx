@@ -27,6 +27,7 @@ import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
 import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx";
 import DashInsight          from "../components/dashboard/DashInsight.jsx";
 import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
+import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
@@ -50,6 +51,11 @@ const fmtK = (v) => {
   if (n >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000)     return `${(v / 1_000).toFixed(0)}k`;
   return String(Math.round(v));
+};
+
+const safePct = (cur, prev) => {
+  if (!Number.isFinite(prev) || prev === 0) return null;
+  return (cur - prev) / Math.abs(prev);
 };
 
 const PIE_COLORS = [
@@ -181,6 +187,83 @@ export default function DashboardPFV2Page() {
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
 
+  // ── Etapa 4.2: deltas vs mês anterior ────────────────────────────────
+  const deltas = useMemo(() => {
+    if (!pfMensal.length) return null;
+    const mesAtualIdx = filterPeriodo.mes
+      ? Math.max(0, parseInt(filterPeriodo.mes, 10) - 1)
+      : new Date().getMonth();
+    const cur  = pfMensal[mesAtualIdx]     || { Receitas: 0, Despesas: 0 };
+    const prev = pfMensal[mesAtualIdx - 1] || null;
+    const saldoCur  = cur.Receitas - cur.Despesas;
+    const saldoPrev = prev ? prev.Receitas - prev.Despesas : null;
+    return {
+      receitas: prev ? safePct(cur.Receitas, prev.Receitas) : null,
+      despesas: prev ? safePct(cur.Despesas, prev.Despesas) : null,
+      saldo:    prev ? safePct(saldoCur, saldoPrev ?? 0) : null,
+      mesAtual: MESES[mesAtualIdx],
+      mesAnterior: mesAtualIdx > 0 ? MESES[mesAtualIdx - 1] : null,
+    };
+  }, [pfMensal, filterPeriodo.mes]);
+
+  // ── Etapa 4.2: bullets do ResumoInteligente ───────────────────────────
+  const resumoItems = useMemo(() => {
+    const items = [];
+    if (deltas?.receitas !== null && deltas?.receitas !== undefined) {
+      const dir = deltas.receitas >= 0 ? "cresceram" : "caíram";
+      items.push({
+        tone: deltas.receitas >= 0 ? "success" : "danger",
+        icon: deltas.receitas >= 0 ? "up" : "down",
+        text: `Receitas ${dir} ${Math.abs(deltas.receitas * 100).toFixed(1)}% vs ${deltas.mesAnterior}`,
+      });
+    }
+    if (deltas?.despesas !== null && deltas?.despesas !== undefined) {
+      const dir = deltas.despesas >= 0 ? "subiram" : "recuaram";
+      items.push({
+        tone: deltas.despesas <= 0 ? "success" : "warning",
+        icon: deltas.despesas <= 0 ? "down" : "up",
+        text: `Despesas ${dir} ${Math.abs(deltas.despesas * 100).toFixed(1)}% vs ${deltas.mesAnterior}`,
+      });
+    }
+    if (categoriasData.length > 0) {
+      const totalDesp = categoriasData.reduce((s, c) => s + c.value, 0);
+      const top = categoriasData[0];
+      const pct = totalDesp > 0 ? (top.value / totalDesp) * 100 : 0;
+      items.push({
+        tone: pct > 40 ? "warning" : "info",
+        icon: "money",
+        text: `${top.icone ? top.icone + " " : ""}${top.name} representa ${pct.toFixed(0)}% dos gastos`,
+      });
+    }
+    if (recProximas.length > 0) {
+      items.push({
+        tone: "warning",
+        icon: "time",
+        text: `${recProximas.length} vencimento${recProximas.length !== 1 ? "s" : ""} nos próximos 7 dias`,
+      });
+    }
+    if (Math.abs(fluxoPrevisto) > 0) {
+      items.push({
+        tone: fluxoPrevisto >= 0 ? "success" : "danger",
+        icon: fluxoPrevisto >= 0 ? "up" : "down",
+        text: fluxoPrevisto >= 0
+          ? `Fluxo previsto positivo de ${fmtBRL(fluxoPrevisto)} em 30 dias`
+          : `Fluxo previsto negativo de ${fmtBRL(Math.abs(fluxoPrevisto))} em 30 dias`,
+      });
+    }
+    if (saldoMes !== 0) {
+      items.push({
+        tone: saldoMes >= 0 ? "success" : "danger",
+        icon: "money",
+        text: saldoMes >= 0
+          ? `Saldo do período: ${fmtBRL(saldoMes)} no positivo`
+          : `Déficit do período: ${fmtBRL(Math.abs(saldoMes))}`,
+      });
+    }
+    return items.slice(0, 5);
+  }, [deltas, categoriasData, recProximas.length, fluxoPrevisto, saldoMes]);
+
+
   const kpis = [
     {
       icon: TrendingUp,
@@ -191,6 +274,8 @@ export default function DashboardPFV2Page() {
       sparkline: sparkReceitas,
       tone: "success",
       compact: true,
+      delta: deltas?.receitas !== null && deltas?.receitas !== undefined
+        ? { pct: deltas.receitas, label: `vs ${deltas.mesAnterior}` } : undefined,
     },
     {
       icon: TrendingDown,
@@ -201,6 +286,8 @@ export default function DashboardPFV2Page() {
       sparkline: sparkDespesas,
       tone: "danger",
       compact: true,
+      delta: deltas?.despesas !== null && deltas?.despesas !== undefined
+        ? { pct: deltas.despesas, label: `vs ${deltas.mesAnterior}`, invert: true } : undefined,
     },
     {
       icon: CircleDollarSign,
@@ -211,6 +298,8 @@ export default function DashboardPFV2Page() {
       sparkline: sparkSaldo,
       tone: saldoMes >= 0 ? "success" : "danger",
       compact: true,
+      delta: deltas?.saldo !== null && deltas?.saldo !== undefined && Number.isFinite(deltas.saldo)
+        ? { pct: deltas.saldo, label: `vs ${deltas.mesAnterior}` } : undefined,
     },
     {
       icon: Wallet,
@@ -281,7 +370,8 @@ export default function DashboardPFV2Page() {
             />
           </div>
           <div className="dash-main-grid-side">
-            <UltimosLancamentosWidget limit={7} />
+            <ResumoInteligente items={resumoItems} />
+            <UltimosLancamentosWidget limit={6} />
           </div>
         </div>
 

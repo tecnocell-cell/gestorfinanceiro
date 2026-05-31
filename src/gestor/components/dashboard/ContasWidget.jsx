@@ -9,14 +9,15 @@ const TIPO_ICON = {
 };
 
 /**
- * ContasWidget — lista de contas com saldos para o Dashboard V2.
- * Aceita getSaldoConta como função para evitar re-calcular aqui.
+ * ContasWidget — lista de contas com saldos (Etapa 4.2).
+ *
+ * Novidades 4.2:
+ *  - Participação % no patrimônio (sobre |total|)
+ *  - Destaque da conta principal (maior saldo positivo)
+ *  - Barras com cores tonalizadas
  */
 function ContasWidget({ contas, getSaldoConta }) {
-  const ativas = useMemo(
-    () => contas.filter((c) => !c.inativo),
-    [contas]
-  );
+  const ativas = useMemo(() => contas.filter((c) => !c.inativo), [contas]);
 
   const items = useMemo(
     () => ativas
@@ -25,8 +26,9 @@ function ContasWidget({ contas, getSaldoConta }) {
     [ativas, getSaldoConta]
   );
 
-  const totalGeral = useMemo(
-    () => items.reduce((s, c) => s + c.saldo, 0),
+  const totalGeral = useMemo(() => items.reduce((s, c) => s + c.saldo, 0), [items]);
+  const baseAbs = useMemo(
+    () => items.reduce((s, c) => s + Math.abs(c.saldo), 0) || 1,
     [items]
   );
 
@@ -47,8 +49,7 @@ function ContasWidget({ contas, getSaldoConta }) {
     );
   }
 
-  // Para barra de proporção
-  const maxAbs = Math.max(...items.map((c) => Math.abs(c.saldo)), 1);
+  const principalId = items[0]?.saldo > 0 ? items[0].id : null;
 
   return (
     <div className="dash-accounts-card">
@@ -69,25 +70,30 @@ function ContasWidget({ contas, getSaldoConta }) {
 
       <div className="dash-accounts-list">
         {items.map((c) => {
-          const pct = Math.min(100, Math.round((Math.abs(c.saldo) / maxAbs) * 100));
+          const pct = (Math.abs(c.saldo) / baseAbs) * 100;
+          const pctTxt = pct >= 10 ? pct.toFixed(0) : pct.toFixed(1);
           const positivo = c.saldo >= 0;
+          const isPrincipal = c.id === principalId;
           return (
-            <div key={c.id} className="dash-account-item">
+            <div key={c.id} className={`dash-account-item${isPrincipal ? " dash-account-item--principal" : ""}`}>
               <div className="dash-account-info">
                 <span className="dash-account-icon">{TIPO_ICON[c.tipo] ?? TIPO_ICON.default}</span>
                 <div className="dash-account-meta">
-                  <div className="dash-account-name">{c.apelido || c.nome}</div>
-                  <div className="dash-account-type">{c.tipo}</div>
+                  <div className="dash-account-name-row">
+                    <div className="dash-account-name">{c.apelido || c.nome}</div>
+                    {isPrincipal && <span className="dash-account-chip">Principal</span>}
+                  </div>
+                  <div className="dash-account-type">{c.tipo || "Conta"} · {pctTxt}% do patrimônio</div>
                 </div>
               </div>
-              <div className="dash-account-right">
+              <div className="dash-account-side">
                 <div className={`dash-account-balance ${positivo ? "positive" : "negative"}`}>
                   {fmtBRL(c.saldo)}
                 </div>
                 <div className="dash-account-bar" aria-hidden>
                   <span
                     className={`dash-account-bar-fill ${positivo ? "positive" : "negative"}`}
-                    style={{ width: `${pct}%` }}
+                    style={{ width: `${Math.min(100, pct)}%` }}
                   />
                 </div>
               </div>

@@ -3,11 +3,13 @@ import Sparkline from "./Sparkline.jsx";
 import { TrendIcon } from "../icons.jsx";
 
 /**
- * KPI premium — Lucide, sparkline opcional, badge de tendência.
- * Etapa 4 / 4.1:
- *  - modo `compact` mais denso porém respirável
- *  - melhor hierarquia ícone / sparkline / título / valor / sub
- *  - faixa lateral de cor por tom (success / danger / warning / default)
+ * KPI premium — Lucide, sparkline opcional, delta comparativo, badge de tendência.
+ *
+ * Etapa 4.2:
+ *  - Suporte a `delta` ({ pct, label, dir }) com badge inline tipo Stripe/Linear
+ *  - Hierarquia mais firme: valor dominante, comparação logo abaixo, sub menor
+ *  - Microtendência (sparkline) mantém leitura periférica
+ *  - Sem novas regras de negócio — recebe deltas calculados pela página
  */
 function KpiCardV2({
   icon: Icon,
@@ -20,6 +22,7 @@ function KpiCardV2({
   tone = "default",
   loading = false,
   compact = false,
+  delta, // { pct: number, label?: string, dir?: 'up'|'down'|'flat', invert?: boolean }
 }) {
   if (loading) {
     return (
@@ -32,6 +35,19 @@ function KpiCardV2({
   }
 
   const sparkTone = valueClass === "success" ? "success" : valueClass === "danger" ? "danger" : "neutral";
+
+  // Resolve direção do delta. invert=true => up é ruim (ex.: despesas).
+  let deltaCls = "flat";
+  if (delta && Number.isFinite(delta.pct)) {
+    const up = delta.pct > 0.0005;
+    const down = delta.pct < -0.0005;
+    if (up)   deltaCls = delta.invert ? "down" : "up";
+    if (down) deltaCls = delta.invert ? "up"   : "down";
+  }
+  const deltaArrow = deltaCls === "up" ? "↑" : deltaCls === "down" ? "↓" : "→";
+  const deltaText  = delta && Number.isFinite(delta.pct)
+    ? `${delta.pct > 0 ? "+" : ""}${(delta.pct * 100).toFixed(1)}%`
+    : null;
 
   return (
     <div className={`kpi-v2${compact ? " kpi-v2--compact" : ""} kpi-v2--${tone} kpi-v2--${valueClass || "default"}`}>
@@ -48,6 +64,13 @@ function KpiCardV2({
         )}
       </div>
       <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
+      {deltaText && (
+        <div className={`kpi-v2-delta kpi-v2-delta--${deltaCls}`} title={delta.label || ""}>
+          <span className="kpi-v2-delta-arrow">{deltaArrow}</span>
+          <span className="kpi-v2-delta-pct">{deltaText}</span>
+          {delta.label && <span className="kpi-v2-delta-lbl">{delta.label}</span>}
+        </div>
+      )}
       {sub && <div className="kpi-v2-sub">{sub}</div>}
       {trend && !compact && (
         <div className={`kpi-v2-trend ${trend.dir}`}>

@@ -9,13 +9,23 @@ const TIPO_META = {
   Transferencia: { cls: "tr",  label: "Transferência", icon: "↔" },
 };
 
+// Etapa 4.2: data relativa estilo Linear/Notion (Hoje, Ontem, 3d atrás)
+function relDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return fmtDate(iso);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - hoje.getTime()) / 86_400_000);
+  if (diff === 0) return "Hoje";
+  if (diff === -1) return "Ontem";
+  if (diff > 0 && diff <= 7) return `Em ${diff}d`;
+  if (diff < 0 && diff >= -7) return `${Math.abs(diff)}d atrás`;
+  return fmtDate(iso);
+}
+
 /**
- * UltimosLancamentosWidget — lista os N lançamentos mais recentes do contexto.
- *
- * Ordenação: data desc, código desc (mesma regra usada no listing do app).
- * Não filtra por período — mostra os últimos registros gerais.
- *
- * Apenas leitura. Sem chamada de API.
+ * UltimosLancamentosWidget — feed dos N lançamentos mais recentes (Etapa 4.2).
+ * Mostra ícone, histórico, categoria · conta, data relativa e valor.
  */
 function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
   const { lancamentos, contas, planoContas } = useGestor();
@@ -53,6 +63,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
           icon="📭"
           title="Nenhum lançamento ainda"
           description="Registre uma entrada ou saída para acompanhar suas movimentações em tempo real."
+          hint="Use o botão ‘+ Lançamento’ no topo da página."
         />
       </div>
     );
@@ -77,9 +88,8 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
           const meta = TIPO_META[l.tipo] || TIPO_META.Saida;
           const conta = contaById[l.contaId];
           const plano = planoById[l.planoId];
-          const subline = [plano?.descricao, conta?.apelido || conta?.nome]
-            .filter(Boolean)
-            .join(" · ");
+          const cat = plano ? `${plano.icone ? plano.icone + " " : ""}${plano.descricao}` : null;
+          const subline = [cat, conta?.apelido || conta?.nome].filter(Boolean).join(" · ");
           return (
             <li key={l.id} className="dash-list-widget-row">
               <span className={`dash-tipo-pill dash-tipo-pill--${meta.cls}`} title={meta.label}>
@@ -96,7 +106,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
                   {meta.cls === "out" ? "− " : meta.cls === "in" ? "+ " : ""}
                   {fmtBRL(l.valor)}
                 </div>
-                <div className="dash-list-widget-date">{fmtDate(l.data)}</div>
+                <div className="dash-list-widget-date" title={fmtDate(l.data)}>{relDate(l.data)}</div>
               </div>
             </li>
           );
