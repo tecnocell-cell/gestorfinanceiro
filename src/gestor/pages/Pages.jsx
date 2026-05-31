@@ -745,55 +745,84 @@ export function ContasPage() {
     });
   }, [contas, sortBy, getSaldoConta]);
 
+  const sortLabels = { codigo: "Código", nome: "Nome", tipo: "Tipo", saldo: "Saldo" };
+
   return (
     <div>
-      <div className="toolbar">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "var(--text2)" }}>Ordenar por:</span>
-          {["codigo", "nome", "tipo", "saldo"].map((s) => (
-            <div key={s} className={`filter-chip${sortBy === s ? " active" : ""}`} onClick={() => setSortBy(s)} style={{ textTransform: "capitalize" }}>{s}</div>
-          ))}
-        </div>
-        <button type="button" className="btn btn-primary" onClick={() => openModal("conta")}>+ Nova Conta</button>
+      <div className="pp-toolbar">
+        <span style={{ fontSize: 12, color: "var(--text2)", fontWeight: 500 }}>Ordenar por:</span>
+        {["codigo", "nome", "tipo", "saldo"].map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={`pp-chip${sortBy === s ? " is-active" : ""}`}
+            onClick={() => setSortBy(s)}
+          >
+            {sortLabels[s]}
+          </button>
+        ))}
+        <span className="pp-toolbar-spacer" />
+        <button type="button" className="pp-btn-primary" onClick={() => openModal("conta")}>
+          <span aria-hidden>＋</span> Nova conta
+        </button>
       </div>
-      <div className="kpi-grid">
-        <div className="kpi-card" style={{ "--kpi-color": "var(--accent3)" }}>
-          <div className="kpi-label">Saldo Total</div>
-          <div className="kpi-value">{fmtBRL(getSaldoTotal())}</div>
+
+      <div className="pp-summary-grid cols-3">
+        <div className="pp-summary-card pp-summary-info">
+          <div className="pp-summary-icon" aria-hidden>🏦</div>
+          <div className="pp-summary-label">Saldo total</div>
+          <div className="pp-summary-value">{fmtBRL(getSaldoTotal())}</div>
+          <div className="pp-summary-hint">{contas.length} conta{contas.length !== 1 ? "s" : ""} cadastrada{contas.length !== 1 ? "s" : ""}</div>
         </div>
       </div>
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Cód.</th><th>Nome</th><th>Apelido</th><th>Tipo</th><th>Contábil</th><th>Inicial</th><th>Atual</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody>
-              {sorted.map((c) => (
-                <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : {}}>
-                  <td className="td-mono">{c.codigo}</td>
-                  <td>{c.nome}</td>
-                  <td style={{ fontSize: 12, color: "var(--text2)" }}>{c.apelido || "?"}</td>
-                  <td><span className={`badge ${c.tipo === "Banco" ? "badge-blue" : "badge-amber"}`}>{c.tipo}</span></td>
-                  <td className="td-mono" style={{ fontSize: 12 }}>{c.contaContabil || "?"}</td>
-                  <td className="td-mono">{fmtBRL(c.saldoInicial)}</td>
-                  <td className="td-green">{fmtBRL(getSaldoConta(c.id))}</td>
-                  <td>{c.inativo ? <span className="badge badge-red">Inativo</span> : <span className="badge badge-green">Ativo</span>}</td>
-                  <td className="table-actions-cell">
-                    <div className="table-actions-inline">
-                      <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar conta" onClick={() => openModal("conta", c)}>
-                        <PenLine size={14} strokeWidth={2} aria-hidden />
-                      </button>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir conta" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>
-                        <Trash2 size={14} strokeWidth={2} aria-hidden />
-                      </button>
-                    </div>
-                  </td>
+
+      <div className="pp-card">
+        {sorted.length === 0 ? (
+          <div className="pp-empty">
+            <div className="pp-empty-icon" aria-hidden>🏦</div>
+            <div className="pp-empty-title">Nenhuma conta cadastrada</div>
+            <div className="pp-empty-text">Cadastre carteira, banco ou poupança para registrar lançamentos.</div>
+            <button type="button" className="pp-btn-primary" onClick={() => openModal("conta")}>
+              <span aria-hidden>＋</span> Nova conta
+            </button>
+          </div>
+        ) : (
+          <div className="pp-table-wrap">
+            <table className="pp-table">
+              <thead>
+                <tr>
+                  <th>Cód.</th><th>Nome</th><th>Apelido</th><th>Tipo</th><th>Contábil</th>
+                  <th className="pp-th-num">Inicial</th><th className="pp-th-num">Atual</th><th>Status</th>
+                  <th style={{ textAlign: "right" }}>Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {sorted.map((c) => (
+                  <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : undefined}>
+                    <td className="td-mono">{c.codigo}</td>
+                    <td>{c.nome}</td>
+                    <td style={{ fontSize: 12, color: "var(--text2)" }}>{c.apelido || "—"}</td>
+                    <td><span className={`pp-badge ${c.tipo === "Banco" ? "pp-badge-blue" : "pp-badge-amber"}`}>{c.tipo}</span></td>
+                    <td className="td-mono" style={{ fontSize: 12 }}>{c.contaContabil || "—"}</td>
+                    <td className="pp-cell-value">{fmtBRL(c.saldoInicial)}</td>
+                    <td className="pp-cell-value pp-cell-value-in">{fmtBRL(getSaldoConta(c.id))}</td>
+                    <td>{c.inativo ? <span className="pp-badge pp-badge-red">Inativo</span> : <span className="pp-badge pp-badge-green">Ativo</span>}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <div className="pp-row-actions">
+                        <button type="button" className="pp-icon-btn" title="Editar conta" onClick={() => openModal("conta", c)}>
+                          <PenLine size={14} strokeWidth={2} aria-hidden />
+                        </button>
+                        <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir conta" onClick={() => { if (confirm("Excluir?")) contaCrud.remove(c.id); }}>
+                          <Trash2 size={14} strokeWidth={2} aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

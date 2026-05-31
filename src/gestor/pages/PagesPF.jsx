@@ -18,6 +18,7 @@ import {
   labelLancamentoTipo,
 } from "../profileLabels.js";
 import { DEFAULT_CATS_PF } from "../defaultCategories.js";
+import { PF_PAGE_HINTS } from "../pfHints.js";
 import { PenLine, Trash2 } from "../components/icons.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -875,8 +876,15 @@ export function PerfilPFPage() {
 // ─── Contas PF ────────────────────────────────────────────────────────────────
 
 export function ContasPFPage() {
+  const hint = PF_PAGE_HINTS.contas;
   return (
     <PfPageShell pageId="contas">
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{hint?.title || "Contas"}</span>
+          <span className="pp-page-sub">{hint?.text}</span>
+        </div>
+      </div>
       <ContasPage />
     </PfPageShell>
   );
