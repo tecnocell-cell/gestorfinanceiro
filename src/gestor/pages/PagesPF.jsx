@@ -40,6 +40,17 @@ function PeriodToolbar() {
   );
 }
 
+function formatContaLanc(l, contaMap) {
+  const ent = l.contaEntradaId ? contaMap[l.contaEntradaId] : "";
+  const sai = l.contaSaidaId ? contaMap[l.contaSaidaId] : "";
+  if (l.tipo === "Transferencia" && ent && sai) {
+    return ent === sai ? ent : `${sai} → ${ent}`;
+  }
+  if (l.tipo === "Entrada") return ent || sai || "—";
+  if (l.tipo === "Saida") return sai || ent || "—";
+  return ent || sai || "—";
+}
+
 // ─── Dashboard PF ─────────────────────────────────────────────────────────────
 
 export function DashboardPFPage() {
@@ -247,18 +258,25 @@ export function LancamentosPFPage() {
         ) : (
           <>
             <div className="lanc-table-wrap">
-              <table className="lanc-table">
+              <table className="lanc-table lanc-table-pf">
+                <colgroup>
+                  <col className="lanc-col-date" />
+                  <col className="lanc-col-status" />
+                  <col className="lanc-col-cat" />
+                  <col className="lanc-col-conta" />
+                  <col className="lanc-col-val" />
+                  <col className="lanc-col-hist" />
+                  <col className="lanc-col-act" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Data</th>
-                    <th>Vencimento</th>
                     <th>Status</th>
-                    <th>Tipo</th>
                     <th>Categoria</th>
                     <th>Conta</th>
                     <th className="lanc-th-num">Valor</th>
                     <th>Histórico</th>
-                    <th></th>
+                    <th className="lanc-th-act" aria-label="Ações" />
                   </tr>
                 </thead>
                 <tbody>
@@ -270,11 +288,16 @@ export function LancamentosPFPage() {
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                     return (
                       <tr key={l.id} className={`lanc-row lanc-row-${tipoCls}${situacao ? ` lanc-row-${situacao}` : ""}`}>
-                        <td className="td-mono">
+                        <td className="td-mono lanc-cell-date">
                           <div className="lanc-date-cell">
                             <span className={`lanc-type-dot lanc-type-${tipoCls}`} title={l.tipo} aria-hidden>{tipoIcon}</span>
-                            <div>
+                            <div className="lanc-cell-stack">
                               <div>{fmtDate(l.data)}</div>
+                              {l.tipo === "Saida" && venc && (
+                                <div className={`lanc-cell-meta${situacao === "vencida" ? " lanc-meta-late" : situacao === "proximo" ? " lanc-meta-soon" : ""}`}>
+                                  Venc. {fmtDate(venc)}
+                                </div>
+                              )}
                               {l.createdAt && (
                                 <div className="lanc-cell-meta">
                                   {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -284,28 +307,25 @@ export function LancamentosPFPage() {
                             </div>
                           </div>
                         </td>
-                        <td className={`td-mono${situacao === "vencida" ? " td-red" : situacao === "proximo" ? " td-amber" : ""}`}>
-                          {l.tipo === "Saida" ? fmtDate(venc) : "—"}
-                        </td>
                         <td>
                           {l.tipo === "Saida" && info ? (
                             <span className={`lanc-badge lanc-badge-${info.badge.replace("badge-", "")}`}>{info.label}</span>
                           ) : l.tipo === "Entrada" ? (
                             <span className="lanc-badge lanc-badge-blue">Receita</span>
-                          ) : "—"}
+                          ) : (
+                            <span className={`lanc-badge lanc-badge-${l.tipo === "Saida" ? "red" : "blue"}`}>
+                              {labelLancamentoTipo(l.tipo, true)}
+                            </span>
+                          )}
                         </td>
-                        <td>
-                          <span className={`lanc-badge lanc-badge-${l.tipo === "Saida" ? "red" : "blue"}`}>
-                            {labelLancamentoTipo(l.tipo, true)}
-                          </span>
-                        </td>
-                        <td>{catMap[l.planoId] || "—"}</td>
-                        <td className="lanc-cell-quiet">
-                          {l.contaEntradaId ? contaMap[l.contaEntradaId] : ""}
-                          {l.contaSaidaId ? contaMap[l.contaSaidaId] : ""}
+                        <td className="lanc-cell-clip" title={catMap[l.planoId] || ""}>{catMap[l.planoId] || "—"}</td>
+                        <td className="lanc-cell-quiet lanc-cell-clip lanc-cell-conta" title={formatContaLanc(l, contaMap)}>
+                          {formatContaLanc(l, contaMap)}
                         </td>
                         <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
-                        <td className="lanc-cell-hist">{l.historico}</td>
+                        <td title={l.historico || undefined}>
+                          <span className="lanc-cell-hist">{l.historico || "—"}</span>
+                        </td>
                         <td className="lanc-actions-cell">
                           <div className="lanc-actions">
                             <button type="button" className="lanc-icon-btn" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>

@@ -4664,32 +4664,94 @@ export const css = `
   .lanc-saldo-anterior strong { font-family: var(--font-mono); color: var(--text); }
 
   .lanc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  .lanc-table-wrap { overflow-x: auto; }
-  .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .lanc-table-wrap { overflow-x: hidden; max-width: 100%; }
+  .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   .lanc-table thead th {
-    text-align: left; padding: 11px 14px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    text-align: left; padding: 10px 12px;
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.04em; color: var(--text3);
     background: color-mix(in oklab, var(--bg) 60%, var(--bg2));
-    border-bottom: 1px solid var(--border); white-space: nowrap;
+    border-bottom: 1px solid var(--border);
   }
   .lanc-table .lanc-th-num { text-align: right; }
+  .lanc-table .lanc-th-act { width: 72px; padding-left: 4px; padding-right: 8px; }
   .lanc-table tbody td {
-    padding: 11px 14px;
+    padding: 10px 12px;
     border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
     vertical-align: middle; color: var(--text);
+    background: var(--bg2);
+  }
+  .lanc-table tbody tr.lanc-row td:first-child {
+    padding-left: 12px;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+  .lanc-table tbody tr.lanc-row-entrada td {
+    background: color-mix(in oklab, var(--info) 7%, var(--bg2));
+  }
+  .lanc-table tbody tr.lanc-row-entrada td:first-child { box-shadow: inset 3px 0 0 var(--info); }
+  .lanc-table tbody tr.lanc-row-pago td {
+    background: color-mix(in oklab, var(--success) 7%, var(--bg2));
+  }
+  .lanc-table tbody tr.lanc-row-pago td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+  .lanc-table tbody tr.lanc-row-vencida td {
+    background: color-mix(in oklab, var(--destructive) 8%, var(--bg2));
+  }
+  .lanc-table tbody tr.lanc-row-vencida td:first-child { box-shadow: inset 3px 0 0 var(--destructive); }
+  .lanc-table tbody tr.lanc-row-proximo td {
+    background: color-mix(in oklab, var(--warning) 10%, var(--bg2));
+  }
+  .lanc-table tbody tr.lanc-row-proximo td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+  .lanc-table tbody tr.lanc-row:hover td {
+    background: color-mix(in oklab, var(--primary) 5%, var(--bg2)) !important;
+  }
+  .lanc-table tbody tr.lanc-row-entrada:hover td {
+    background: color-mix(in oklab, var(--info) 11%, var(--bg2)) !important;
+  }
+  .lanc-table tbody tr.lanc-row-pago:hover td {
+    background: color-mix(in oklab, var(--success) 11%, var(--bg2)) !important;
+  }
+  .lanc-table tbody tr.lanc-row-vencida:hover td {
+    background: color-mix(in oklab, var(--destructive) 12%, var(--bg2)) !important;
+  }
+  .lanc-table tbody tr.lanc-row-proximo:hover td {
+    background: color-mix(in oklab, var(--warning) 14%, var(--bg2)) !important;
+  }
+  .lanc-table-pf .lanc-col-date  { width: 14%; }
+  .lanc-table-pf .lanc-col-status { width: 10%; }
+  .lanc-table-pf .lanc-col-cat   { width: 13%; }
+  .lanc-table-pf .lanc-col-conta { width: 10%; }
+  .lanc-table-pf .lanc-col-val   { width: 11%; }
+  .lanc-table-pf .lanc-col-hist  { width: auto; }
+  .lanc-table-pf .lanc-col-act   { width: 72px; }
+  .lanc-cell-stack { min-width: 0; }
+  .lanc-cell-date { white-space: nowrap; }
+  .lanc-meta-late { color: #b91c1c; font-weight: 600; }
+  .lanc-meta-soon { color: #b45309; font-weight: 600; }
+  .lanc-cell-clip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .lanc-table tbody tr:last-child td { border-bottom: 0; }
   .lanc-table tbody tr { transition: background .12s ease; }
-  .lanc-table tbody tr:hover { background: color-mix(in oklab, var(--primary) 4%, transparent); }
   .lanc-table tbody tr:hover .lanc-actions { opacity: 1; }
   .lanc-cell-quiet { color: var(--text3); font-size: 12px; }
   .lanc-cell-meta { display: block; font-size: 10.5px; color: var(--text3); margin-top: 2px; }
-  .lanc-cell-hist { font-size: 12.5px; color: var(--text); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lanc-cell-hist {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 12.5px; color: var(--text);
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .lanc-cell-conta { font-size: 12px; }
 
-  .lanc-date-cell { display: flex; align-items: center; gap: 10px; }
+  .lanc-date-cell { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
   .lanc-type-dot {
-    width: 26px; height: 26px;
+    width: 24px; height: 24px;
     display: inline-flex; align-items: center; justify-content: center;
     border-radius: 8px; font-size: 13px; font-weight: 700; flex-shrink: 0;
   }
@@ -4704,8 +4766,8 @@ export const css = `
 
   .lanc-badge {
     display: inline-flex; align-items: center;
-    padding: 2px 9px; border-radius: 999px;
-    font-size: 10.5px; font-weight: 600;
+    padding: 2px 7px; border-radius: 999px;
+    font-size: 10px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.03em;
     border: 1px solid transparent; white-space: nowrap;
   }
@@ -4714,7 +4776,7 @@ export const css = `
   .lanc-badge-red { background: color-mix(in oklab, #ef4444 12%, var(--bg)); color: #b91c1c; border-color: color-mix(in oklab, #ef4444 26%, transparent); }
   .lanc-badge-amber { background: color-mix(in oklab, #f59e0b 14%, var(--bg)); color: #b45309; border-color: color-mix(in oklab, #f59e0b 28%, transparent); }
 
-  .lanc-actions-cell { text-align: right; }
+  .lanc-actions-cell { text-align: right; width: 72px; padding-right: 8px !important; }
   .lanc-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.45; transition: opacity .12s ease; }
   .lanc-icon-btn {
     width: 28px; height: 28px;

@@ -368,13 +368,15 @@ export function LancamentosPage() {
                         <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
                         <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
                         {(showSaldoCol || contaFilter) && <td className="lanc-th-num td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
-                        <td className="lanc-cell-hist">
-                          {l.historico}
-                          {(plano || cli) && (
-                            <span className="lanc-cell-meta">
-                              {plano ? ` · ${plano.descricao}` : ""}{cli ? ` · ${cli.nome}` : ""}
-                            </span>
-                          )}
+                        <td title={[l.historico, plano?.descricao, cli?.nome].filter(Boolean).join(" · ") || undefined}>
+                          <span className="lanc-cell-hist">
+                            {l.historico}
+                            {(plano || cli) && (
+                              <span className="lanc-cell-meta">
+                                {plano ? ` · ${plano.descricao}` : ""}{cli ? ` · ${cli.nome}` : ""}
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td>
                           {l.exportado
