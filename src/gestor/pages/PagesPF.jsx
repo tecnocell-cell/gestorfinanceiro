@@ -405,71 +405,77 @@ export function CategoriasPFPage() {
   };
 
   // ── Tabela de categorias com ícone + cor ──────────────────────────────────
-  const Section = ({ title, items, color }) => (
-    <div className="card" style={{ marginBottom: 14 }}>
-      <div className="card-title" style={{ color }}>{title}</div>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th style={{ width: 36 }}>Ícone</th><th>Descrição</th><th>Tipo</th><th></th></tr>
-          </thead>
-          <tbody>
-            {items.map((p) => (
-              <tr key={p.id}>
-                <td style={{ textAlign: "center" }}>
-                  {p.icone ? (
-                    <span className="cat-icone" style={{ background: p.cor || "var(--muted)", fontSize: 15 }}>
-                      {p.icone}
-                    </span>
-                  ) : (
-                    <span className="cat-icone cat-icone-empty">◼</span>
-                  )}
-                </td>
-                <td style={{ fontWeight: 500 }}>
-                  {p.descricao}
-                  {p.codigo && <span className="td-mono" style={{ marginLeft: 8, fontSize: 11, color: "var(--muted-foreground)" }}>{p.codigo}</span>}
-                </td>
-                <td><span className={`badge ${p.tipo === "Receita" ? "badge-green" : "badge-red"}`}>{p.tipo}</span></td>
-                <td className="table-actions-cell">
-                  <div className="table-actions-inline">
-                    <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar categoria" onClick={() => openModal("categoria-pf", p)}>
-                      <PenLine size={14} strokeWidth={2} aria-hidden />
-                    </button>
-                    <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir categoria" onClick={() => planoCrud.remove(p.id)}>
-                      <Trash2 size={14} strokeWidth={2} aria-hidden />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr><td colSpan={4} className="empty-state">Nenhuma categoria.</td></tr>
-            )}
-          </tbody>
-        </table>
+  const Section = ({ title, items, badgeCls }) => (
+    <div className="pp-card" style={{ marginBottom: 14 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 700, fontSize: 14 }}>
+        {title}
       </div>
+      {items.length === 0 ? (
+        <div className="pp-empty" style={{ padding: "32px 24px" }}>
+          <div className="pp-empty-text">Nenhuma categoria.</div>
+        </div>
+      ) : (
+        <div className="pp-table-wrap">
+          <table className="pp-table">
+            <thead>
+              <tr><th style={{ width: 48 }}>Ícone</th><th>Descrição</th><th>Tipo</th><th style={{ textAlign: "right" }}>Ações</th></tr>
+            </thead>
+            <tbody>
+              {items.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ textAlign: "center" }}>
+                    {p.icone ? (
+                      <span className="cat-icone" style={{ background: p.cor || "var(--muted)", fontSize: 15 }}>
+                        {p.icone}
+                      </span>
+                    ) : (
+                      <span className="cat-icone cat-icone-empty">◼</span>
+                    )}
+                  </td>
+                  <td style={{ fontWeight: 500 }}>
+                    {p.descricao}
+                    {p.codigo && <span className="td-mono" style={{ marginLeft: 8, fontSize: 11, color: "var(--muted-foreground)" }}>{p.codigo}</span>}
+                  </td>
+                  <td><span className={`pp-badge ${badgeCls}`}>{p.tipo}</span></td>
+                  <td style={{ textAlign: "right" }}>
+                    <div className="pp-row-actions">
+                      <button type="button" className="pp-icon-btn" title="Editar categoria" onClick={() => openModal("categoria-pf", p)}>
+                        <PenLine size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                      <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir categoria" onClick={() => planoCrud.remove(p.id)}>
+                        <Trash2 size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
+
+  const hint = PF_PAGE_HINTS.categorias;
 
   return (
     <PfPageShell pageId="categorias">
     <div>
-      <div className="toolbar">
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={importarSugestoes}
-          title="Adiciona categorias padrão sugeridas que ainda não existem"
-        >
-          ✦ Sugestões
-        </button>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => openModal("categoria-pf", { tipo: "Receita" })}>+ Receita</button>
-          <button className="btn btn-primary btn-sm" onClick={() => openModal("categoria-pf", { tipo: "Despesa" })}>+ Despesa</button>
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{hint?.title || "Categorias"}</span>
+          <span className="pp-page-sub">{hint?.text}</span>
+        </div>
+        <div className="pp-page-actions">
+          <button type="button" className="pp-btn-secondary" onClick={importarSugestoes} title="Adiciona categorias padrão sugeridas que ainda não existem">
+            ✦ Sugestões
+          </button>
+          <button type="button" className="pp-btn-secondary" onClick={() => openModal("categoria-pf", { tipo: "Receita" })}>+ Receita</button>
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("categoria-pf", { tipo: "Despesa" })}><span aria-hidden>＋</span> Despesa</button>
         </div>
       </div>
-      <Section title="Receitas" items={receitas} color="var(--green-dark)" />
-      <Section title="Despesas" items={despesas} color="var(--danger)" />
+      <Section title="Receitas" items={receitas} badgeCls="pp-badge-green" />
+      <Section title="Despesas" items={despesas} badgeCls="pp-badge-red" />
     </div>
     </PfPageShell>
   );
@@ -531,11 +537,19 @@ export function OrcamentoPage() {
   const totDiff      = totOrcado - totRealizado;
 
   const fillClass = (pct) => pct >= 100 ? "red" : pct >= 80 ? "amber" : "green";
+  const hint = PF_PAGE_HINTS.orcamento;
 
   return (
     <PfPageShell pageId="orcamento">
     <div>
-      <div className="toolbar">
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{hint?.title || "Orçamento"}</span>
+          <span className="pp-page-sub">{hint?.text}</span>
+        </div>
+      </div>
+
+      <div className="pp-toolbar">
         <PeriodToolbar />
       </div>
 
@@ -545,25 +559,28 @@ export function OrcamentoPage() {
         </div>
       )}
 
-      <div className="kpi-grid" style={{ marginBottom: 18 }}>
-        <div className="kpi-card" style={{ "--kpi-color": "var(--accent3)" }}>
-          <div className="kpi-label">Total Orçado</div>
-          <div className="kpi-value">{fmtBRL(totOrcado)}</div>
-          <div className="kpi-sub">Planejado para o mês</div>
+      <div className="pp-summary-grid cols-3">
+        <div className="pp-summary-card pp-summary-info">
+          <div className="pp-summary-icon" aria-hidden>📋</div>
+          <div className="pp-summary-label">Total Orçado</div>
+          <div className="pp-summary-value">{fmtBRL(totOrcado)}</div>
+          <div className="pp-summary-hint">Planejado para o mês</div>
         </div>
-        <div className="kpi-card" style={{ "--kpi-color": "var(--danger)" }}>
-          <div className="kpi-label">Total Gasto</div>
-          <div className="kpi-value">{fmtBRL(totRealizado)}</div>
-          <div className="kpi-sub">Realizado no período</div>
+        <div className="pp-summary-card pp-summary-out">
+          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <div className="pp-summary-label">Total Gasto</div>
+          <div className="pp-summary-value">{fmtBRL(totRealizado)}</div>
+          <div className="pp-summary-hint">Realizado no período</div>
         </div>
-        <div className="kpi-card" style={{ "--kpi-color": totDiff >= 0 ? "var(--accent)" : "var(--danger)" }}>
-          <div className="kpi-label">Saldo do Orçamento</div>
-          <div className="kpi-value">{fmtBRL(totDiff)}</div>
-          <div className="kpi-sub">{totDiff >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}</div>
+        <div className={`pp-summary-card ${totDiff >= 0 ? "pp-summary-in" : "pp-summary-warn"}`}>
+          <div className="pp-summary-icon" aria-hidden>{totDiff >= 0 ? "✓" : "⚠"}</div>
+          <div className="pp-summary-label">Saldo do Orçamento</div>
+          <div className="pp-summary-value">{fmtBRL(totDiff)}</div>
+          <div className="pp-summary-hint">{totDiff >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}</div>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
+      <div className="pp-card" style={{ padding: 0 }}>
         <div className="orcamento-row orcamento-header">
           <span>Categoria</span>
           <span style={{ textAlign: "right" }}>Orçado</span>
@@ -602,7 +619,9 @@ export function OrcamentoPage() {
           </div>
         ))}
         {linhas.length === 0 && (
-          <div className="empty-state">Nenhuma categoria de despesa cadastrada.</div>
+          <div className="pp-empty" style={{ padding: "32px 24px" }}>
+            <div className="pp-empty-text">Nenhuma categoria de despesa cadastrada.</div>
+          </div>
         )}
       </div>
     </div>
@@ -628,30 +647,48 @@ export function MetasPage() {
     setAporteValor("");
   };
 
+  const hint = PF_PAGE_HINTS.metas;
+
   return (
     <PfPageShell pageId="metas">
     <div>
-      <div className="toolbar">
-        <div />
-        <button className="btn btn-primary btn-sm" onClick={() => openModal("meta")}>+ Nova Meta</button>
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{hint?.title || "Metas"}</span>
+          <span className="pp-page-sub">{hint?.text}</span>
+        </div>
+        <div className="pp-page-actions">
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("meta")}>
+            <span aria-hidden>＋</span> Nova meta
+          </button>
+        </div>
       </div>
 
       {metas.length === 0 && (
-        <div className="alert alert-info">Nenhuma meta cadastrada. Crie sua primeira meta de poupança!</div>
+        <div className="pp-card">
+          <div className="pp-empty">
+            <div className="pp-empty-icon" aria-hidden>🎯</div>
+            <div className="pp-empty-title">Nenhuma meta cadastrada</div>
+            <div className="pp-empty-text">Crie sua primeira meta de poupança com valor alvo e prazo.</div>
+            <button type="button" className="pp-btn-primary" onClick={() => openModal("meta")}>
+              <span aria-hidden>＋</span> Nova meta
+            </button>
+          </div>
+        </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
         {metas.map((m) => {
           const p = pct(m);
           return (
-            <div key={m.id} className="meta-card">
+            <div key={m.id} className="meta-card pp-card" style={{ padding: 16 }}>
               <div className="meta-card-header">
                 <div className="meta-title">{m.descricao}</div>
-                <div className="table-actions-inline">
-                  <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar meta" onClick={() => openModal("meta", m)}>
+                <div className="pp-row-actions">
+                  <button type="button" className="pp-icon-btn" title="Editar meta" onClick={() => openModal("meta", m)}>
                     <PenLine size={14} strokeWidth={2} aria-hidden />
                   </button>
-                  <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir meta" onClick={() => metaCrud.remove(m.id)}>
+                  <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir meta" onClick={() => metaCrud.remove(m.id)}>
                     <Trash2 size={14} strokeWidth={2} aria-hidden />
                   </button>
                 </div>
@@ -670,7 +707,8 @@ export function MetasPage() {
                 </span>
               </div>
               <button
-                className="btn btn-secondary btn-sm"
+                type="button"
+                className="pp-btn-secondary"
                 style={{ width: "100%", marginTop: 10 }}
                 onClick={() => { setAporteMeta(m); setAporteValor(""); }}
               >
