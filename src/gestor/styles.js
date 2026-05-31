@@ -2404,9 +2404,22 @@ export const css = `
     padding: 13px 16px;
     margin-bottom: 1.125rem;
     border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in oklab, var(--warning) 28%, var(--border));
-    background: linear-gradient(135deg, color-mix(in oklab, var(--warning-soft) 75%, var(--card)) 0%, var(--card) 60%);
+    border: 1px solid var(--border);
+    background: var(--card);
     box-shadow: var(--shadow-card);
+    transition: border-color 0.2s var(--ease-out);
+  }
+  .dash-insight--success {
+    border-color: color-mix(in oklab, var(--success) 26%, var(--border));
+    background: linear-gradient(135deg, color-mix(in oklab, var(--success-soft) 70%, var(--card)) 0%, var(--card) 65%);
+  }
+  .dash-insight--warn {
+    border-color: color-mix(in oklab, var(--warning) 30%, var(--border));
+    background: linear-gradient(135deg, color-mix(in oklab, var(--warning-soft) 75%, var(--card)) 0%, var(--card) 65%);
+  }
+  .dash-insight--info {
+    border-color: color-mix(in oklab, var(--info, var(--forest-600)) 26%, var(--border));
+    background: linear-gradient(135deg, color-mix(in oklab, var(--info-soft, var(--forest-50)) 80%, var(--card)) 0%, var(--card) 65%);
   }
   .dash-insight-icon {
     width: 32px;
@@ -2729,24 +2742,60 @@ export const css = `
     box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 85%, transparent);
   }
   .dash-accounts-list { margin-top: 12px; }
+  .dash-accounts-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 22px 12px;
+    color: var(--muted-foreground);
+    font-size: 12.5px;
+    text-align: center;
+  }
   .dash-account-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 0;
+    padding: 10px 8px;
+    margin: 0 -8px;
     border-bottom: 1px solid var(--border);
-    gap: 8px;
+    gap: 12px;
+    border-radius: var(--radius-md);
+    transition: background 0.18s var(--ease-out);
+  }
+  .dash-account-item:hover {
+    background: color-mix(in oklab, var(--forest-50) 55%, transparent);
   }
   .dash-account-item:last-child { border-bottom: none; }
+  .dash-account-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .dash-account-icon { font-size: 20px; flex-shrink: 0; }
+  .dash-account-meta { min-width: 0; }
   .dash-account-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .dash-account-type {
     font-size: 11px;
     color: var(--muted-foreground);
     margin-top: 1px;
+  }
+  .dash-account-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    flex-shrink: 0;
+    min-width: 110px;
   }
   .dash-account-balance {
     font-size: 14px;
@@ -2756,6 +2805,41 @@ export const css = `
   }
   .dash-account-balance.positive { color: var(--success-fg); }
   .dash-account-balance.negative { color: oklch(0.55 0.18 25); }
+  .dash-account-bar {
+    width: 100%;
+    height: 4px;
+    background: color-mix(in oklab, var(--muted) 70%, transparent);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .dash-account-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.4s var(--ease-out);
+  }
+  .dash-account-bar-fill.positive {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--success) 65%, transparent), var(--success));
+  }
+  .dash-account-bar-fill.negative {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--danger) 55%, transparent), var(--danger));
+  }
+
+  /* Pie center label (donut total) */
+  .pie-center-label {
+    fill: var(--muted-foreground);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .pie-center-value {
+    fill: var(--foreground);
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+  }
 
   /* ── Skeleton loading ────────────────────────────────────────────────────── */
 
@@ -2785,6 +2869,9 @@ export const css = `
 
   /* ── Responsividade ──────────────────────────────────────────────────────── */
 
+  @media (max-width: 1180px) {
+    .kpi-v2-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  }
   @media (max-width: 960px) {
     .kpi-v2-grid      { grid-template-columns: repeat(2, 1fr); }
     .dash-charts-grid,
@@ -2792,6 +2879,13 @@ export const css = `
     .dash-chart-featured { grid-column: auto; min-height: 260px; }
     .dash-hero-toolbar { flex-direction: column; align-items: stretch; }
     .period-selector--dash { justify-content: flex-start; flex-wrap: wrap; }
+  }
+  @media (max-width: 768px) {
+    .dash-v2-root .kpi-v2 { padding: 1rem 1.05rem; min-height: 118px; }
+    .kpi-v2-value { font-size: 24px; }
+    .dash-v2-root .chart-card-v2 { padding: 1rem 1.05rem 0.875rem; }
+    .chart-card-v2-title { font-size: 13px; }
+    .dash-account-right { min-width: 96px; }
   }
   @media (max-width: 540px) {
     .kpi-v2-grid   { grid-template-columns: 1fr; }

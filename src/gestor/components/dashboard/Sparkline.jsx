@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, useId } from "react";
 
 /** Mini gráfico decorativo — apenas visual, sem eixos. */
 function Sparkline({ data = [], tone = "neutral", width = 72, height = 28 }) {
+  const gradId = useId();
   const values = data.filter((n) => Number.isFinite(n));
   if (values.length < 2) return null;
 
@@ -12,13 +13,17 @@ function Sparkline({ data = [], tone = "neutral", width = 72, height = 28 }) {
   const w = width - pad * 2;
   const h = height - pad * 2;
 
-  const points = values
-    .map((v, i) => {
-      const x = pad + (i / (values.length - 1)) * w;
-      const y = pad + h - ((v - min) / range) * h;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const coords = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * w;
+    const y = pad + h - ((v - min) / range) * h;
+    return [x, y];
+  });
+
+  const points = coords.map(([x, y]) => `${x},${y}`).join(" ");
+  const areaPath =
+    `M ${coords[0][0]},${height - pad} ` +
+    coords.map(([x, y]) => `L ${x},${y}`).join(" ") +
+    ` L ${coords[coords.length - 1][0]},${height - pad} Z`;
 
   return (
     <svg
@@ -28,6 +33,13 @@ function Sparkline({ data = [], tone = "neutral", width = 72, height = 28 }) {
       viewBox={`0 0 ${width} ${height}`}
       aria-hidden
     >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradId})`} stroke="none" />
       <polyline points={points} fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );

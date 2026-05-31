@@ -20,6 +20,7 @@ import { useMemo, memo } from "react";
 import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  ReferenceLine, Label,
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
@@ -289,6 +290,7 @@ export default function DashboardV2Page() {
                 <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={40} />
                 <Tooltip content={<CustomTooltip />} cursor={{ stroke: CHART.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
+                <ReferenceLine y={0} stroke={CHART.tick} strokeOpacity={0.45} strokeDasharray="3 4" />
                 <Area
                   type="monotone"
                   dataKey="Receita"
@@ -345,6 +347,19 @@ export default function DashboardV2Page() {
                     {categoriasData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill || PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
+                    <Label
+                      position="center"
+                      content={({ viewBox }) => {
+                        const { cx, cy } = viewBox || {};
+                        const total = categoriasData.reduce((s, x) => s + x.value, 0);
+                        return (
+                          <g>
+                            <text x={cx} y={cy - 6} textAnchor="middle" className="pie-center-label">Total</text>
+                            <text x={cx} y={cy + 12} textAnchor="middle" className="pie-center-value">{fmtK(total)}</text>
+                          </g>
+                        );
+                      }}
+                    />
                   </Pie>
                   <Tooltip formatter={(v) => fmtBRL(v)} />
                   <Legend content={(props) => <PieLegend {...props} categoriasData={categoriasData} />} />
