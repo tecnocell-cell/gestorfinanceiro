@@ -25,6 +25,7 @@ import { Plans }           from "@/components/landing-spa/Plans";
 
 // ── Componentes puramente presentacionais (sem Link, sem TanStack) ────────────
 import { Features }        from "@/components/landing/Features";
+import { WhatsAppDemo }    from "@/components/landing/WhatsAppDemo";
 import { ProductShowcase } from "@/components/landing/ProductShowcase";
 import { PriceSimulator }  from "@/components/landing/PriceSimulator";
 import { FAQ }             from "@/components/landing/FAQ";
@@ -43,6 +44,7 @@ function LandingPage() {
       <main>
         <Hero />
         <Features />
+        <WhatsAppDemo />
         <ProductShowcase />
         <Plans />
         <PriceSimulator />

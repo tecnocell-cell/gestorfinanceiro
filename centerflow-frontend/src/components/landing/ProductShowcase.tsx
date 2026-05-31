@@ -86,30 +86,34 @@ const items: Item[] = [
 
 export function ProductShowcase() {
   return (
-    <section id="produto" className="relative overflow-hidden py-24">
+    <section
+      id="produto"
+      className="relative overflow-hidden py-24"
+      style={{ background: "var(--gradient-dark)" }}
+    >
       <div
-        className="absolute inset-0 -z-10"
-        style={{ background: "var(--gradient-dark)" }}
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(40% 30% at 80% 10%, rgba(31,168,90,0.45), transparent 70%), radial-gradient(35% 25% at 10% 90%, rgba(79,182,229,0.25), transparent 70%)",
+        }}
       />
-      <div className="absolute inset-0 -z-10 opacity-30" style={{
-        backgroundImage:
-          "radial-gradient(40% 30% at 80% 10%, rgba(31,168,90,0.35), transparent 70%), radial-gradient(35% 25% at 10% 90%, rgba(31,168,90,0.25), transparent 70%)",
-      }} />
 
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mx-auto mb-14 max-w-2xl text-center text-white">
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="mx-auto mb-12 max-w-2xl text-center text-white md:mb-14">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
             O produto por dentro
           </span>
           <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
-            Veja a Fluxiva em ação
+            Veja o Fluxiva em ação
           </h2>
           <p className="mt-4 text-white/75">
             Do dashboard ao WhatsApp — uma visão completa do sistema real.
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map(({ title, desc, icon: Icon, preview }) => (
             <div
               key={title}

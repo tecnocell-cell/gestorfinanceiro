@@ -28,12 +28,21 @@ export function PriceSimulator() {
   }, [meta, safeUsers, safeNumbers]);
 
   return (
-    <section id="simulador" className="mx-auto max-w-7xl px-6 py-24">
+    <section id="simulador" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-24">
       <div
-        className="overflow-hidden rounded-[2rem] border border-border p-8 md:p-12"
+        className="relative overflow-hidden rounded-[2rem] border border-border p-6 sm:p-8 md:p-12"
         style={{ background: "var(--gradient-soft)", boxShadow: "var(--shadow-card)" }}
       >
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+        <div
+          className="pointer-events-none absolute -right-32 -top-32 h-72 w-72 rounded-full opacity-30 blur-3xl"
+          style={{ background: "var(--gradient-primary-soft)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-32 -left-32 h-64 w-64 rounded-full opacity-20 blur-3xl"
+          style={{ background: "var(--accent-sky)" }}
+        />
+
+        <div className="relative grid gap-10 lg:grid-cols-2 lg:items-center">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               <Calculator className="h-3.5 w-3.5" /> Simulador
@@ -48,7 +57,7 @@ export function PriceSimulator() {
             <div className="mt-8 space-y-6">
               <div>
                 <label className="text-sm font-semibold text-foreground">Plano</label>
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {(Object.keys(PLAN_META) as PlanKey[]).map((k) => (
                     <button
                       key={k}
@@ -57,11 +66,12 @@ export function PriceSimulator() {
                         setUsers(1);
                         setNumbers(1);
                       }}
-                      className={`rounded-xl border px-2 py-2 text-xs font-semibold transition-all ${
+                      className={`rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all ${
                         plan === k
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-foreground hover:border-primary/40"
+                          ? "border-transparent text-primary-foreground shadow-md"
+                          : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary"
                       }`}
+                      style={plan === k ? { background: "var(--gradient-primary)" } : undefined}
                     >
                       {PLAN_META[k].label}
                     </button>
@@ -94,20 +104,25 @@ export function PriceSimulator() {
           </div>
 
           <div
-            className="rounded-3xl p-8 text-center text-white"
+            className="relative overflow-hidden rounded-3xl p-7 text-center text-white sm:p-8"
             style={{ background: "var(--gradient-dark)", boxShadow: "var(--shadow-elegant)" }}
           >
-            <p className="text-sm font-medium text-white/70">Estimativa mensal</p>
-            <p className="mt-3 text-6xl font-bold">
-              R$ {price.toFixed(2).replace(".", ",")}
+            <div
+              className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full opacity-30 blur-3xl"
+              style={{ background: "var(--primary-glow)" }}
+            />
+            <p className="relative text-sm font-medium uppercase tracking-wider text-white/70">Estimativa mensal</p>
+            <p className="relative mt-3 text-5xl font-bold tracking-tight sm:text-6xl">
+              <span className="text-2xl font-medium text-white/80 sm:text-3xl">R$ </span>
+              {price.toFixed(2).replace(".", ",")}
             </p>
-            <p className="mt-2 text-sm text-white/70">{meta.label} · cancele quando quiser</p>
+            <p className="relative mt-2 text-sm text-white/70">{meta.label} · cancele quando quiser</p>
             <button
-              className="mt-6 w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#063B22] transition-opacity hover:opacity-90"
+              className="relative mt-6 w-full rounded-full bg-white px-6 py-3.5 text-sm font-bold text-[#063B22] transition-all hover:scale-[1.02] hover:bg-white/95"
             >
               Contratar este plano
             </button>
-            <p className="mt-4 text-[11px] text-white/60">* Valores ilustrativos para simulação.</p>
+            <p className="relative mt-4 text-[11px] text-white/60">* Valores ilustrativos para simulação.</p>
           </div>
         </div>
       </div>

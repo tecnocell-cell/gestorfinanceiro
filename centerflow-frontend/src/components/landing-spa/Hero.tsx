@@ -1,118 +1,159 @@
 /**
- * landing-spa/Hero.tsx
- * Versão do Hero para o build SPA — usa <a> em vez de TanStack Link.
+ * landing-spa/Hero.tsx — versão SPA (<a> em vez de TanStack Link)
  */
-import { ArrowRight, MessageCircle, Mic, Receipt, Sparkles } from "lucide-react";
-import { BrandMark } from "@/components/BrandLogo";
-
-function FeaturePill({
-  icon, label,
-}: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground">
-      <span className="text-primary">{icon}</span>
-      {label}
-    </div>
-  );
-}
+import { ArrowRight, MessageCircle, Mic, Receipt, Sparkles, ShieldCheck, Star } from "lucide-react";
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-60"
-        style={{
-          background:
-            "radial-gradient(60% 50% at 50% 0%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 70%)",
-        }}
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{ background: "var(--gradient-hero)" }}
       />
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 md:py-28 lg:grid-cols-2 lg:items-center">
+      <div className="pointer-events-none absolute -left-32 top-24 -z-10 h-72 w-72 rounded-full bg-[color:var(--accent-sky)] opacity-20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 top-1/3 -z-10 h-80 w-80 rounded-full bg-[color:var(--accent-amber)] opacity-15 blur-3xl" />
+
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-2 lg:items-center lg:py-28">
         <div className="space-y-7">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5 text-xs font-semibold text-primary backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" /> Seu financeiro no WhatsApp
           </span>
-
-          <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-6xl">
+          <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-[4rem]">
             Controle financeiro{" "}
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: "var(--gradient-primary)" }}
-            >
+            <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
               inteligente
             </span>{" "}
             no ritmo da sua vida.
           </h1>
-
-          <p className="max-w-xl text-lg text-muted-foreground">
-            Lance gastos por texto, áudio ou foto do comprovante — a IA da Fluxiva organiza
-            tudo para você, PF ou PJ, direto no WhatsApp.
+          <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
+            Lance gastos por texto, áudio ou foto do comprovante — a IA do Fluxiva organiza tudo para você,
+            PF ou PJ, direto no WhatsApp.
           </p>
-
           <div className="flex flex-wrap gap-3">
             <a
               href="/cadastro"
-              className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
+              className="group inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.03] hover:shadow-lg"
               style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-elegant)" }}
             >
-              Começar grátis <ArrowRight className="h-4 w-4" />
+              Criar conta grátis
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </a>
             <a
-              href="#produto"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-7 py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+              href="#planos"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-7 py-3.5 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-secondary"
             >
-              Ver como funciona
+              Ver planos
             </a>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <FeaturePill icon={<MessageCircle className="h-3.5 w-3.5" />} label="Lançamento por texto" />
-            <FeaturePill icon={<Mic className="h-3.5 w-3.5" />}           label="Lançamento por áudio" />
-            <FeaturePill icon={<Receipt className="h-3.5 w-3.5" />}       label="Leitura de comprovante" />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <div className="flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-3.5 w-3.5 fill-[color:var(--accent-amber)] text-[color:var(--accent-amber)]" />
+                ))}
+              </div>
+              <span className="font-semibold text-foreground">4.9</span>
+              <span>de usuários</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span>Dados criptografados</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-primary" />
+              <span>PF & PJ</span>
+            </div>
           </div>
         </div>
 
-        {/* Preview card */}
-        <div className="relative flex items-center justify-center">
+        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
           <div
-            className="absolute inset-0 rounded-3xl blur-3xl"
-            style={{
-              background:
-                "radial-gradient(circle, color-mix(in oklab, var(--primary) 15%, transparent), transparent 70%)",
-            }}
+            className="absolute -inset-6 -z-10 rounded-[3rem] opacity-40 blur-3xl"
+            style={{ background: "var(--gradient-primary)" }}
           />
           <div
-            className="relative w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-xl"
+            className="rounded-3xl border border-border bg-card p-5 sm:p-6"
             style={{ boxShadow: "var(--shadow-elegant)" }}
           >
-            <div className="mb-4 flex items-center gap-3">
-              <BrandMark size={32} />
-              <div>
-                <p className="text-sm font-semibold text-foreground">Fluxiva IA</p>
-                <p className="text-xs text-muted-foreground">WhatsApp Financeiro</p>
+            <div
+              className="-m-5 mb-4 rounded-t-3xl px-5 py-3.5 sm:-m-6 sm:mb-4 sm:px-6"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30">
+                  <MessageCircle className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Fluxiva Bot</p>
+                  <p className="flex items-center gap-1.5 text-xs text-white/80">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent-mint)]" />
+                    online agora
+                  </p>
+                </div>
               </div>
             </div>
+
             <div className="space-y-3">
-              {[
-                { who: "Você",      msg: "paguei 50 gasolina", time: "09:12" },
-                { who: "Fluxiva", msg: "Despesa 🔴\nValor: R$ 50,00\nDescrição: gasolina\n\nSIM para confirmar ou NAO para cancelar.", time: "09:12" },
-                { who: "Você",      msg: "SIM", time: "09:13" },
-                { who: "Fluxiva", msg: "✅ Lançamento criado!\nDespesa: R$ 50,00\nDescrição: gasolina", time: "09:13" },
-              ].map((m, i) => (
-                <div key={i} className={`flex ${m.who === "Você" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs whitespace-pre-line ${
-                    m.who === "Você"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-foreground"
-                  }`}>
-                    {m.msg}
-                    <span className="mt-1 block text-right opacity-60">{m.time}</span>
-                  </div>
-                </div>
-              ))}
+              <Bubble side="right" time="09:14">Paguei 45 no Uber agora</Bubble>
+              <Bubble side="left" time="09:14">
+                <span className="font-semibold">Transporte · R$ 45,00</span>
+                <br /> Confirma o lançamento? <span className="font-bold text-primary">SIM / NÃO</span>
+              </Bubble>
+              <Bubble side="right" time="12:42" icon={<Mic className="h-3.5 w-3.5" />}>
+                Áudio: "almoço cliente 78 reais"
+              </Bubble>
+              <Bubble side="left" time="12:42">
+                <span className="font-semibold">Alimentação PJ · R$ 78,00</span>
+                <br /> Lançado em Despesas Comerciais.
+              </Bubble>
+              <Bubble side="right" time="15:08" icon={<Receipt className="h-3.5 w-3.5" />}>
+                Foto do comprovante enviada
+              </Bubble>
+              <Bubble side="left" time="15:08">
+                IA identificou: <b>Posto Shell · R$ 220,00</b> · Combustível
+              </Bubble>
             </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function Bubble({
+  children,
+  side,
+  icon,
+  time,
+}: {
+  children: React.ReactNode;
+  side: "left" | "right";
+  icon?: React.ReactNode;
+  time?: string;
+}) {
+  const isRight = side === "right";
+  return (
+    <div className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`relative max-w-[82%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+          isRight
+            ? "rounded-br-sm bg-primary text-primary-foreground"
+            : "rounded-bl-sm bg-secondary text-secondary-foreground"
+        }`}
+      >
+        {icon && <span className="mr-1.5 inline-flex align-middle">{icon}</span>}
+        {children}
+        {time && (
+          <span
+            className={`ml-2 text-[10px] ${
+              isRight ? "text-primary-foreground/70" : "text-muted-foreground"
+            }`}
+          >
+            {time}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

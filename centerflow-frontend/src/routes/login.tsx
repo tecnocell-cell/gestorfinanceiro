@@ -15,8 +15,8 @@ import {
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Entrar — CenterFlow Financeiro" },
-      { name: "description", content: "Acesse sua conta CenterFlow Financeiro." },
+      { title: "Entrar — Fluxiva Financeiro" },
+      { name: "description", content: "Acesse sua conta Fluxiva Financeiro." },
     ],
   }),
   component: LoginPage,
@@ -39,7 +39,7 @@ function LoginPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
             <Wallet className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold">CenterFlow Financeiro</span>
+          <span className="text-lg font-bold">Fluxiva Financeiro</span>
         </Link>
 
         <div className="relative space-y-8">
@@ -47,7 +47,7 @@ function LoginPage() {
             Seu dinheiro,<br /> sob controle —<br /> no seu WhatsApp.
           </h2>
           <p className="max-w-md text-white/85">
-            Lance gastos por texto, áudio ou foto. A IA do CenterFlow organiza para você, PF e PJ.
+            Lance gastos por texto, áudio ou foto. A IA do Fluxiva organiza para você, PF e PJ.
           </p>
 
           <div className="space-y-3">
@@ -57,7 +57,7 @@ function LoginPage() {
           </div>
         </div>
 
-        <p className="relative text-xs text-white/70">© {new Date().getFullYear()} CenterFlow</p>
+        <p className="relative text-xs text-white/70">© {new Date().getFullYear()} Fluxiva</p>
       </aside>
 
       {/* Right form */}
@@ -68,7 +68,7 @@ function LoginPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
                 <Wallet className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-base font-bold text-foreground">CenterFlow</span>
+              <span className="text-base font-bold text-foreground">Fluxiva</span>
             </Link>
           </div>
 

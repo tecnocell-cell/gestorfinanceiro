@@ -8,8 +8,8 @@ import {
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — CenterFlow Financeiro" },
-      { name: "description", content: "Crie sua conta CenterFlow em poucos passos." },
+      { title: "Criar conta — Fluxiva Financeiro" },
+      { name: "description", content: "Crie sua conta Fluxiva em poucos passos." },
     ],
   }),
   component: CadastroPage,
@@ -57,7 +57,7 @@ function CadastroPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
               <Wallet className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-base font-bold text-foreground">CenterFlow <span className="text-primary">Financeiro</span></span>
+            <span className="text-base font-bold text-foreground">Fluxiva <span className="text-primary">Financeiro</span></span>
           </Link>
           <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-primary">Já tenho conta</Link>
         </div>

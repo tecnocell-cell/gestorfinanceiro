@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, HelpCircle } from "lucide-react";
 
 const faqs = [
   {
@@ -27,9 +27,12 @@ const faqs = [
 export function FAQ() {
   const [open, setOpen] = useState(0);
   return (
-    <section id="faq" className="mx-auto max-w-4xl px-6 py-24">
+    <section id="faq" className="mx-auto max-w-4xl px-4 py-20 sm:px-6 md:py-24">
       <div className="mb-10 text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-semibold text-primary">
+          <HelpCircle className="h-3.5 w-3.5" /> Dúvidas frequentes
+        </span>
+        <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           Perguntas frequentes
         </h2>
         <p className="mt-3 text-muted-foreground">Tudo que você precisa saber antes de começar.</p>
@@ -40,19 +43,33 @@ export function FAQ() {
           return (
             <div
               key={f.q}
-              className="rounded-2xl border border-border bg-card"
-              style={{ boxShadow: "var(--shadow-card)" }}
+              className={`overflow-hidden rounded-2xl border bg-card transition-all ${
+                isOpen ? "border-primary/30" : "border-border"
+              }`}
+              style={{ boxShadow: isOpen ? "var(--shadow-card-hover)" : "var(--shadow-card)" }}
             >
               <button
                 onClick={() => setOpen(isOpen ? -1 : i)}
-                className="flex w-full items-center justify-between px-6 py-5 text-left"
+                className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
               >
-                <span className="font-semibold text-foreground">{f.q}</span>
-                <ChevronDown
-                  className={`h-5 w-5 text-primary transition-transform ${isOpen ? "rotate-180" : ""}`}
-                />
+                <span className="text-sm font-semibold text-foreground sm:text-base">{f.q}</span>
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all ${
+                    isOpen ? "rotate-180 bg-primary text-primary-foreground" : "bg-secondary text-primary"
+                  }`}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </div>
               </button>
-              {isOpen && <p className="px-6 pb-5 text-sm text-muted-foreground">{f.a}</p>}
+              <div
+                className={`grid transition-all duration-300 ease-out ${
+                  isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground sm:px-6">{f.a}</p>
+                </div>
+              </div>
             </div>
           );
         })}
