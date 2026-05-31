@@ -930,8 +930,75 @@ export const css = `
   .badge-red { background: var(--danger-soft); color: var(--danger-fg); }
   .badge-blue { background: var(--info-soft); color: var(--info-fg); }
   .badge-amber { background: var(--warning-soft); color: var(--warning-fg); }
+  .badge-pf,
+  .badge-pj {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 18%, transparent);
+  }
   .badge-pf { background: var(--info-soft); color: var(--info-fg); }
   .badge-pj { background: var(--success-soft); color: var(--success-fg); }
+  .badge-pf::before,
+  .badge-pj::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 18%, transparent);
+    flex-shrink: 0;
+  }
+
+  /* ─── SyncPill (auto-refresh indicator) ─── */
+  .sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 11px 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.18s var(--ease-out), border-color 0.18s var(--ease-out), color 0.18s var(--ease-out);
+    font-family: var(--font-sans);
+  }
+  .sync-pill:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--success-soft) 60%, var(--card));
+    border-color: color-mix(in oklab, var(--success) 28%, var(--border));
+    color: var(--success-fg);
+  }
+  .sync-pill:disabled { cursor: default; opacity: 0.75; }
+  .sync-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--success) 18%, transparent);
+    flex-shrink: 0;
+  }
+  .sync-pill--busy .sync-pill-dot {
+    background: var(--warning);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--warning) 22%, transparent);
+    animation: syncPulse 1s ease-in-out infinite;
+  }
+  @keyframes syncPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.35); opacity: 0.55; }
+  }
+  @media (max-width: 540px) {
+    .sync-pill-text { display: none; }
+    .sync-pill { padding: 6px; }
+  }
 
   /* ─── FORMULÁRIOS (rn-input / rn-btn) ─── */
   .form-grid {

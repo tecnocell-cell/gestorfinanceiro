@@ -57,6 +57,35 @@ const PAGE_MAP_PF = {
   perfil: PerfilPFPage,
 };
 
+// ─── SyncPill: indicador discreto de auto-sincronização ─────────────────────
+function SyncPill({ syncing, lastSyncAt, onClick, apiOnline }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  let label = "Sincronizar";
+  if (syncing) label = "Sincronizando…";
+  else if (lastSyncAt) {
+    const s = Math.max(0, Math.round((now - lastSyncAt) / 1000));
+    if (s < 10) label = "Atualizado agora";
+    else if (s < 60) label = `Atualizado há ${s}s`;
+    else label = `Atualizado há ${Math.round(s / 60)}min`;
+  }
+  return (
+    <button
+      type="button"
+      className={`sync-pill${syncing ? " sync-pill--busy" : ""}`}
+      onClick={onClick}
+      disabled={syncing || !apiOnline}
+      title="Atualizar dados agora"
+    >
+      <span className="sync-pill-dot" aria-hidden />
+      <span className="sync-pill-text">{label}</span>
+    </button>
+  );
+}
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 export default function GestorApp() {
   const { user, logout, isSuperAdmin } = useAuth();
@@ -65,6 +94,7 @@ export default function GestorApp() {
   const {
     empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
     viewOnly, impersonatingUser, enterAsTenant, exitAsTenant,
+    lastSyncAt, syncing, reloadAppState,
   } = useGestor();
 
   const goTo = (p) => { setPage(p); setSidebarOpen(false); };
@@ -210,6 +240,12 @@ export default function GestorApp() {
               <span className="topbar-title">{pageLabel}</span>
             </div>
             <div className="topbar-right">
+              <SyncPill
+                syncing={syncing}
+                lastSyncAt={lastSyncAt}
+                onClick={reloadAppState}
+                apiOnline={apiOnline}
+              />
               <span className={`status-dot ${apiOnline ? "online" : "offline"}`}
                 title={apiOnline ? "Servidor PostgreSQL online" : "Servidor offline — execute npm run dev:all"} />
               <span className="topbar-user">{user?.nome || user?.email}</span>

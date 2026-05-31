@@ -46,6 +46,10 @@ export function GestorProvider({ children }) {
   const saveTimer = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // Marca state vindo de um reload silencioso para não disparar save em loop
+  const justReloaded = useRef(false);
+  // Sinaliza save pendente (debounce ativo) — usado p/ flush antes de reload
+  const dirtyPending = useRef(false);
 
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("Todos");
@@ -55,6 +59,8 @@ export function GestorProvider({ children }) {
   const [modalOpen, setModalOpen] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [apiOnline, setApiOnline] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [syncing, setSyncing] = useState(false);
   const [impersonatingUser, setImpersonatingUser] = useState(null);
   const adminStateBackup = useRef(null);
 
@@ -119,6 +125,7 @@ export function GestorProvider({ children }) {
         // Marca carga bem-sucedida — libera saves futuros
         loadOk.current = true;
         setAppLoadError(false);
+        setLastSyncAt(Date.now());
       })
       .catch((err) => {
         console.warn("Falha ao carregar estado da API:", err.message);
@@ -138,16 +145,85 @@ export function GestorProvider({ children }) {
 
   useEffect(() => {
     if (isFirstLoad.current || !token) return;
+    if (justReloaded.current) {
+      // state veio de reload silencioso — não disparar save
+      justReloaded.current = false;
+      return;
+    }
 
     clearTimeout(saveTimer.current);
+    dirtyPending.current = true;
     saveTimer.current = setTimeout(() => {
-      persistState(stateRef.current).catch((err) =>
-        console.warn("Falha ao salvar estado na API:", err.message)
-      );
+      persistState(stateRef.current)
+        .then(() => { dirtyPending.current = false; })
+        .catch((err) => console.warn("Falha ao salvar estado na API:", err.message));
     }, SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(saveTimer.current);
   }, [state, token, impersonatingUser, persistState]);
+
+  // ── Reload silencioso (auto-refresh sem reload do navegador) ────────────────
+  // Re-busca o estado do servidor em focus/visibilidade/intervalo leve.
+  // Antes do fetch, faz flush de qualquer save pendente para preservar
+  // alterações locais. Após setState, suprime o save effect via justReloaded.
+  const reloadAppState = useCallback(async () => {
+    if (!token || viewOnly || !loadOk.current) return;
+    if (isFirstLoad.current) return;
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      if (dirtyPending.current) {
+        try { await flushStateSave(); } catch {}
+      }
+      const { dados, profile: serverProfile } = await stateApi.fetch();
+      const profileBase = buildProfile(user);
+      const profile = serverProfile?.tipo_perfil
+        ? { ...profileBase, ...serverProfile }
+        : profileBase;
+      if (isValidAppState(dados)) {
+        const next = normalizeStateForUser(dados, profile);
+        justReloaded.current = true;
+        setState(next);
+        stateRef.current = next;
+      }
+      setLastSyncAt(Date.now());
+    } catch (err) {
+      console.warn("Reload silencioso falhou:", err.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [token, viewOnly, syncing, buildProfile, user, flushStateSave]);
+
+  // Triggers automáticos: focus, visibilitychange, intervalo de 60s
+  useEffect(() => {
+    if (!token || viewOnly) return;
+    const onVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        reloadAppState();
+      }
+    };
+    const onFocus = () => reloadAppState();
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisible);
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", onFocus);
+    }
+    const interval = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") {
+        reloadAppState();
+      }
+    }, 60000);
+    return () => {
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisible);
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", onFocus);
+      }
+      clearInterval(interval);
+    };
+  }, [token, viewOnly, reloadAppState]);
 
   useEffect(() => {
     const ping = () =>
@@ -387,6 +463,7 @@ export function GestorProvider({ children }) {
     showSaldoCol, setShowSaldoCol,
     modalOpen, editingItem, openModal, closeModal,
     apiOnline,
+    lastSyncAt, syncing, reloadAppState,
     setEmpresaField, setPessoaField, updateEmpresaData, patchEmpresa,
     switchEmpresa, addEmpresa, addPerfil, removePerfil,
     saveLancamento, markConsiliado, setLancamentos, flushStateSave,
