@@ -1,15 +1,13 @@
 /**
  * DashboardPFV2Page — Dashboard Premium (Pessoa Física)
  *
- * ISOLAMENTO TOTAL: arquivo novo. Nenhum arquivo existente alterado.
- * Rollback: remover import em GestorApp.jsx e restaurar DashboardPFPage no PAGE_MAP_PF.
+ * Etapa 4: layout reestruturado
+ *  - KPIs compactos
+ *  - Hero chart Receitas × Despesas (12 meses) com saldo destacado
+ *  - Widgets de Últimos lançamentos, Próximos vencimentos e Contas
+ *  - Estados vazios elegantes
  *
- * Dados reutilizados (mesmos do DashboardPFPage original):
- *  - dreAtual.receitas / dreAtual.despesas
- *  - mensal: [{ name, Receita, Despesas }] (12 meses)
- *  - contas, getSaldoConta, getSaldoTotal
- *  - lancamentos + planoContas → pie de categorias
- *  - filterPeriodo / setFilterPeriodo
+ * Sem alterações em backend, API, banco, autenticação ou fórmulas financeiras.
  */
 import { useMemo, memo } from "react";
 import {
@@ -22,12 +20,15 @@ import { useRecorrencias }  from "../hooks/useRecorrencias.js";
 import { fmtBRL }           from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
-import ContasAPagarAlert   from "../components/ContasAPagarAlert.jsx";
+import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
 import KpiCardV2            from "../components/dashboard/KpiCardV2.jsx";
 import ChartCardV2          from "../components/dashboard/ChartCardV2.jsx";
 import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
 import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx";
 import DashInsight          from "../components/dashboard/DashInsight.jsx";
+import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
+import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
+import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
 import {
   TrendingUp,
@@ -56,8 +57,6 @@ const PIE_COLORS = [
   CHART.pie[3], CHART.pie[4], CHART.pie[1],
 ];
 
-// ─── Legenda customizada para Pie (aceita icone via payload entry) ────────────
-
 const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   if (!payload?.length) return null;
   const iconeMap = Object.fromEntries((categoriasData || []).map((c) => [c.name, c.icone]));
@@ -65,15 +64,8 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 8, fontSize: 11 }}>
       {payload.map((p) => (
         <div key={p.value} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: "50%",
-            background: p.color, display: "inline-block", flexShrink: 0,
-          }} />
-          <span style={{
-            color: "var(--muted-foreground)",
-            maxWidth: 110, overflow: "hidden",
-            textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }} title={p.value}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, display: "inline-block", flexShrink: 0 }} />
+          <span style={{ color: "var(--muted-foreground)", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p.value}>
             {iconeMap[p.value] ? `${iconeMap[p.value]} ` : ""}{p.value}
           </span>
         </div>
@@ -81,8 +73,6 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
     </div>
   );
 });
-
-// ─── Página principal ────────────────────────────────────────────────────────
 
 export default function DashboardPFV2Page() {
   const {
@@ -93,12 +83,8 @@ export default function DashboardPFV2Page() {
 
   const { recorrencias, loading: recLoading } = useRecorrencias();
 
-  // ── Cálculos ───────────────────────────────────────────────────────────────
-
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
 
-  // Para PF, calcula receitas/despesas diretamente por tipo (independe de categoria).
-  // dreAtual usa movPlano que exige planoId — lançamentos sem categoria ficariam invisíveis.
   const pfTotais = useMemo(() => {
     let receitas = 0, despesas = 0;
     for (const l of lancamentos) {
@@ -113,28 +99,23 @@ export default function DashboardPFV2Page() {
 
   const saldoMes = pfTotais.receitas - pfTotais.despesas;
 
-  // Normaliza proxima_data do Postgres (Date object ou ISO timestamp) para YYYY-MM-DD
   const toKey = (v) => {
     if (!v) return "";
     if (v instanceof Date) return v.toISOString().slice(0, 10);
     return String(v).slice(0, 10);
   };
 
-  // Total de recorrências ativas
   const recAtivas = useMemo(
     () => recorrencias.filter((r) => r.status === "ativa"),
     [recorrencias]
   );
 
-  // Quantas vencem nos próximos 7 dias (urgentes)
   const recProximas = useMemo(() => {
     if (!recorrencias.length) return [];
     const limite = em7Str();
     return recAtivas.filter((r) => toKey(r.proxima_data) <= limite);
   }, [recorrencias, recAtivas]);
 
-  // Fluxo previsto: soma TODAS as recorrências ativas (inclui atrasadas com data passada)
-  // que caem nos próximos 30 dias OU que estão com proxima_data no passado (gerar falhou)
   const fluxoPrevisto = useMemo(() => {
     if (!recAtivas.length) return 0;
     const limite = em30Str();
@@ -146,8 +127,6 @@ export default function DashboardPFV2Page() {
       );
   }, [recAtivas]);
 
-  // Para PF, agrega por tipo (Entrada/Saida) diretamente — ignora planoId.
-  // getMensal usa getDRE que exige planoId → lançamentos sem categoria ficariam zerados.
   const pfMensal = useMemo(() => {
     const totais = Array.from({ length: 12 }, () => ({ rec: 0, desp: 0 }));
     for (const l of lancamentos) {
@@ -182,10 +161,9 @@ export default function DashboardPFV2Page() {
     return `Período saudável com saldo de ${fmtBRL(saldoMes)}. Receitas ${fmtBRL(pfTotais.receitas)} e despesas ${fmtBRL(pfTotais.despesas)}.`;
   }, [pfTotais, saldoMes, recProximas.length]);
 
-  // Despesas por categoria (top 6 no período) — inclui cor e ícone da categoria
   const categoriasData = useMemo(() => {
     const h = {};
-    const meta = {}; // name → { fill, icone }
+    const meta = {};
     for (const l of lancamentos) {
       const d = new Date(l.data + "T00:00:00");
       if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) continue;
@@ -203,8 +181,6 @@ export default function DashboardPFV2Page() {
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
 
-  // ── KPIs ───────────────────────────────────────────────────────────────────
-
   const kpis = [
     {
       icon: TrendingUp,
@@ -214,6 +190,7 @@ export default function DashboardPFV2Page() {
       valueClass: "success",
       sparkline: sparkReceitas,
       tone: "success",
+      compact: true,
     },
     {
       icon: TrendingDown,
@@ -223,6 +200,7 @@ export default function DashboardPFV2Page() {
       valueClass: pfTotais.despesas > pfTotais.receitas ? "danger" : "",
       sparkline: sparkDespesas,
       tone: "danger",
+      compact: true,
     },
     {
       icon: CircleDollarSign,
@@ -231,10 +209,8 @@ export default function DashboardPFV2Page() {
       sub: saldoMes >= 0 ? "Sobrou no mês" : "Déficit no mês",
       valueClass: saldoMes >= 0 ? "success" : "danger",
       sparkline: sparkSaldo,
-      trend: saldoMes >= 0
-        ? { dir: "up", label: "Período positivo" }
-        : { dir: "down", label: "Período negativo" },
       tone: saldoMes >= 0 ? "success" : "danger",
+      compact: true,
     },
     {
       icon: Wallet,
@@ -243,6 +219,7 @@ export default function DashboardPFV2Page() {
       sub: `${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
       valueClass: saldoTotal >= 0 ? "success" : "danger",
       tone: "default",
+      compact: true,
     },
     {
       icon: Repeat,
@@ -254,6 +231,7 @@ export default function DashboardPFV2Page() {
           : "Todas em dia",
       valueClass: recProximas.length > 0 ? "warning" : "",
       tone: "warning",
+      compact: true,
     },
     {
       icon: Hourglass,
@@ -262,6 +240,7 @@ export default function DashboardPFV2Page() {
       sub: "Recorrências ativas",
       valueClass: fluxoPrevisto >= 0 ? "success" : "danger",
       tone: fluxoPrevisto >= 0 ? "success" : "danger",
+      compact: true,
     },
   ];
 
@@ -278,19 +257,38 @@ export default function DashboardPFV2Page() {
           message={insight}
           tone={saldoMes < 0 ? "warn" : recProximas.length > 0 ? "info" : "success"}
         />
-        <div className="kpi-v2-grid">
+        <div className="kpi-v2-grid kpi-v2-grid--compact">
           {kpis.map((k) => (
             <KpiCardV2 key={k.label} {...k} />
           ))}
         </div>
       </div>
 
-      {/* ── Seção clara ───────────────────────────────────────────────────── */}
+      {/* ── Hero chart + widgets laterais ─────────────────────────────────── */}
       <div className="dash-section">
 
         <RecorrenciaAlert />
         <ContasAPagarAlert />
 
+        <div className="dash-main-grid">
+          <div className="dash-main-grid-hero">
+            <HeroChart12m
+              data={mensalData}
+              title="Receitas × Despesas (12 meses)"
+              subtitle="Linha pontilhada destaca o saldo mensal"
+            />
+          </div>
+          <div className="dash-main-grid-side">
+            <ProximosVencimentosWidget limit={6} />
+          </div>
+        </div>
+
+        <div className="dash-widgets-grid">
+          <UltimosLancamentosWidget limit={8} />
+          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
+        </div>
+
+        {/* Charts detalhados existentes */}
         <div className="dash-section-title">Evolução mensal</div>
         <div className="dash-charts-grid dash-charts-grid--featured" style={{ marginBottom: 16 }}>
 
@@ -313,7 +311,6 @@ export default function DashboardPFV2Page() {
             </ResponsiveContainer>
           </ChartCardV2>
 
-          {/* Area: Tendência de saldo */}
           <ChartCardV2
             title="Tendência de Resultado"
             sub={`Receitas vs Despesas em ${filterPeriodo.ano}`}
@@ -342,11 +339,9 @@ export default function DashboardPFV2Page() {
           </ChartCardV2>
         </div>
 
-        {/* Linha 2: Categorias + Contas */}
         <div className="dash-section-title">Composição</div>
         <div className="dash-charts-grid">
 
-          {/* Pie: Gastos por categoria */}
           <ChartCardV2
             title="Gastos por Categoria"
             sub={filterPeriodo.mes
@@ -395,7 +390,6 @@ export default function DashboardPFV2Page() {
             )}
           </ChartCardV2>
 
-          {/* Contas */}
           <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
         </div>
       </div>

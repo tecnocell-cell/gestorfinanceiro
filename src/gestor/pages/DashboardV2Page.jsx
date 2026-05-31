@@ -1,20 +1,14 @@
 /**
  * DashboardV2Page — Dashboard Premium (Pessoa Jurídica)
  *
- * ISOLAMENTO TOTAL: este arquivo é novo. Nenhum arquivo existente foi alterado.
- * Rollback: remover import em GestorApp.jsx e restaurar DashboardPage no PAGE_MAP_PJ.
+ * Etapa 4: layout reestruturado
+ *  - KPIs compactos (modo `compact` do KpiCardV2)
+ *  - Gráfico hero Receitas × Despesas (12 meses) com gradientes e linha de saldo
+ *  - Widgets de Últimos lançamentos e Próximos vencimentos
+ *  - Estados vazios elegantes
  *
- * Dados reutilizados do GestorContext (sem recalcular nada):
- *  - dreAtual      → receitas, custos, despesas, impostos, lucroLiquido, lucroAposImpostos
- *  - mensal        → array 12 meses: { name, Receita, Custo, Despesas, "Lucro Líquido" }
- *  - contas        → lista de contas
- *  - lancamentos   → para pie de categorias
- *  - planoContas   → para nomes de categorias
- *  - getSaldoConta → saldo por conta
- *  - getSaldoTotal → saldo total
- *  - filterPeriodo / setFilterPeriodo
- *
- * Adicionado: useRecorrencias (próximas + fluxo previsto 30 dias)
+ * Sem alterações em backend, API, banco, autenticação ou fórmulas financeiras.
+ * Apenas reutiliza dados já existentes do GestorContext / useRecorrencias.
  */
 import { useMemo, memo } from "react";
 import {
@@ -24,15 +18,18 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { fmtBRL, fmtPct }  from "../finance.js";
+import { fmtBRL, fmtPct }   from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
-import ContasAPagarAlert   from "../components/ContasAPagarAlert.jsx";
+import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
 import KpiCardV2            from "../components/dashboard/KpiCardV2.jsx";
 import ChartCardV2          from "../components/dashboard/ChartCardV2.jsx";
 import ContasWidget         from "../components/dashboard/ContasWidget.jsx";
 import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx";
 import DashInsight          from "../components/dashboard/DashInsight.jsx";
+import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
+import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
+import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
 import {
   TrendingUp,
@@ -91,23 +88,20 @@ export default function DashboardV2Page() {
     filterPeriodo,
   } = useGestor();
 
-  // Recorrências — silencioso se falhar (hook trata internamente)
   const { recorrencias, loading: recLoading } = useRecorrencias();
 
-  // ── Cálculos derivados (todos memoizados) ──────────────────────────────────
+  // ── Cálculos derivados (memoizados) ────────────────────────────────────────
 
   const saldoTotal  = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
   const lucroLiq    = dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido;
   const margem      = dreAtual.receitas > 0 ? (lucroLiq / dreAtual.receitas) : 0;
 
-  // Recorrências vencendo em 7 dias
   const recProximas = useMemo(() => {
     if (!recorrencias.length) return [];
     const limite = em7Str();
     return recorrencias.filter((r) => r.status === "ativa" && r.proxima_data <= limite);
   }, [recorrencias]);
 
-  // Fluxo previsto nos próximos 30 dias (receitas - despesas de recorrências ativas)
   const fluxoPrevisto = useMemo(() => {
     if (!recorrencias.length) return 0;
     const hoje = hojeStr();
@@ -120,10 +114,20 @@ export default function DashboardV2Page() {
       );
   }, [recorrencias]);
 
-  // Despesas por categoria (top 6 no período) — inclui cor e ícone da categoria
+  // Dados do gráfico hero (12 meses, Receitas × Despesas)
+  // mensal já vem com { name, Receita, Custo, Despesas, "Lucro Líquido" } — apenas converte schema.
+  const hero12m = useMemo(
+    () => mensal.map((m) => ({
+      name: m.name,
+      Receitas: m.Receita || 0,
+      Despesas: (m.Custo || 0) + (m.Despesas || 0),
+    })),
+    [mensal]
+  );
+
   const categoriasData = useMemo(() => {
     const h = {};
-    const meta = {}; // name → { fill, icone }
+    const meta = {};
     for (const l of lancamentos) {
       const d = new Date(l.data + "T00:00:00");
       if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) continue;
@@ -169,6 +173,7 @@ export default function DashboardV2Page() {
       value: fmtBRL(saldoTotal),
       sub: `${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
       valueClass: saldoTotal >= 0 ? "success" : "danger",
+      compact: true,
     },
     {
       icon: TrendingUp,
@@ -178,6 +183,7 @@ export default function DashboardV2Page() {
       valueClass: "success",
       sparkline: sparkReceitas,
       tone: "success",
+      compact: true,
     },
     {
       icon: TrendingDown,
@@ -187,6 +193,7 @@ export default function DashboardV2Page() {
       valueClass: "danger",
       sparkline: sparkDespesas,
       tone: "danger",
+      compact: true,
     },
     {
       icon: CircleDollarSign,
@@ -195,10 +202,8 @@ export default function DashboardV2Page() {
       sub: `Margem: ${fmtPct(margem)}`,
       valueClass: lucroLiq >= 0 ? "success" : "danger",
       sparkline: sparkLucro,
-      trend: lucroLiq >= 0
-        ? { dir: "up", label: `${fmtPct(Math.abs(margem))} de margem` }
-        : { dir: "down", label: "Resultado negativo" },
       tone: lucroLiq >= 0 ? "success" : "danger",
+      compact: true,
     },
     {
       icon: Repeat,
@@ -207,6 +212,7 @@ export default function DashboardV2Page() {
       sub: recLoading ? "Carregando…" : recProximas.length > 0 ? "Vencendo em 7 dias" : "Nenhuma vencendo",
       valueClass: recProximas.length > 0 ? "warning" : "",
       tone: "warning",
+      compact: true,
     },
     {
       icon: Hourglass,
@@ -215,6 +221,7 @@ export default function DashboardV2Page() {
       sub: "Com base nas recorrências ativas",
       valueClass: fluxoPrevisto >= 0 ? "success" : "danger",
       tone: fluxoPrevisto >= 0 ? "success" : "danger",
+      compact: true,
     },
   ];
 
@@ -231,21 +238,38 @@ export default function DashboardV2Page() {
           message={insight}
           tone={lucroLiq < 0 ? "warn" : recProximas.length > 0 ? "info" : "success"}
         />
-        <div className="kpi-v2-grid">
+        <div className="kpi-v2-grid kpi-v2-grid--compact">
           {kpis.map((k) => (
             <KpiCardV2 key={k.label} {...k} />
           ))}
         </div>
       </div>
 
-      {/* ── Seção clara: alerta + gráficos ──────────────────────────────── */}
+      {/* ── Hero chart + widgets laterais ──────────────────────────────── */}
       <div className="dash-section">
 
-        {/* Alerts — silenciosos se não houver nada */}
         <RecorrenciaAlert />
         <ContasAPagarAlert />
 
-        {/* Gráficos linha 1 */}
+        <div className="dash-main-grid">
+          <div className="dash-main-grid-hero">
+            <HeroChart12m
+              data={hero12m}
+              title="Receitas × Despesas (12 meses)"
+              subtitle="Saldo destacado em pontilhado"
+            />
+          </div>
+          <div className="dash-main-grid-side">
+            <ProximosVencimentosWidget limit={6} />
+          </div>
+        </div>
+
+        <div className="dash-widgets-grid">
+          <UltimosLancamentosWidget limit={8} />
+          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
+        </div>
+
+        {/* Gráficos detalhados (mantidos da etapa anterior) */}
         <div className="dash-section-title">Desempenho mensal</div>
         <div className="dash-charts-grid dash-charts-grid--featured" style={{ marginBottom: 16 }}>
 
@@ -269,7 +293,6 @@ export default function DashboardV2Page() {
             </ResponsiveContainer>
           </ChartCardV2>
 
-          {/* Area: Lucro Líquido */}
           <ChartCardV2
             title="Tendência do Lucro Líquido"
             sub={`Evolução em ${filterPeriodo.ano}`}
@@ -368,7 +391,6 @@ export default function DashboardV2Page() {
             )}
           </ChartCardV2>
 
-          {/* Contas */}
           <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
         </div>
       </div>

@@ -3791,4 +3791,327 @@ export const css = `
     .of-hero        { padding: 1.25rem 1.25rem 1.75rem; border-radius: var(--radius-lg); }
     .of-hero-title  { font-size: 20px; }
   }
+
+  /* ─── Etapa 4 — Dashboard Premium ────────────────────────────────────────── */
+
+  /* KPIs compactos */
+  .kpi-v2-grid--compact {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact {
+    min-height: 96px;
+    padding: 0.875rem 1rem;
+    gap: 4px;
+    border-radius: var(--radius-lg);
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-icon-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-value { font-size: 20px; }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-label { font-size: 9px; }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-sub { font-size: 10px; }
+  .dash-v2-root .kpi-v2--compact::after {
+    width: 90px; height: 90px;
+  }
+
+  /* Grid principal: hero chart + side widget */
+  .dash-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .dash-main-grid-hero { min-width: 0; }
+  .dash-main-grid-side { min-width: 0; }
+
+  /* Hero chart card */
+  .dash-hero-chart {
+    background: var(--card);
+    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-float);
+    padding: 1rem 1.125rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 340px;
+  }
+  .dash-hero-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .dash-hero-chart-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--foreground);
+    letter-spacing: -0.01em;
+  }
+  .dash-hero-chart-sub {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .dash-hero-chart-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .dash-hero-chart-legend .lg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .dash-hero-chart-legend .lg-item i {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .dash-hero-chart-body {
+    flex: 1;
+    min-height: 280px;
+  }
+
+  /* Tooltip do hero chart */
+  .dash-hero-tooltip {
+    background: var(--card);
+    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-elevated);
+    padding: 8px 10px;
+    min-width: 180px;
+    font-size: 11px;
+  }
+  .dash-hero-tooltip-title {
+    font-weight: 700;
+    color: var(--foreground);
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .dash-hero-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+  }
+  .dash-hero-tooltip-row .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dash-hero-tooltip-row .lbl {
+    flex: 1;
+    color: var(--muted-foreground);
+  }
+  .dash-hero-tooltip-row .val {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .dash-hero-tooltip-row .val.success { color: var(--success-fg); }
+  .dash-hero-tooltip-row .val.danger  { color: var(--danger-fg); }
+  .dash-hero-tooltip-divider {
+    height: 1px;
+    background: color-mix(in oklab, var(--border) 70%, transparent);
+    margin: 6px 0;
+  }
+
+  /* Grid de widgets (últimos lançamentos + contas) */
+  .dash-widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* List widget genérico */
+  .dash-list-widget {
+    background: var(--card);
+    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-float);
+    padding: 0.875rem 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 280px;
+  }
+  .dash-list-widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .dash-list-widget-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--foreground);
+    letter-spacing: -0.01em;
+  }
+  .dash-list-widget-sub {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  .dash-list-widget-link {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s var(--ease-out);
+  }
+  .dash-list-widget-link:hover {
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+  .dash-list-widget-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-list-widget-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+  }
+  .dash-list-widget-row:last-child { border-bottom: none; }
+  .dash-list-widget-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .dash-list-widget-hist {
+    font-size: 12px;
+    color: var(--foreground);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-list-widget-meta {
+    font-size: 10px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-list-widget-side {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .dash-list-widget-val {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .dash-list-widget-val--in  { color: var(--success-fg); }
+  .dash-list-widget-val--out { color: var(--danger-fg); }
+  .dash-list-widget-val--tr  { color: var(--info-fg); }
+  .dash-list-widget-date {
+    font-size: 10px;
+    color: var(--muted-foreground);
+    margin-top: 2px;
+  }
+
+  /* Pill de tipo */
+  .dash-tipo-pill {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 22%, transparent);
+  }
+  .dash-tipo-pill--in  { background: var(--success-soft); color: var(--success-fg); }
+  .dash-tipo-pill--out { background: var(--danger-soft);  color: var(--danger-fg); }
+  .dash-tipo-pill--tr  { background: var(--info-soft);    color: var(--info-fg); }
+
+  /* Badges genéricas */
+  .dash-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .dash-badge--danger  { background: var(--danger-soft);  color: var(--danger-fg); }
+  .dash-badge--warning { background: var(--warning-soft); color: var(--warning-fg); }
+  .dash-badge--info    { background: var(--info-soft);    color: var(--info-fg); }
+  .dash-badge--success { background: var(--success-soft); color: var(--success-fg); }
+
+  /* Empty state */
+  .dash-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    gap: 6px;
+    min-height: 160px;
+    color: var(--muted-foreground);
+  }
+  .dash-empty-state-icon {
+    font-size: 34px;
+    opacity: 0.85;
+    margin-bottom: 4px;
+  }
+  .dash-empty-state-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .dash-empty-state-desc {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    max-width: 280px;
+    line-height: 1.45;
+  }
+  .dash-empty-state-action { margin-top: 8px; }
+  .dash-empty-state--success .dash-empty-state-icon { color: var(--success-fg); }
+
+  /* ── Responsividade Etapa 4 ──────────────────────────────────────────────── */
+  @media (max-width: 1180px) {
+    .kpi-v2-grid--compact { grid-template-columns: repeat(3, 1fr); }
+    .dash-main-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 820px) {
+    .dash-widgets-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 540px) {
+    .kpi-v2-grid--compact { grid-template-columns: repeat(2, 1fr); }
+    .dash-v2-root .kpi-v2.kpi-v2--compact .kpi-v2-value { font-size: 18px; }
+    .dash-hero-chart { min-height: 260px; padding: 0.875rem; }
+    .dash-hero-chart-body { min-height: 220px; }
+    .dash-list-widget { min-height: 220px; }
+  }
+
 `;

@@ -4,6 +4,7 @@ import { TrendIcon } from "../icons.jsx";
 
 /**
  * KPI premium — Lucide, sparkline opcional, badge de tendência.
+ * Etapa 4: suporte ao modo `compact` (cards mais densos e baixos).
  */
 function KpiCardV2({
   icon: Icon,
@@ -15,13 +16,14 @@ function KpiCardV2({
   sparkline,
   tone = "default",
   loading = false,
+  compact = false,
 }) {
   if (loading) {
     return (
-      <div className="kpi-v2 kpi-v2--skeleton">
-        <div className="skeleton-pulse" style={{ width: 36, height: 36, borderRadius: 10, marginBottom: 10 }} />
-        <div className="skeleton-pulse" style={{ width: "55%", height: 11, borderRadius: 4, marginBottom: 8 }} />
-        <div className="skeleton-pulse" style={{ width: "75%", height: 26, borderRadius: 4 }} />
+      <div className={`kpi-v2${compact ? " kpi-v2--compact" : ""} kpi-v2--skeleton`}>
+        <div className="skeleton-pulse" style={{ width: 32, height: 32, borderRadius: 10, marginBottom: 8 }} />
+        <div className="skeleton-pulse" style={{ width: "55%", height: 10, borderRadius: 4, marginBottom: 6 }} />
+        <div className="skeleton-pulse" style={{ width: "75%", height: 22, borderRadius: 4 }} />
       </div>
     );
   }
@@ -29,19 +31,19 @@ function KpiCardV2({
   const sparkTone = valueClass === "success" ? "success" : valueClass === "danger" ? "danger" : "neutral";
 
   return (
-    <div className={`kpi-v2 kpi-v2--${tone} kpi-v2--${valueClass || "default"}`}>
+    <div className={`kpi-v2${compact ? " kpi-v2--compact" : ""} kpi-v2--${tone} kpi-v2--${valueClass || "default"}`}>
       <div className="kpi-v2-top">
         <div className="kpi-v2-icon-wrap" aria-hidden>
-          {Icon ? <Icon size={20} strokeWidth={1.75} /> : null}
+          {Icon ? <Icon size={compact ? 16 : 20} strokeWidth={1.75} /> : null}
         </div>
         {sparkline?.length >= 2 && (
-          <Sparkline data={sparkline} tone={sparkTone} width={80} height={32} />
+          <Sparkline data={sparkline} tone={sparkTone} width={compact ? 64 : 80} height={compact ? 24 : 32} />
         )}
       </div>
       <div className="kpi-v2-label">{label}</div>
       <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
       {sub && <div className="kpi-v2-sub">{sub}</div>}
-      {trend && (
+      {trend && !compact && (
         <div className={`kpi-v2-trend ${trend.dir}`}>
           <TrendIcon dir={trend.dir} size={13} />
           <span>{trend.label}</span>
