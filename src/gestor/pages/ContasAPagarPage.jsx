@@ -14,6 +14,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
+import { PF_PAGE_HINTS }        from "../pfHints.js";
 import { fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
 import { MESES }                from "../constants.js";
 
@@ -23,23 +24,10 @@ const hojeStr = () => new Date().toISOString().slice(0, 10);
 const em7Str  = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
 
 const STATUS_META = {
-  pago:     { label: "Pago",    cls: "badge-cp-pago"     },
-  pendente: { label: "Pendente", cls: "badge-cp-pendente" },
-  atrasado: { label: "Vencido",  cls: "badge-cp-atrasado" },
+  pago:     { label: "Pago",     pp: "pp-badge-green" },
+  pendente: { label: "Pendente", pp: "pp-badge-blue"  },
+  atrasado: { label: "Vencido",  pp: "pp-badge-red"   },
 };
-
-// ─── KPI card local ───────────────────────────────────────────────────────────
-
-function CpKpi({ icon, label, value, sub, color }) {
-  return (
-    <div className="cp-kpi">
-      <div className="cp-kpi-icon">{icon}</div>
-      <div className="cp-kpi-label">{label}</div>
-      <div className="cp-kpi-value" style={color ? { color } : undefined}>{value}</div>
-      {sub && <div className="cp-kpi-sub">{sub}</div>}
-    </div>
-  );
-}
 
 // ─── Inline vencimento editor ─────────────────────────────────────────────────
 
@@ -102,6 +90,8 @@ export default function ContasAPagarPage() {
 
   const [statusFilter, setStatusFilter] = useState("aberto"); // "aberto" | "pago" | "todos"
   const [tipoFilter,   setTipoFilter]   = useState("todos");  // "todos" | "pagar" | "receber"
+
+  const hint = PF_PAGE_HINTS["contas-pagar"];
 
   // ── Base: Entrada + Saída anotadas com _venc e _status ────────────────────
   const base = useMemo(() =>
@@ -172,232 +162,195 @@ export default function ContasAPagarPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <PfPageShell pageId="contas-pagar">
-    <div>
-
-      {/* ── KPIs ─────────────────────────────────────────────────────────── */}
-      <div className="cp-kpi-grid">
-        <CpKpi
-          icon="↓"
-          label="A Pagar"
-          value={fmtBRL(kpis.aPagar)}
-          sub="Despesas em aberto"
-          color="var(--danger-fg)"
-        />
-        <CpKpi
-          icon="↑"
-          label="A Receber"
-          value={fmtBRL(kpis.aReceber)}
-          sub="Receitas em aberto"
-          color="var(--success-fg)"
-        />
-        <CpKpi
-          icon="⚠"
-          label="Vencidos"
-          value={kpis.vencidos.toString()}
-          sub="Já passaram do prazo"
-          color={kpis.vencidos > 0 ? "var(--danger-fg)" : undefined}
-        />
-        <CpKpi
-          icon="⌚"
-          label="Vence em 7 dias"
-          value={kpis.vencendo7.toString()}
-          sub="Próximos vencimentos"
-          color={kpis.vencendo7 > 0 ? "var(--warning-fg)" : undefined}
-        />
-      </div>
-
-      {/* ── Filtros + período ────────────────────────────────────────────── */}
-      <div className="cp-filters">
-        <div className="cp-filter-group">
-          <span className="cp-filter-label">Status:</span>
-          {[
-            { v: "aberto", label: "Em Aberto" },
-            { v: "pago",   label: "Pagos"     },
-            { v: "todos",  label: "Todos"     },
-          ].map((f) => (
-            <button
-              key={f.v}
-              type="button"
-              className={`btn btn-sm${statusFilter === f.v ? " btn-primary" : " btn-secondary"}`}
-              onClick={() => setStatusFilter(f.v)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="cp-filter-group">
-          <span className="cp-filter-label">Tipo:</span>
-          {[
-            { v: "todos",   label: "Todos"     },
-            { v: "pagar",   label: "A Pagar"   },
-            { v: "receber", label: "A Receber" },
-          ].map((f) => (
-            <button
-              key={f.v}
-              type="button"
-              className={`btn btn-sm${tipoFilter === f.v ? " btn-primary" : " btn-secondary"}`}
-              onClick={() => setTipoFilter(f.v)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="cp-filter-group" style={{ marginLeft: "auto" }}>
-          <span className="cp-filter-label">Período:</span>
-          <select
-            className="form-input"
-            style={{ padding: "4px 8px", fontSize: 12 }}
-            value={filterPeriodo.ano}
-            onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}
-          >
-            {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => (
-              <option key={y}>{y}</option>
-            ))}
-          </select>
-          <select
-            className="form-input"
-            style={{ padding: "4px 8px", fontSize: 12 }}
-            value={filterPeriodo.mes}
-            onChange={(e) => setFilterPeriodo((p) => ({ ...p, mes: e.target.value }))}
-          >
-            <option value="">Todos os meses</option>
-            {MESES.map((m, i) => (
-              <option key={m} value={(i + 1).toString().padStart(2, "0")}>{m}</option>
-            ))}
-          </select>
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">{hint?.title || "Contas a Pagar / Receber"}</span>
+          <span className="pp-page-sub">{hint?.text}</span>
         </div>
       </div>
 
-      {/* ── Tabela ───────────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginTop: 0, padding: 0, overflow: "hidden" }}>
+      <div className="pp-summary-grid">
+        <div className="pp-summary-card pp-summary-out">
+          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <div className="pp-summary-label">A Pagar</div>
+          <div className="pp-summary-value">{fmtBRL(kpis.aPagar)}</div>
+          <div className="pp-summary-hint">Despesas em aberto</div>
+        </div>
+        <div className="pp-summary-card pp-summary-in">
+          <div className="pp-summary-icon" aria-hidden>↑</div>
+          <div className="pp-summary-label">A Receber</div>
+          <div className="pp-summary-value">{fmtBRL(kpis.aReceber)}</div>
+          <div className="pp-summary-hint">Receitas em aberto</div>
+        </div>
+        <div className="pp-summary-card pp-summary-warn">
+          <div className="pp-summary-icon" aria-hidden>⚠</div>
+          <div className="pp-summary-label">Vencidos</div>
+          <div className="pp-summary-value">{kpis.vencidos}</div>
+          <div className="pp-summary-hint">Já passaram do prazo</div>
+        </div>
+        <div className="pp-summary-card pp-summary-info">
+          <div className="pp-summary-icon" aria-hidden>⌚</div>
+          <div className="pp-summary-label">Vence em 7 dias</div>
+          <div className="pp-summary-value">{kpis.vencendo7}</div>
+          <div className="pp-summary-hint">Próximos vencimentos</div>
+        </div>
+      </div>
+
+      <div className="pp-toolbar">
+        {[
+          { v: "aberto", label: "Em Aberto" },
+          { v: "pago",   label: "Pagos"     },
+          { v: "todos",  label: "Todos"     },
+        ].map((f) => (
+          <button
+            key={f.v}
+            type="button"
+            className={`pp-chip${statusFilter === f.v ? " is-active" : ""}`}
+            onClick={() => setStatusFilter(f.v)}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="pp-toolbar-spacer" />
+        {[
+          { v: "todos",   label: "Todos"     },
+          { v: "pagar",   label: "↓ A Pagar" },
+          { v: "receber", label: "↑ A Receber" },
+        ].map((f) => (
+          <button
+            key={f.v}
+            type="button"
+            className={`pp-chip${tipoFilter === f.v ? " is-active" : ""}${f.v === "receber" ? " pp-chip-in" : f.v === "pagar" ? " pp-chip-out" : ""}`}
+            onClick={() => setTipoFilter(f.v)}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="pp-toolbar-spacer" />
+        <select
+          className="pp-select"
+          value={filterPeriodo.ano}
+          onChange={(e) => setFilterPeriodo((p) => ({ ...p, ano: e.target.value }))}
+        >
+          {["2022", "2023", "2024", "2025", "2026", "2027"].map((y) => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
+        <select
+          className="pp-select"
+          value={filterPeriodo.mes}
+          onChange={(e) => setFilterPeriodo((p) => ({ ...p, mes: e.target.value }))}
+        >
+          <option value="">Todos os meses</option>
+          {MESES.map((m, i) => (
+            <option key={m} value={(i + 1).toString().padStart(2, "0")}>{m}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="pp-card">
         {visible.length === 0 ? (
-          <div className="empty-state">
-            <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
-            <div>Nenhuma conta encontrada para este filtro.</div>
+          <div className="pp-empty">
+            <div className="pp-empty-icon" aria-hidden>✓</div>
+            <div className="pp-empty-title">Nenhuma conta encontrada</div>
+            <div className="pp-empty-text">Nenhuma conta encontrada para este filtro.</div>
           </div>
         ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Data lançamento</th>
-                  <th>Vencimento</th>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Tipo</th>
-                  <th style={{ textAlign: "right" }}>Valor</th>
-                  <th>Status</th>
-                  {!viewOnly && <th>Ações</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((l) => {
-                  const meta = STATUS_META[l._status] || STATUS_META.pendente;
-                  return (
-                    <tr key={l.id}>
-
-                      {/* Data lançamento */}
-                      <td style={{ fontFamily: "var(--font-mono)", fontSize: 12, whiteSpace: "nowrap" }}>
-                        {fmtDate(l.data)}
-                      </td>
-
-                      {/* Vencimento — editável inline */}
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <VencCell l={l} onSave={salvarVenc} disabled={viewOnly} />
-                      </td>
-
-                      {/* Descrição */}
-                      <td className="cp-td-ellipsis" title={l.historico || ""}>
-                        {l.historico || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
-                      </td>
-
-                      {/* Categoria */}
-                      <td className="cp-td-ellipsis" style={{ maxWidth: 160 }}>
-                        {(() => {
-                          const pl = getPlano(l);
-                          if (!pl) return <span style={{ color: "var(--muted-foreground)" }}>—</span>;
-                          return (
-                            <span style={{ display: "flex", alignItems: "center", gap: 6 }} title={pl.descricao}>
-                              {pl.icone && (
-                                <span className="cat-icone" style={{ background: pl.cor || "var(--muted)", fontSize: 13 }}>
-                                  {pl.icone}
-                                </span>
-                              )}
-                              {pl.descricao}
-                            </span>
-                          );
-                        })()}
-                      </td>
-
-                      {/* Tipo */}
-                      <td>
-                        <span className={`badge ${l.tipo === "Entrada" ? "badge-success" : "badge-danger"}`}>
-                          {l.tipo === "Entrada" ? "↑ Receber" : "↓ Pagar"}
-                        </span>
-                      </td>
-
-                      {/* Valor */}
-                      <td style={{
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: l.tipo === "Entrada" ? "var(--success-fg)" : "var(--danger-fg)",
-                        whiteSpace: "nowrap",
-                      }}>
-                        {fmtBRL(l.valor)}
-                      </td>
-
-                      {/* Status */}
-                      <td>
-                        <span className={`badge ${meta.cls}`}>{meta.label}</span>
-                      </td>
-
-                      {/* Ações */}
-                      {!viewOnly && (
-                        <td>
-                          <div className="admin-actions">
-                            {l._status !== "pago" ? (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-primary"
-                                style={{ fontSize: 11, padding: "3px 8px" }}
-                                title="Marcar como pago"
-                                onClick={() => marcarPago(l.id)}
-                              >
-                                ✓ Pago
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-secondary"
-                                style={{ fontSize: 11, padding: "3px 8px" }}
-                                title="Reabrir — marcar como pendente"
-                                onClick={() => marcarPendente(l.id)}
-                              >
-                                ↺ Reabrir
-                              </button>
-                            )}
-                          </div>
+          <>
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead>
+                  <tr>
+                    <th>Data lançamento</th>
+                    <th>Vencimento</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th className="pp-th-num">Valor</th>
+                    <th>Status</th>
+                    {!viewOnly && <th style={{ textAlign: "right" }}>Ações</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((l) => {
+                    const meta = STATUS_META[l._status] || STATUS_META.pendente;
+                    const tipoCls = l.tipo === "Entrada" ? "in" : "out";
+                    const rowCls = l._status === "atrasado" ? " cp-row-late" : "";
+                    return (
+                      <tr key={l.id} className={rowCls.trim() || undefined}>
+                        <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                          {fmtDate(l.data)}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <VencCell l={l} onSave={salvarVenc} disabled={viewOnly} />
+                        </td>
+                        <td className="cp-td-ellipsis" title={l.historico || ""}>
+                          {l.historico || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
+                        </td>
+                        <td className="cp-td-ellipsis" style={{ maxWidth: 160 }}>
+                          {(() => {
+                            const pl = getPlano(l);
+                            if (!pl) return <span style={{ color: "var(--muted-foreground)" }}>—</span>;
+                            return (
+                              <span style={{ display: "flex", alignItems: "center", gap: 6 }} title={pl.descricao}>
+                                {pl.icone && (
+                                  <span className="cat-icone" style={{ background: pl.cor || "var(--muted)", fontSize: 13 }}>
+                                    {pl.icone}
+                                  </span>
+                                )}
+                                {pl.descricao}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td>
+                          <span className={`pp-badge ${l.tipo === "Entrada" ? "pp-badge-green" : "pp-badge-red"}`}>
+                            {l.tipo === "Entrada" ? "↑ Receber" : "↓ Pagar"}
+                          </span>
+                        </td>
+                        <td className={`pp-cell-value pp-cell-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
+                        <td>
+                          <span className={`pp-badge ${meta.pp}`}>{meta.label}</span>
+                        </td>
+                        {!viewOnly && (
+                          <td style={{ textAlign: "right" }}>
+                            <div className="pp-row-actions">
+                              {l._status !== "pago" ? (
+                                <button
+                                  type="button"
+                                  className="pp-btn-primary"
+                                  style={{ height: 28, padding: "0 10px", fontSize: 11 }}
+                                  title="Marcar como pago"
+                                  onClick={() => marcarPago(l.id)}
+                                >
+                                  ✓ Pago
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="pp-btn-secondary"
+                                  style={{ height: 28, padding: "0 10px", fontSize: 11 }}
+                                  title="Reabrir — marcar como pendente"
+                                  onClick={() => marcarPendente(l.id)}
+                                >
+                                  ↺ Reabrir
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="lanc-footer">
+              <span>{visible.length} registro{visible.length !== 1 ? "s" : ""}</span>
+            </div>
+          </>
         )}
       </div>
-
-      {visible.length > 0 && (
-        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 8, textAlign: "right" }}>
-          {visible.length} registro{visible.length !== 1 ? "s" : ""}
-        </div>
-      )}
-    </div>
     </PfPageShell>
   );
 }
