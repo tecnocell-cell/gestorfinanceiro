@@ -4,7 +4,10 @@ import { TrendIcon } from "../icons.jsx";
 
 /**
  * KPI premium — Lucide, sparkline opcional, badge de tendência.
- * Etapa 4: suporte ao modo `compact` (cards mais densos e baixos).
+ * Etapa 4 / 4.1:
+ *  - modo `compact` mais denso porém respirável
+ *  - melhor hierarquia ícone / sparkline / título / valor / sub
+ *  - faixa lateral de cor por tom (success / danger / warning / default)
  */
 function KpiCardV2({
   icon: Icon,
@@ -32,15 +35,18 @@ function KpiCardV2({
 
   return (
     <div className={`kpi-v2${compact ? " kpi-v2--compact" : ""} kpi-v2--${tone} kpi-v2--${valueClass || "default"}`}>
+      <span className="kpi-v2-accent" aria-hidden />
       <div className="kpi-v2-top">
         <div className="kpi-v2-icon-wrap" aria-hidden>
-          {Icon ? <Icon size={compact ? 16 : 20} strokeWidth={1.75} /> : null}
+          {Icon ? <Icon size={compact ? 15 : 20} strokeWidth={1.85} /> : null}
+        </div>
+        <div className="kpi-v2-label-wrap">
+          <div className="kpi-v2-label">{label}</div>
         </div>
         {sparkline?.length >= 2 && (
-          <Sparkline data={sparkline} tone={sparkTone} width={compact ? 64 : 80} height={compact ? 24 : 32} />
+          <Sparkline data={sparkline} tone={sparkTone} width={compact ? 56 : 80} height={compact ? 22 : 32} />
         )}
       </div>
-      <div className="kpi-v2-label">{label}</div>
       <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
       {sub && <div className="kpi-v2-sub">{sub}</div>}
       {trend && !compact && (

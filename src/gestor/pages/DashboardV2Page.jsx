@@ -248,8 +248,10 @@ export default function DashboardV2Page() {
       {/* ── Hero chart + widgets laterais ──────────────────────────────── */}
       <div className="dash-section">
 
-        <RecorrenciaAlert />
-        <ContasAPagarAlert />
+        <div className="dash-alerts-row">
+          <RecorrenciaAlert />
+          <ContasAPagarAlert />
+        </div>
 
         <div className="dash-main-grid">
           <div className="dash-main-grid-hero">
@@ -260,12 +262,12 @@ export default function DashboardV2Page() {
             />
           </div>
           <div className="dash-main-grid-side">
-            <ProximosVencimentosWidget limit={6} />
+            <UltimosLancamentosWidget limit={7} />
           </div>
         </div>
 
         <div className="dash-widgets-grid">
-          <UltimosLancamentosWidget limit={8} />
+          <ProximosVencimentosWidget limit={6} />
           <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
         </div>
 

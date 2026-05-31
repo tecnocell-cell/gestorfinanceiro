@@ -19,12 +19,9 @@ const diasEntre = (a, b) => {
 };
 
 /**
- * ProximosVencimentosWidget — combina:
- *   - Lançamentos NÃO pagos (status !== "pago") com vencimento próximo.
- *   - Recorrências ativas com proxima_data próxima.
- *
- * Não muda backend nem fórmulas. Apenas combina dois conjuntos já existentes
- * para exibir em uma única lista priorizada por data.
+ * ProximosVencimentosWidget (Etapa 4.1)
+ * - Layout mais respirável, badges menores
+ * - Status, valor e data com hierarquia visual clara
  */
 function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
   const { lancamentos } = useGestor();
@@ -35,8 +32,6 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
 
   const items = useMemo(() => {
     const out = [];
-
-    // Lançamentos a pagar/receber
     for (const l of lancamentos) {
       if (l.tipo === "Transferencia") continue;
       const status = l.status ?? "pago";
@@ -52,8 +47,6 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
         data: venc,
       });
     }
-
-    // Recorrências ativas
     for (const r of recorrencias) {
       if (r.status !== "ativa") continue;
       const prox = toKey(r.proxima_data);
@@ -67,10 +60,7 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
         data: prox,
       });
     }
-
-    return out
-      .sort((a, b) => a.data.localeCompare(b.data))
-      .slice(0, limit);
+    return out.sort((a, b) => a.data.localeCompare(b.data)).slice(0, limit);
   }, [lancamentos, recorrencias, limiteData, limit]);
 
   if (loading && items.length === 0) {
@@ -114,7 +104,7 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
           <div className="dash-list-widget-title">📅 Próximos vencimentos</div>
           <div className="dash-list-widget-sub">
             {items.length} nos próximos {dias} dias
-            {atrasados > 0 && <span className="dash-badge dash-badge--danger" style={{ marginLeft: 6 }}>{atrasados} vencido{atrasados !== 1 ? "s" : ""}</span>}
+            {atrasados > 0 && <span className="dash-badge dash-badge--danger dash-badge--xs" style={{ marginLeft: 6 }}>{atrasados} vencido{atrasados !== 1 ? "s" : ""}</span>}
           </div>
         </div>
         {onVerTodos && (
@@ -124,14 +114,14 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
         )}
       </div>
 
-      <ul className="dash-list-widget-list">
+      <ul className="dash-list-widget-list dash-list-widget-list--cozy">
         {items.map((i) => {
           const d = diasEntre(i.data, hoje);
           let badgeCls, badgeTxt;
-          if (d < 0)       { badgeCls = "danger";  badgeTxt = `Vencido há ${Math.abs(d)}d`; }
-          else if (d === 0){ badgeCls = "warning"; badgeTxt = "Vence hoje"; }
-          else if (d <= 3) { badgeCls = "warning"; badgeTxt = `Em ${d}d`; }
-          else             { badgeCls = "info";    badgeTxt = `Em ${d}d`; }
+          if (d < 0)       { badgeCls = "danger";  badgeTxt = `Vencido ${Math.abs(d)}d`; }
+          else if (d === 0){ badgeCls = "warning"; badgeTxt = "Hoje"; }
+          else if (d <= 3) { badgeCls = "warning"; badgeTxt = `${d}d`; }
+          else             { badgeCls = "info";    badgeTxt = `${d}d`; }
 
           const isOut = i.tipo === "Saida";
           return (
@@ -142,11 +132,12 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
               <div className="dash-list-widget-main">
                 <div className="dash-list-widget-hist" title={i.descricao}>
                   {i.descricao}
-                  {i.kind === "rec" && <span className="dash-badge dash-badge--info" style={{ marginLeft: 6 }}>Recorrência</span>}
+                  {i.kind === "rec" && <span className="dash-badge dash-badge--info dash-badge--xs" style={{ marginLeft: 6 }}>Rec.</span>}
                 </div>
                 <div className="dash-list-widget-meta">
-                  <span className={`dash-badge dash-badge--${badgeCls}`}>{badgeTxt}</span>
-                  <span style={{ marginLeft: 6 }}>{fmtDate(i.data)}</span>
+                  <span className={`dash-badge dash-badge--${badgeCls} dash-badge--xs`}>{badgeTxt}</span>
+                  <span className="dash-list-widget-meta-sep">·</span>
+                  <span>{fmtDate(i.data)}</span>
                 </div>
               </div>
               <div className="dash-list-widget-side">

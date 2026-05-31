@@ -3792,30 +3792,118 @@ export const css = `
     .of-hero-title  { font-size: 20px; }
   }
 
-  /* ─── Etapa 4 — Dashboard Premium ────────────────────────────────────────── */
+  /* ─── Etapa 4 + 4.1 — Dashboard Premium ──────────────────────────────────── */
 
-  /* KPIs compactos */
+  /* KPIs compactos refinados (Etapa 4.1) */
   .kpi-v2-grid--compact {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
   }
   .dash-v2-root .kpi-v2.kpi-v2--compact {
-    min-height: 96px;
-    padding: 0.875rem 1rem;
-    gap: 4px;
+    position: relative;
+    min-height: 108px;
+    padding: 0.95rem 1rem 0.85rem 1.05rem;
+    gap: 6px;
     border-radius: var(--radius-lg);
+    border-color: color-mix(in oklab, var(--border) 55%, transparent);
+    overflow: hidden;
+    background:
+      linear-gradient(180deg,
+        color-mix(in oklab, var(--card) 100%, transparent),
+        color-mix(in oklab, var(--card) 96%, transparent));
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact::before {
+    /* esmaece a borda dupla padrão do kpi-v2 base */
+    display: none;
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact .kpi-v2-accent {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    border-radius: 3px 0 0 3px;
+    transition: background 0.18s var(--ease-out, ease-out);
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--success .kpi-v2-accent { background: var(--success); }
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--danger  .kpi-v2-accent { background: var(--danger); }
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--warning .kpi-v2-accent { background: var(--warning); }
+
+  .dash-v2-root .kpi-v2--compact .kpi-v2-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
   }
   .dash-v2-root .kpi-v2--compact .kpi-v2-icon-wrap {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm);
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in oklab, var(--muted) 80%, transparent);
+    color: var(--muted-foreground);
   }
-  .dash-v2-root .kpi-v2--compact .kpi-v2-value { font-size: 20px; }
-  .dash-v2-root .kpi-v2--compact .kpi-v2-label { font-size: 9px; }
-  .dash-v2-root .kpi-v2--compact .kpi-v2-sub { font-size: 10px; }
-  .dash-v2-root .kpi-v2--compact::after {
-    width: 90px; height: 90px;
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--success .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--success) 16%, transparent);
+    color: var(--success-fg);
   }
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--danger .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--danger) 16%, transparent);
+    color: var(--danger-fg);
+  }
+  .dash-v2-root .kpi-v2.kpi-v2--compact.kpi-v2--warning .kpi-v2-icon-wrap {
+    background: color-mix(in oklab, var(--warning) 18%, transparent);
+    color: var(--warning-fg);
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-label-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-sub {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-v2-root .kpi-v2--compact::after { display: none; }
+
+  /* Linha de alerts compactos */
+  .dash-alerts-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .dash-alerts-row > * {
+    margin: 0 !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .dash-alerts-row:empty { display: none; }
 
   /* Grid principal: hero chart + side widget */
   .dash-main-grid {
@@ -3829,80 +3917,106 @@ export const css = `
 
   /* Hero chart card */
   .dash-hero-chart {
-    background: var(--card);
-    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    position: relative;
+    background:
+      radial-gradient(120% 80% at 0% 0%,
+        color-mix(in oklab, var(--success) 7%, transparent) 0%,
+        transparent 55%),
+      linear-gradient(180deg,
+        color-mix(in oklab, var(--card) 100%, transparent),
+        color-mix(in oklab, var(--card) 96%, transparent));
+    border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-float);
-    padding: 1rem 1.125rem 0.75rem;
+    padding: 1.1rem 1.25rem 1rem;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     height: 100%;
-    min-height: 340px;
+    min-height: 400px;
   }
   .dash-hero-chart-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+    padding-bottom: 10px;
   }
+  .dash-hero-chart-headline { min-width: 0; }
   .dash-hero-chart-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--foreground);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
   .dash-hero-chart-sub {
     font-size: 11px;
     color: var(--muted-foreground);
     font-weight: 500;
+    margin-top: 2px;
   }
-  .dash-hero-chart-legend {
+  .dash-hero-chart-totals {
     display: flex;
-    gap: 12px;
+    gap: 18px;
     flex-wrap: wrap;
-    font-size: 11px;
-    color: var(--muted-foreground);
-    font-weight: 500;
   }
-  .dash-hero-chart-legend .lg-item {
+  .dash-hero-chart-total {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .dash-hero-chart-total .lbl {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
     display: inline-flex;
     align-items: center;
     gap: 5px;
   }
-  .dash-hero-chart-legend .lg-item i {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    display: inline-block;
+  .dash-hero-chart-total .dot {
+    width: 8px; height: 8px; border-radius: 2px; display: inline-block;
   }
+  .dash-hero-chart-total .val {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .dash-hero-chart-total .val.success { color: var(--success-fg); }
+  .dash-hero-chart-total .val.danger  { color: var(--danger-fg); }
   .dash-hero-chart-body {
     flex: 1;
-    min-height: 280px;
+    min-height: 320px;
   }
 
   /* Tooltip do hero chart */
   .dash-hero-tooltip {
     background: var(--card);
-    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-elevated);
-    padding: 8px 10px;
-    min-width: 180px;
+    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.22);
+    padding: 10px 12px;
+    min-width: 200px;
     font-size: 11px;
+    backdrop-filter: blur(8px);
   }
   .dash-hero-tooltip-title {
     font-weight: 700;
     color: var(--foreground);
-    margin-bottom: 6px;
+    margin-bottom: 7px;
     font-size: 12px;
+    letter-spacing: -0.01em;
   }
   .dash-hero-tooltip-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 0;
+    gap: 8px;
+    padding: 3px 0;
   }
   .dash-hero-tooltip-row .dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -3911,6 +4025,7 @@ export const css = `
   .dash-hero-tooltip-row .lbl {
     flex: 1;
     color: var(--muted-foreground);
+    font-weight: 500;
   }
   .dash-hero-tooltip-row .val {
     font-family: var(--font-mono);
@@ -3922,11 +4037,11 @@ export const css = `
   .dash-hero-tooltip-row .val.danger  { color: var(--danger-fg); }
   .dash-hero-tooltip-divider {
     height: 1px;
-    background: color-mix(in oklab, var(--border) 70%, transparent);
+    background: color-mix(in oklab, var(--border) 65%, transparent);
     margin: 6px 0;
   }
 
-  /* Grid de widgets (últimos lançamentos + contas) */
+  /* Grid de widgets secundários */
   .dash-widgets-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3937,14 +4052,14 @@ export const css = `
   /* List widget genérico */
   .dash-list-widget {
     background: var(--card);
-    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-float);
-    padding: 0.875rem 1rem 0.75rem;
+    padding: 1rem 1.1rem 0.85rem;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-height: 280px;
+    gap: 8px;
+    min-height: 320px;
   }
   .dash-list-widget-header {
     display: flex;
@@ -3952,6 +4067,8 @@ export const css = `
     align-items: flex-start;
     gap: 8px;
     margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
   }
   .dash-list-widget-title {
     font-size: 13px;
@@ -3963,6 +4080,7 @@ export const css = `
     font-size: 11px;
     color: var(--muted-foreground);
     font-weight: 500;
+    margin-top: 2px;
   }
   .dash-list-widget-link {
     background: transparent;
@@ -3971,9 +4089,9 @@ export const css = `
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    padding: 4px 6px;
+    padding: 4px 8px;
     border-radius: var(--radius-sm);
-    transition: background 0.15s var(--ease-out);
+    transition: background 0.15s var(--ease-out, ease-out);
   }
   .dash-list-widget-link:hover {
     background: color-mix(in oklab, var(--primary) 12%, transparent);
@@ -3988,9 +4106,15 @@ export const css = `
   .dash-list-widget-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 4px;
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+    gap: 12px;
+    padding: 9px 4px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 35%, transparent);
+    transition: background 0.12s ease-out;
+  }
+  .dash-list-widget-list--cozy .dash-list-widget-row { padding: 10px 4px; }
+  .dash-list-widget-row:hover {
+    background: color-mix(in oklab, var(--muted) 35%, transparent);
+    border-radius: 8px;
   }
   .dash-list-widget-row:last-child { border-bottom: none; }
   .dash-list-widget-main {
@@ -3998,22 +4122,27 @@ export const css = `
     min-width: 0;
   }
   .dash-list-widget-hist {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--foreground);
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.3;
   }
   .dash-list-widget-meta {
-    font-size: 10px;
+    font-size: 10.5px;
     color: var(--muted-foreground);
     font-weight: 500;
-    margin-top: 2px;
+    margin-top: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .dash-list-widget-meta-sep { opacity: 0.45; }
   .dash-list-widget-side {
     text-align: right;
     flex-shrink: 0;
@@ -4021,7 +4150,7 @@ export const css = `
   .dash-list-widget-val {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -4036,7 +4165,7 @@ export const css = `
 
   /* Pill de tipo */
   .dash-tipo-pill {
-    width: 26px; height: 26px;
+    width: 28px; height: 28px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
@@ -4044,17 +4173,17 @@ export const css = `
     font-size: 13px;
     font-weight: 700;
     flex-shrink: 0;
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 22%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 18%, transparent);
   }
-  .dash-tipo-pill--in  { background: var(--success-soft); color: var(--success-fg); }
-  .dash-tipo-pill--out { background: var(--danger-soft);  color: var(--danger-fg); }
-  .dash-tipo-pill--tr  { background: var(--info-soft);    color: var(--info-fg); }
+  .dash-tipo-pill--in  { background: color-mix(in oklab, var(--success) 14%, transparent); color: var(--success-fg); }
+  .dash-tipo-pill--out { background: color-mix(in oklab, var(--danger) 14%, transparent);  color: var(--danger-fg); }
+  .dash-tipo-pill--tr  { background: color-mix(in oklab, var(--info) 16%, transparent);    color: var(--info-fg); }
 
   /* Badges genéricas */
   .dash-badge {
     display: inline-flex;
     align-items: center;
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 700;
     padding: 2px 7px;
     border-radius: 999px;
@@ -4062,10 +4191,15 @@ export const css = `
     text-transform: uppercase;
     line-height: 1.2;
   }
-  .dash-badge--danger  { background: var(--danger-soft);  color: var(--danger-fg); }
-  .dash-badge--warning { background: var(--warning-soft); color: var(--warning-fg); }
-  .dash-badge--info    { background: var(--info-soft);    color: var(--info-fg); }
-  .dash-badge--success { background: var(--success-soft); color: var(--success-fg); }
+  .dash-badge--xs {
+    font-size: 9px;
+    padding: 1px 6px;
+    letter-spacing: 0.03em;
+  }
+  .dash-badge--danger  { background: color-mix(in oklab, var(--danger) 16%, transparent);  color: var(--danger-fg); }
+  .dash-badge--warning { background: color-mix(in oklab, var(--warning) 18%, transparent); color: var(--warning-fg); }
+  .dash-badge--info    { background: color-mix(in oklab, var(--info) 16%, transparent);    color: var(--info-fg); }
+  .dash-badge--success { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success-fg); }
 
   /* Empty state */
   .dash-empty-state {
@@ -4074,15 +4208,28 @@ export const css = `
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 1.5rem 1rem;
+    padding: 1.75rem 1.25rem;
     gap: 6px;
-    min-height: 160px;
+    min-height: 180px;
     color: var(--muted-foreground);
   }
+  .dash-empty-state-bubble {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 25%,
+        color-mix(in oklab, var(--muted) 80%, transparent),
+        color-mix(in oklab, var(--muted) 40%, transparent));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 50%, transparent);
+  }
   .dash-empty-state-icon {
-    font-size: 34px;
-    opacity: 0.85;
-    margin-bottom: 4px;
+    font-size: 28px;
+    line-height: 1;
   }
   .dash-empty-state-title {
     font-size: 13px;
@@ -4090,28 +4237,53 @@ export const css = `
     color: var(--foreground);
   }
   .dash-empty-state-desc {
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--muted-foreground);
-    max-width: 280px;
-    line-height: 1.45;
+    max-width: 300px;
+    line-height: 1.5;
   }
-  .dash-empty-state-action { margin-top: 8px; }
+  .dash-empty-state-hint {
+    font-size: 10.5px;
+    color: var(--muted-foreground);
+    opacity: 0.85;
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--muted) 50%, transparent);
+  }
+  .dash-empty-state-action { margin-top: 10px; }
+  .dash-empty-state--success .dash-empty-state-bubble {
+    background:
+      radial-gradient(circle at 30% 25%,
+        color-mix(in oklab, var(--success) 25%, transparent),
+        color-mix(in oklab, var(--success) 8%, transparent));
+  }
   .dash-empty-state--success .dash-empty-state-icon { color: var(--success-fg); }
 
-  /* ── Responsividade Etapa 4 ──────────────────────────────────────────────── */
+  /* ── Responsividade Etapa 4.1 ─────────────────────────────────────────── */
+  @media (max-width: 1400px) {
+    .kpi-v2-grid--compact { gap: 10px; }
+    .dash-main-grid { gap: 12px; }
+    .dash-hero-chart { padding: 1rem 1.05rem 0.9rem; min-height: 380px; }
+    .dash-hero-chart-totals { gap: 14px; }
+  }
   @media (max-width: 1180px) {
-    .kpi-v2-grid--compact { grid-template-columns: repeat(3, 1fr); }
+    .kpi-v2-grid--compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .dash-main-grid { grid-template-columns: 1fr; }
+    .dash-alerts-row { grid-template-columns: 1fr; }
   }
   @media (max-width: 820px) {
     .dash-widgets-grid { grid-template-columns: 1fr; }
+    .dash-hero-chart-header { gap: 10px; }
+    .dash-hero-chart-totals { gap: 12px; width: 100%; }
   }
   @media (max-width: 540px) {
-    .kpi-v2-grid--compact { grid-template-columns: repeat(2, 1fr); }
+    .kpi-v2-grid--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dash-v2-root .kpi-v2.kpi-v2--compact { min-height: 96px; padding: 0.8rem 0.85rem; }
     .dash-v2-root .kpi-v2.kpi-v2--compact .kpi-v2-value { font-size: 18px; }
-    .dash-hero-chart { min-height: 260px; padding: 0.875rem; }
-    .dash-hero-chart-body { min-height: 220px; }
-    .dash-list-widget { min-height: 220px; }
+    .dash-hero-chart { min-height: 300px; padding: 0.9rem; }
+    .dash-hero-chart-body { min-height: 240px; }
+    .dash-list-widget { min-height: 240px; padding: 0.85rem 0.9rem; }
   }
 
 `;

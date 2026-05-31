@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer,
 } from "recharts";
 import { CHART, MESES } from "../../constants.js";
 import { fmtBRL } from "../../finance.js";
@@ -15,7 +15,7 @@ const fmtK = (v) => {
 };
 
 /**
- * Custom tooltip formatado em BRL — mostra Receitas, Despesas e Saldo.
+ * Custom tooltip premium — Receitas / Despesas / Saldo em BRL.
  */
 function HeroTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -47,12 +47,10 @@ function HeroTooltip({ active, payload, label }) {
 }
 
 /**
- * HeroChart12m — Gráfico principal dominante da Dashboard V2 (Etapa 4).
+ * HeroChart12m — Gráfico principal premium (Etapa 4.1).
  *
- * Recebe um array de 12 meses com { name, Receitas, Despesas } e desenha
- * AreaChart com gradientes + linha de Saldo sobreposta.
- *
- * Não realiza cálculos novos: aceita os dados já preparados pela página.
+ * Maior, mais vivo, com totais resumidos no header.
+ * Não realiza cálculos novos: usa os dados já preparados pela página.
  */
 function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitle }) {
   const enriched = useMemo(
@@ -60,52 +58,67 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
     [data]
   );
 
-  const total = useMemo(
-    () => enriched.reduce((acc, d) => acc + (d.Receitas || 0) + (d.Despesas || 0), 0),
-    [enriched]
-  );
+  const totals = useMemo(() => {
+    let r = 0, d = 0;
+    for (const x of enriched) { r += x.Receitas || 0; d += x.Despesas || 0; }
+    return { rec: r, desp: d, saldo: r - d };
+  }, [enriched]);
+
+  const hasData = totals.rec + totals.desp > 0;
 
   return (
     <div className="dash-hero-chart">
       <div className="dash-hero-chart-header">
-        <div>
+        <div className="dash-hero-chart-headline">
           <div className="dash-hero-chart-title">{title}</div>
           {subtitle && <div className="dash-hero-chart-sub">{subtitle}</div>}
         </div>
-        <div className="dash-hero-chart-legend">
-          <span className="lg-item"><i style={{ background: CHART.receita }} /> Receitas</span>
-          <span className="lg-item"><i style={{ background: CHART.despesas }} /> Despesas</span>
-          <span className="lg-item"><i style={{ background: "var(--primary)" }} /> Saldo</span>
+        <div className="dash-hero-chart-totals">
+          <div className="dash-hero-chart-total">
+            <span className="lbl"><i className="dot" style={{ background: CHART.receita }} />Receitas</span>
+            <span className="val success">{fmtBRL(totals.rec)}</span>
+          </div>
+          <div className="dash-hero-chart-total">
+            <span className="lbl"><i className="dot" style={{ background: CHART.despesas }} />Despesas</span>
+            <span className="val danger">{fmtBRL(totals.desp)}</span>
+          </div>
+          <div className="dash-hero-chart-total">
+            <span className="lbl"><i className="dot" style={{ background: "var(--primary)" }} />Saldo</span>
+            <span className={`val ${totals.saldo >= 0 ? "success" : "danger"}`}>{fmtBRL(totals.saldo)}</span>
+          </div>
         </div>
       </div>
 
       <div className="dash-hero-chart-body">
-        {total === 0 ? (
+        {!hasData ? (
           <EmptyState
             icon="📈"
             title="Sem movimentação nos últimos 12 meses"
-            description="Adicione lançamentos para visualizar a evolução de receitas e despesas."
+            description="Lance receitas e despesas para visualizar a evolução completa."
+            hint="Dica: cadastre recorrências para automatizar a entrada de dados."
           />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={enriched} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+            <ComposedChart data={enriched} margin={{ top: 14, right: 14, left: 0, bottom: 4 }}>
               <defs>
                 <linearGradient id="heroRecGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"  stopColor={CHART.receita} stopOpacity={0.55} />
-                  <stop offset="95%" stopColor={CHART.receita} stopOpacity={0.02} />
+                  <stop offset="0%"  stopColor={CHART.receita} stopOpacity={0.75} />
+                  <stop offset="60%" stopColor={CHART.receita} stopOpacity={0.18} />
+                  <stop offset="100%" stopColor={CHART.receita} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="heroDespGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"  stopColor={CHART.despesas} stopOpacity={0.5} />
-                  <stop offset="95%" stopColor={CHART.despesas} stopOpacity={0.02} />
+                  <stop offset="0%"  stopColor={CHART.despesas} stopOpacity={0.55} />
+                  <stop offset="60%" stopColor={CHART.despesas} stopOpacity={0.12} />
+                  <stop offset="100%" stopColor={CHART.despesas} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 6" stroke={CHART.grid} strokeOpacity={0.55} vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={48} />
+              <XAxis dataKey="name" tick={{ fill: CHART.tick, fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} dy={4} />
+              <YAxis tick={{ fill: CHART.tick, fontSize: 10, fontWeight: 500 }} tickFormatter={fmtK} axisLine={false} tickLine={false} width={46} />
               <Tooltip content={<HeroTooltip />} cursor={{ stroke: CHART.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
-              <Area type="monotone" dataKey="Receitas" stroke={CHART.receita}  fill="url(#heroRecGrad)"  strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-              <Area type="monotone" dataKey="Despesas" stroke={CHART.despesas} fill="url(#heroDespGrad)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-              <Line type="monotone" dataKey="Saldo" stroke="var(--primary)" strokeWidth={2} strokeDasharray="6 4" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "var(--primary)" }} />
+              <Area type="monotone" dataKey="Receitas" stroke={CHART.receita}  fill="url(#heroRecGrad)"  strokeWidth={2.75} dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)", fill: CHART.receita }} />
+              <Area type="monotone" dataKey="Despesas" stroke={CHART.despesas} fill="url(#heroDespGrad)" strokeWidth={2.75} dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)", fill: CHART.despesas }} />
+              <Line type="monotone" dataKey="Saldo" stroke="var(--primary)" strokeWidth={2.25} strokeDasharray="6 4" dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)", fill: "var(--primary)" }} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -116,5 +129,4 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
 
 export default memo(HeroChart12m);
 
-/* MESES export reuse hint (silenciar eslint se não usado) */
 export { MESES as _MESES };

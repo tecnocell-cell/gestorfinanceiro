@@ -72,7 +72,7 @@ function UltimosLancamentosWidget({ limit = 8, onVerTodos }) {
         )}
       </div>
 
-      <ul className="dash-list-widget-list">
+      <ul className="dash-list-widget-list dash-list-widget-list--cozy">
         {items.map((l) => {
           const meta = TIPO_META[l.tipo] || TIPO_META.Saida;
           const conta = contaById[l.contaId];
