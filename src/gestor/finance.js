@@ -78,14 +78,27 @@ export const filterLancamentos = (lancamentos, { ano, mes, tipo, search, contaId
       return true;
     })
     .sort((a, b) => {
-      // Mais recente primeiro.
-      // Tiebreaker 1: createdAt (lançamentos WhatsApp têm timestamp completo)
-      // Tiebreaker 2: id (estável)
-      const aKey = a.createdAt ? new Date(a.createdAt).getTime()
-                               : new Date((a.data || "1970-01-01") + "T00:00:00").getTime();
-      const bKey = b.createdAt ? new Date(b.createdAt).getTime()
-                               : new Date((b.data || "1970-01-01") + "T00:00:00").getTime();
-      return bKey - aKey || b.id.localeCompare(a.id);
+      // Mais recente primeiro (data DESC).
+      // Tiebreaker 1: codigo numérico mais recente primeiro.
+      // Tiebreaker 2: createdAt mais recente (lançamentos WhatsApp têm timestamp completo).
+      // Tiebreaker 3: id (estável).
+      const aData = a.data || "1970-01-01";
+      const bData = b.data || "1970-01-01";
+      if (aData !== bData) return bData.localeCompare(aData);
+
+      const aCod = Number(a.codigo);
+      const bCod = Number(b.codigo);
+      const aHasCod = Number.isFinite(aCod);
+      const bHasCod = Number.isFinite(bCod);
+      if (aHasCod && bHasCod && aCod !== bCod) return bCod - aCod;
+      if (aHasCod && !bHasCod) return -1;
+      if (!aHasCod && bHasCod) return 1;
+
+      const aTs = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (aTs !== bTs) return bTs - aTs;
+
+      return String(b.id || "").localeCompare(String(a.id || ""));
     });
 };
 
@@ -327,13 +340,17 @@ export const getFluxoCaixa = (lancamentos, ano, mes) => {
 export const lancamentosComSaldoConta = (lancamentos, contas, contaId) => {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) return [];
+  // filterLancamentos retorna DESC. Para o saldo acumulado precisamos percorrer
+  // em ordem cronológica (ASC), então invertemos, acumulamos e voltamos a DESC.
+  const sortedDesc = filterLancamentos(lancamentos, { contaId });
+  const sortedAsc = [...sortedDesc].reverse();
   let saldo = conta.saldoInicial || 0;
-  const sorted = filterLancamentos(lancamentos, { contaId });
-  return sorted.map((l) => {
+  const withSaldoAsc = sortedAsc.map((l) => {
     if (l.contaEntradaId === contaId) saldo += l.valor;
     if (l.contaSaidaId === contaId) saldo -= l.valor;
     return { ...l, saldoConta: saldo };
   });
+  return withSaldoAsc.reverse();
 };
 
 export const nextLote = (lancamentos) => {

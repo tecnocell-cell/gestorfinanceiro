@@ -350,14 +350,14 @@ export function GestorProvider({ children }) {
   );
 
   const lancsFiltrados = useMemo(
-    () => [...filterLancamentos(lancamentos, {
+    () => filterLancamentos(lancamentos, {
       ano: filterPeriodo.ano,
       mes: filterPeriodo.mes,
       tipo: tipoFilter,
       search,
       contaId: contaFilter || undefined,
       consiliado: consiliadoFilter === "Sim" ? "Sim" : consiliadoFilter === "Nao" ? "Nao" : undefined,
-    })].reverse(),
+    }),
     [lancamentos, filterPeriodo, tipoFilter, search, contaFilter, consiliadoFilter]
   );
 
