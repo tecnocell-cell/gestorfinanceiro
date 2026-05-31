@@ -830,59 +830,93 @@ export function ContasPage() {
 
 export function PlanoContasPage() {
   const { planoContas, openModal, planoCrud } = useGestor();
-  const badgeColor = (tipo) => tipo === "Receita" ? "badge-green" : tipo === "Custo" ? "badge-red" : tipo === "Imposto" ? "badge-blue" : "badge-amber";
+  const badgeColor = (tipo) => {
+    if (tipo === "Receita") return "pp-badge-green";
+    if (tipo === "Custo") return "pp-badge-red";
+    if (tipo === "Imposto") return "pp-badge-blue";
+    return "pp-badge-amber";
+  };
 
   const importarSugestoes = () => {
     const existentes = new Set(planoContas.map((p) => p.descricao.toLowerCase().trim()));
     const novas = DEFAULT_CATS_PJ.filter((c) => !existentes.has(c.descricao.toLowerCase().trim()));
-    if (!novas.length) return alert("Todas as categorias sugeridas j? existem.");
+    if (!novas.length) return alert("Todas as categorias sugeridas já existem.");
     if (!window.confirm(`Adicionar ${novas.length} categoria(s) sugerida(s)?`)) return;
     novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), codigo: "", caixaBanco: "", contaContabil: "" }));
   };
 
   return (
     <div>
-      <div className="toolbar">
-        <button type="button" className="btn btn-secondary btn-sm" onClick={importarSugestoes} title="Adiciona categorias padrão sugeridas">
-          ??? Sugestões
-        </button>
-        <button type="button" className="btn btn-primary" onClick={() => openModal("plano")}>+ Nova Conta</button>
-      </div>
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th style={{ width: 36 }}>?cone</th><th>Código</th><th>Descrição</th><th>Tipo</th><th>Natureza</th><th></th></tr></thead>
-            <tbody>
-              {planoContas.map((pc) => (
-                <tr key={pc.id}>
-                  <td style={{ textAlign: "center" }}>
-                    {pc.icone ? (
-                      <span className="cat-icone" style={{ background: pc.cor || "var(--muted)", fontSize: 14 }}>
-                        {pc.icone}
-                      </span>
-                    ) : (
-                      <span className="cat-icone cat-icone-empty">???</span>
-                    )}
-                  </td>
-                  <td className="td-mono">{pc.codigo}</td>
-                  <td>{pc.descricao}</td>
-                  <td><span className={`badge ${badgeColor(pc.tipo)}`}>{pc.tipo}</span></td>
-                  <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "?"}</td>
-                  <td className="table-actions-cell">
-                    <div className="table-actions-inline">
-                      <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar categoria" onClick={() => openModal("plano", pc)}>
-                        <PenLine size={14} strokeWidth={2} aria-hidden />
-                      </button>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir categoria" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>
-                        <Trash2 size={14} strokeWidth={2} aria-hidden />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">Plano de Contas</span>
+          <span className="pp-page-sub">Estrutura contábil da empresa — receitas, custos, despesas e impostos.</span>
         </div>
+        <div className="pp-page-actions">
+          <button type="button" className="pp-btn-secondary" onClick={importarSugestoes} title="Adiciona categorias padrão sugeridas">
+            ✦ Sugestões
+          </button>
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("plano")}>
+            <span aria-hidden>＋</span> Nova conta
+          </button>
+        </div>
+      </div>
+
+      <div className="pp-card">
+        {planoContas.length === 0 ? (
+          <div className="pp-empty">
+            <div className="pp-empty-icon" aria-hidden>▤</div>
+            <div className="pp-empty-title">Plano de contas vazio</div>
+            <div className="pp-empty-text">Adicione contas contábeis ou importe as sugestões padrão.</div>
+            <button type="button" className="pp-btn-primary" onClick={() => openModal("plano")}>
+              <span aria-hidden>＋</span> Nova conta
+            </button>
+          </div>
+        ) : (
+          <div className="pp-table-wrap">
+            <table className="pp-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 48 }}>Ícone</th>
+                  <th>Código</th>
+                  <th>Descrição</th>
+                  <th>Tipo</th>
+                  <th>Natureza</th>
+                  <th style={{ textAlign: "right" }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {planoContas.map((pc) => (
+                  <tr key={pc.id}>
+                    <td style={{ textAlign: "center" }}>
+                      {pc.icone ? (
+                        <span className="cat-icone" style={{ background: pc.cor || "var(--muted)", fontSize: 14 }}>
+                          {pc.icone}
+                        </span>
+                      ) : (
+                        <span className="cat-icone cat-icone-empty">◼</span>
+                      )}
+                    </td>
+                    <td className="td-mono">{pc.codigo}</td>
+                    <td>{pc.descricao}</td>
+                    <td><span className={`pp-badge ${badgeColor(pc.tipo)}`}>{pc.tipo}</span></td>
+                    <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "—"}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <div className="pp-row-actions">
+                        <button type="button" className="pp-icon-btn" title="Editar categoria" onClick={() => openModal("plano", pc)}>
+                          <PenLine size={14} strokeWidth={2} aria-hidden />
+                        </button>
+                        <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir categoria" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>
+                          <Trash2 size={14} strokeWidth={2} aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
