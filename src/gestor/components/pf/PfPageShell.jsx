@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { PF_PAGE_HINTS } from "../../pfHints.js";
 
+/**
+ * PfPageShell — wrapper das páginas PF.
+ *
+ * v4.4: passou a usar position:relative + posicionamento absoluto
+ *       do botão "Como usar". Isso garante:
+ *         - o conteúdo da página ocupa 100% da largura disponível
+ *         - o botão "Como usar" fica ancorado ao topo direito do card,
+ *           sem float-right "comendo" largura.
+ */
 export default function PfPageShell({ pageId, children }) {
   const hint = PF_PAGE_HINTS[pageId];
   const [open, setOpen] = useState(false);
@@ -20,7 +29,7 @@ export default function PfPageShell({ pageId, children }) {
   if (!hint) return children;
 
   return (
-    <>
+    <div className="pf-page-shell">
       <div ref={wrapRef} className={`pf-page-hint-wrap${open ? " is-open" : ""}`}>
         <button
           type="button"
@@ -43,6 +52,6 @@ export default function PfPageShell({ pageId, children }) {
         )}
       </div>
       {children}
-    </>
+    </div>
   );
 }

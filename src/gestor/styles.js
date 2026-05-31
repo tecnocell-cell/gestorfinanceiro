@@ -2183,12 +2183,18 @@ export const css = `
   }
 
   /* ─── PF — dicas e alertas de vencimento ─── */
+  /* ETAPA 4.4 — shell PF: o conteúdo da página ocupa 100% da largura.
+     O botão "Como usar" vira uma linha right-aligned acima do conteúdo
+     (em vez de float-right, que estava "comendo" a largura visual). */
+  .pf-page-shell { display: flex; flex-direction: column; gap: 8px; width: 100%; }
   .pf-page-hint-wrap {
     position: relative;
-    float: right;
-    clear: both;
-    margin: 0 0 12px 12px;
+    align-self: flex-end;
+    margin: 0 0 4px 0;
     z-index: 5;
+  }
+  @media (max-width: 720px) {
+    .pf-page-hint-wrap { margin: 0 0 8px; }
   }
 
   .pf-page-hint-trigger {
@@ -4802,6 +4808,248 @@ export const css = `
     .lanc-summary-value { font-size: 16.5px; }
     .lanc-toolbar { padding: 10px; }
   }
+
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* ETAPA 4.4 — PREMIUM PATTERN (.pp-*) + refinamentos por tela        */
+  /* ═══════════════════════════════════════════════════════════════════ */
+
+  /* — Page header (título + subtítulo + ações) — */
+  .pp-page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    padding: 4px 2px 12px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    margin-bottom: 14px;
+  }
+  .pp-page-header-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .pp-page-title { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; line-height: 1.1; }
+  .pp-page-sub { font-size: 12.5px; color: var(--text2); }
+  .pp-page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  /* — Toolbar (linha de filtros / busca / ações) — */
+  .pp-toolbar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    margin-bottom: 14px;
+  }
+  .pp-toolbar .pp-toolbar-spacer { flex: 1 1 auto; }
+  .pp-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--bg); color: var(--text2);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: all .12s ease;
+  }
+  .pp-chip:hover { background: color-mix(in oklab, var(--primary) 6%, var(--bg)); color: var(--text); }
+  .pp-chip.is-active {
+    background: color-mix(in oklab, var(--primary) 14%, var(--bg));
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+    color: var(--text); font-weight: 600;
+  }
+  .pp-chip-in.is-active   { background: color-mix(in oklab, #10b981 18%, var(--bg)); border-color: color-mix(in oklab, #10b981 40%, var(--border)); color: #047857; }
+  .pp-chip-out.is-active  { background: color-mix(in oklab, #ef4444 16%, var(--bg)); border-color: color-mix(in oklab, #ef4444 40%, var(--border)); color: #b91c1c; }
+  .pp-chip-warn.is-active { background: color-mix(in oklab, #f59e0b 18%, var(--bg)); border-color: color-mix(in oklab, #f59e0b 40%, var(--border)); color: #b45309; }
+
+  .pp-select {
+    height: 32px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg); color: var(--text); font-size: 12.5px;
+    min-width: 140px; cursor: pointer;
+  }
+
+  /* — Summary grid (KPI compactos com barra colorida) — */
+  .pp-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .pp-summary-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pp-summary-card {
+    position: relative; overflow: hidden;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .pp-summary-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(0,0,0,0.18); }
+  .pp-summary-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--text3);
+  }
+  .pp-summary-in::before    { background: linear-gradient(180deg, #10b981, #059669); }
+  .pp-summary-out::before   { background: linear-gradient(180deg, #ef4444, #dc2626); }
+  .pp-summary-warn::before  { background: linear-gradient(180deg, #f59e0b, #d97706); }
+  .pp-summary-info::before  { background: linear-gradient(180deg, #3b82f6, #2563eb); }
+  .pp-summary-muted::before { background: linear-gradient(180deg, #8b5cf6, #6d28d9); }
+  .pp-summary-icon {
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 9px; font-size: 14px; margin-bottom: 8px;
+    background: color-mix(in oklab, var(--primary) 8%, var(--bg));
+    color: var(--text2);
+  }
+  .pp-summary-in   .pp-summary-icon { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; }
+  .pp-summary-out  .pp-summary-icon { background: color-mix(in oklab, #ef4444 14%, var(--bg)); color: #b91c1c; }
+  .pp-summary-warn .pp-summary-icon { background: color-mix(in oklab, #f59e0b 14%, var(--bg)); color: #b45309; }
+  .pp-summary-info .pp-summary-icon { background: color-mix(in oklab, #3b82f6 14%, var(--bg)); color: #1d4ed8; }
+  .pp-summary-label {
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+  }
+  .pp-summary-value {
+    font-family: var(--font-mono); font-size: 20px; font-weight: 700;
+    color: var(--text); letter-spacing: -0.01em; line-height: 1.1;
+  }
+  .pp-summary-in  .pp-summary-value { color: #059669; }
+  .pp-summary-out .pp-summary-value { color: #dc2626; }
+  .pp-summary-warn .pp-summary-value { color: #d97706; }
+  .pp-summary-info .pp-summary-value { color: #2563eb; }
+  .pp-summary-hint { margin-top: 4px; font-size: 11.5px; color: var(--text3); }
+
+  /* — Card / Table premium — */
+  .pp-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .pp-table-wrap { overflow-x: auto; }
+  .pp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pp-table thead th {
+    text-align: left; padding: 11px 14px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text3);
+    background: color-mix(in oklab, var(--bg) 60%, var(--bg2));
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .pp-table tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    vertical-align: middle; color: var(--text);
+  }
+  .pp-table tbody tr:last-child td { border-bottom: 0; }
+  .pp-table tbody tr { transition: background .12s ease; }
+  .pp-table tbody tr:hover { background: color-mix(in oklab, var(--primary) 4%, transparent); }
+  .pp-table tbody tr:hover .pp-row-actions { opacity: 1; }
+  .pp-th-num { text-align: right !important; }
+  .pp-cell-value {
+    font-family: var(--font-mono); font-weight: 600; font-size: 13.5px;
+    white-space: nowrap; text-align: right;
+  }
+  .pp-cell-value-in  { color: #047857; }
+  .pp-cell-value-out { color: #b91c1c; }
+
+  /* — Badges premium — */
+  .pp-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 9px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pp-badge-green { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; border-color: color-mix(in oklab, #10b981 28%, transparent); }
+  .pp-badge-red   { background: color-mix(in oklab, #ef4444 12%, var(--bg)); color: #b91c1c; border-color: color-mix(in oklab, #ef4444 26%, transparent); }
+  .pp-badge-blue  { background: color-mix(in oklab, #3b82f6 14%, var(--bg)); color: #1d4ed8; border-color: color-mix(in oklab, #3b82f6 28%, transparent); }
+  .pp-badge-amber { background: color-mix(in oklab, #f59e0b 14%, var(--bg)); color: #b45309; border-color: color-mix(in oklab, #f59e0b 28%, transparent); }
+  .pp-badge-violet{ background: color-mix(in oklab, #8b5cf6 14%, var(--bg)); color: #6d28d9; border-color: color-mix(in oklab, #8b5cf6 28%, transparent); }
+  .pp-badge-muted { background: color-mix(in oklab, var(--text3) 14%, var(--bg)); color: var(--text2); border-color: var(--border); }
+
+  /* — Action buttons — */
+  .pp-btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 36px; padding: 0 14px;
+    border-radius: 10px; border: 1px solid transparent;
+    background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 78%, #000));
+    color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 6px 18px -8px color-mix(in oklab, var(--primary) 60%, transparent);
+    transition: transform .12s ease, filter .15s ease;
+  }
+  .pp-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .pp-btn-primary:active { transform: translateY(0); }
+  .pp-btn-secondary {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 14px;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    font-weight: 500; font-size: 13px; cursor: pointer;
+    transition: all .12s ease;
+  }
+  .pp-btn-secondary:hover { background: color-mix(in oklab, var(--primary) 6%, var(--bg)); border-color: color-mix(in oklab, var(--primary) 28%, var(--border)); }
+
+  .pp-row-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.45; transition: opacity .12s ease; }
+  .pp-icon-btn {
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text2); cursor: pointer;
+    transition: all .12s ease;
+  }
+  .pp-icon-btn:hover {
+    background: color-mix(in oklab, var(--primary) 10%, var(--bg));
+    border-color: color-mix(in oklab, var(--primary) 30%, var(--border));
+    color: var(--text);
+  }
+  .pp-icon-btn-danger:hover {
+    background: color-mix(in oklab, #ef4444 12%, var(--bg));
+    border-color: color-mix(in oklab, #ef4444 30%, var(--border));
+    color: #b91c1c;
+  }
+  .pp-icon-btn-success:hover {
+    background: color-mix(in oklab, #10b981 12%, var(--bg));
+    border-color: color-mix(in oklab, #10b981 30%, var(--border));
+    color: #047857;
+  }
+
+  /* — Empty state premium — */
+  .pp-empty {
+    padding: 56px 24px;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: 12px;
+  }
+  .pp-empty-icon {
+    width: 64px; height: 64px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 18px;
+    background: radial-gradient(circle at 30% 30%,
+      color-mix(in oklab, var(--primary) 18%, var(--bg)),
+      color-mix(in oklab, var(--primary) 4%, var(--bg2)));
+    font-size: 30px;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 25%, var(--border));
+  }
+  .pp-empty-title { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+  .pp-empty-text  { font-size: 13px; color: var(--text2); max-width: 380px; line-height: 1.45; }
+  .pp-empty .pp-btn-primary { margin-top: 6px; }
+
+  @media (max-width: 1100px) {
+    .pp-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pp-summary-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 540px) {
+    .pp-summary-grid,
+    .pp-summary-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .pp-summary-card { padding: 11px 12px; }
+    .pp-summary-value { font-size: 16.5px; }
+    .pp-toolbar { padding: 10px; }
+  }
+
+  /* ─── Recorrências — visual de "assinaturas" ─── */
+  .rec-type-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .rec-type-pill .rec-type-icon {
+    width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 7px; font-size: 12px; font-weight: 700;
+  }
+  .rec-type-in  .rec-type-icon { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; }
+  .rec-type-out .rec-type-icon { background: color-mix(in oklab, #ef4444 14%, var(--bg)); color: #b91c1c; }
+  .rec-prox { font-family: var(--font-mono); font-size: 12.5px; }
+  .rec-prox-late { color: #b91c1c; font-weight: 600; }
+  .rec-prox-soon { color: #b45309; font-weight: 600; }
+  .rec-prox-ok   { color: var(--text2); }
+
+  /* ─── Contas a Pagar — destaque visual de linhas vencidas / próximas ─── */
+  .cp-row-late td { background: color-mix(in oklab, #ef4444 5%, transparent); }
+  .cp-row-soon td { background: color-mix(in oklab, #f59e0b 5%, transparent); }
+  .pp-table tbody tr.cp-row-late:hover td { background: color-mix(in oklab, #ef4444 9%, transparent); }
+  .pp-table tbody tr.cp-row-soon:hover td { background: color-mix(in oklab, #f59e0b 9%, transparent); }
+
+  /* ─── Lançamentos premium: garantir largura total ─── */
+  .lanc-premium { width: 100%; }
+  .lanc-card    { width: 100%; }
 
 `;
 

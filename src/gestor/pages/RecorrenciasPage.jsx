@@ -537,42 +537,96 @@ export default function RecorrenciasPage() {
     }
   };
 
+  // Resumo (visual premium)
+  const resumo = (() => {
+    const ativas = recorrencias.filter((r) => r.status === "ativa");
+    const totalMensalDespesas = ativas
+      .filter((r) => r.tipo === "Despesa" && r.periodicidade === "mensal")
+      .reduce((s, r) => s + (r.valor || 0), 0);
+    const totalMensalReceitas = ativas
+      .filter((r) => r.tipo === "Receita" && r.periodicidade === "mensal")
+      .reduce((s, r) => s + (r.valor || 0), 0);
+    const vencendo7 = ativas.filter((r) => {
+      const d = diasAteVencimento(r.proxima_data);
+      return !Number.isNaN(d) && d >= 0 && d <= 7;
+    }).length;
+    return {
+      ativas: ativas.length,
+      vencendo7,
+      totalMensalDespesas,
+      totalMensalReceitas,
+    };
+  })();
+
   return (
     <PfPageShell pageId="recorrencias">
-    <div>
-      {/* Toolbar */}
-      <div className="toolbar">
-        <h2 style={{ fontWeight: 700, fontSize: 16 }}>↺ Recorrências</h2>
-        <div className="toolbar-right">
-          {/* Filtro status */}
-          <select
-            className="form-select"
-            value={filtroStatus}
-            onChange={(e) => setFiltroStatus(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="Todos">Todos os status</option>
-            <option value="ativa">Ativas</option>
-            <option value="pausada">Pausadas</option>
-            <option value="encerrada">Encerradas</option>
-          </select>
-          {/* Filtro tipo */}
-          <select
-            className="form-select"
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            style={{ width: "auto" }}
-          >
-            <option value="Todos">Receitas + Despesas</option>
-            <option value="Receita">Só Receitas</option>
-            <option value="Despesa">Só Despesas</option>
-          </select>
-          {!viewOnly && (
-            <button className="btn btn-primary" onClick={() => setShowNova(true)}>
-              + Nova Recorrência
-            </button>
-          )}
+      <div className="pp-page-header">
+        <div className="pp-page-header-text">
+          <span className="pp-page-title">Recorrências</span>
+          <span className="pp-page-sub">
+            Suas assinaturas, contas fixas e receitas recorrentes em um só lugar.
+          </span>
         </div>
+        {!viewOnly && (
+          <div className="pp-page-actions">
+            <button type="button" className="pp-btn-primary" onClick={() => setShowNova(true)}>
+              <span aria-hidden>＋</span> Nova recorrência
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Resumo */}
+      <div className="pp-summary-grid">
+        <div className="pp-summary-card pp-summary-info">
+          <div className="pp-summary-icon" aria-hidden>↺</div>
+          <div className="pp-summary-label">Ativas</div>
+          <div className="pp-summary-value">{resumo.ativas}</div>
+          <div className="pp-summary-hint">recorrências em curso</div>
+        </div>
+        <div className="pp-summary-card pp-summary-out">
+          <div className="pp-summary-icon" aria-hidden>↓</div>
+          <div className="pp-summary-label">Despesas mensais</div>
+          <div className="pp-summary-value">{fmtBRL(resumo.totalMensalDespesas)}</div>
+          <div className="pp-summary-hint">compromisso fixo / mês</div>
+        </div>
+        <div className="pp-summary-card pp-summary-in">
+          <div className="pp-summary-icon" aria-hidden>↑</div>
+          <div className="pp-summary-label">Receitas mensais</div>
+          <div className="pp-summary-value">{fmtBRL(resumo.totalMensalReceitas)}</div>
+          <div className="pp-summary-hint">entradas previstas / mês</div>
+        </div>
+        <div className="pp-summary-card pp-summary-warn">
+          <div className="pp-summary-icon" aria-hidden>⌚</div>
+          <div className="pp-summary-label">Vencendo em 7 dias</div>
+          <div className="pp-summary-value">{resumo.vencendo7}</div>
+          <div className="pp-summary-hint">precisam de atenção</div>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="pp-toolbar">
+        <select
+          className="pp-select"
+          value={filtroStatus}
+          onChange={(e) => setFiltroStatus(e.target.value)}
+        >
+          <option value="Todos">Todos os status</option>
+          <option value="ativa">Ativas</option>
+          <option value="pausada">Pausadas</option>
+          <option value="encerrada">Encerradas</option>
+        </select>
+        {["Todos", "Receita", "Despesa"].map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`pp-chip${filtroTipo === t ? " is-active" : ""}${t === "Receita" ? " pp-chip-in" : t === "Despesa" ? " pp-chip-out" : ""}`}
+            onClick={() => setFiltroTipo(t)}
+          >
+            {t === "Todos" ? "Todas" : t === "Receita" ? "↑ Receitas" : "↓ Despesas"}
+          </button>
+        ))}
+        <span className="pp-toolbar-spacer" />
       </div>
 
       {localError && (
@@ -590,137 +644,124 @@ export default function RecorrenciasPage() {
 
       {/* Conteúdo */}
       {loading ? (
-        <div className="empty-state">Carregando…</div>
+        <div className="pp-card"><div className="pp-empty"><div className="pp-empty-icon" aria-hidden>⏳</div><div className="pp-empty-text">Carregando recorrências…</div></div></div>
       ) : error ? (
-        <div className="empty-state" style={{ color: "var(--danger-fg)" }}>⚠ {error}</div>
+        <div className="pp-card"><div className="pp-empty"><div className="pp-empty-icon" aria-hidden>⚠</div><div className="pp-empty-title">Não foi possível carregar</div><div className="pp-empty-text">{error}</div></div></div>
       ) : lista.length === 0 ? (
-        <div className="empty-state">
-          <div style={{ fontSize: 40, marginBottom: 12 }}>↺</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>
-            {filtroTipo !== "Todos" || filtroStatus !== "Todos"
-              ? "Nenhuma recorrência com este filtro"
-              : "Nenhuma recorrência cadastrada"}
-          </div>
-          {!viewOnly && filtroTipo === "Todos" && filtroStatus === "ativa" && (
-            <div style={{ fontSize: 13, marginTop: 6, color: "var(--muted-foreground)" }}>
-              Cadastre despesas e receitas fixas para receber alertas no dashboard
+        <div className="pp-card">
+          <div className="pp-empty">
+            <div className="pp-empty-icon" aria-hidden>↺</div>
+            <div className="pp-empty-title">
+              {filtroTipo !== "Todos" || filtroStatus !== "ativa"
+                ? "Nenhuma recorrência com este filtro"
+                : "Sem recorrências cadastradas"}
             </div>
-          )}
+            <div className="pp-empty-text">
+              Cadastre suas despesas e receitas fixas (aluguel, salário, assinaturas…) e
+              receba alertas automáticos no dashboard quando estiverem prestes a vencer.
+            </div>
+            {!viewOnly && (
+              <button type="button" className="pp-btn-primary" onClick={() => setShowNova(true)}>
+                <span aria-hidden>＋</span> Nova recorrência
+              </button>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="table-wrap recorrencias-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Tipo</th>
-                <th>Valor</th>
-                <th>Periodicidade</th>
-                <th>Próxima data</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((r) => (
-                <tr key={r.id}>
-                  {/* Descrição */}
-                  <td className="td-ellipsis" style={{ maxWidth: 200 }}>
-                    <strong title={r.descricao}>{r.descricao}</strong>
-                    {r.observacao && (
-                      <div style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
-                        {r.observacao}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Tipo */}
-                  <td>
-                    <span className={`badge ${r.tipo === "Receita" ? "badge-green" : "badge-red"}`}>
-                      {r.tipo === "Receita" ? "↑" : "↓"} {r.tipo}
-                    </span>
-                  </td>
-
-                  {/* Valor */}
-                  <td className="td-mono">{fmtBRL(r.valor)}</td>
-
-                  {/* Periodicidade */}
-                  <td>
-                    <span className="badge badge-period">{PERIODO_LABEL[r.periodicidade]}</span>
-                  </td>
-
-                  {/* Próxima data */}
-                  <td className={`td-mono td-compact ${classProxima(r.proxima_data)}`}>
-                    {labelProxima(r.proxima_data)}
-                  </td>
-
-                  {/* Status */}
-                  <td>
-                    {r.status === "ativa" ? (
-                      <span className="badge badge-green">● Ativa</span>
-                    ) : r.status === "pausada" ? (
-                      <span className="badge badge-pausada">⏸ Pausada</span>
-                    ) : (
-                      <span className="badge badge-encerrada">○ Encerrada</span>
-                    )}
-                  </td>
-
-                  {/* Ações */}
-                  <td className="table-actions-cell">
-                    <div className="rec-actions table-actions-inline">
-                      {!viewOnly && r.status === "ativa" && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary rec-btn-gerar"
-                          title="Gerar lançamento agora"
-                          onClick={() => setGerarTarget(r)}
-                        >
-                          <CircleCheck size={14} strokeWidth={2} aria-hidden />
-                          <span>Gerar</span>
-                        </button>
-                      )}
-                      {!viewOnly && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-secondary btn-icon"
-                            title="Editar recorrência"
-                            onClick={() => setEditTarget(r)}
-                          >
-                            <PenLine size={14} strokeWidth={2} aria-hidden />
-                          </button>
-                          {r.status !== "encerrada" && (
+        <div className="pp-card">
+          <div className="pp-table-wrap">
+            <table className="pp-table">
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Tipo</th>
+                  <th className="pp-th-num">Valor</th>
+                  <th>Periodicidade</th>
+                  <th>Próxima data</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((r) => {
+                  const tipoCls = r.tipo === "Receita" ? "in" : "out";
+                  const proxCls = classProxima(r.proxima_data).replace("recorrencias-proxima-", "rec-prox-");
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <strong title={r.descricao} style={{ fontWeight: 600 }}>{r.descricao}</strong>
+                        {r.observacao && (
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{r.observacao}</div>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`rec-type-pill rec-type-${tipoCls}`}>
+                          <span className="rec-type-icon" aria-hidden>{r.tipo === "Receita" ? "↑" : "↓"}</span>
+                          {r.tipo}
+                        </span>
+                      </td>
+                      <td className={`pp-cell-value pp-cell-value-${tipoCls}`}>{fmtBRL(r.valor)}</td>
+                      <td><span className="pp-badge pp-badge-violet">{PERIODO_LABEL[r.periodicidade]}</span></td>
+                      <td><span className={`rec-prox ${proxCls}`}>{labelProxima(r.proxima_data)}</span></td>
+                      <td>
+                        {r.status === "ativa" ? (
+                          <span className="pp-badge pp-badge-green">● Ativa</span>
+                        ) : r.status === "pausada" ? (
+                          <span className="pp-badge pp-badge-amber">⏸ Pausada</span>
+                        ) : (
+                          <span className="pp-badge pp-badge-muted">○ Encerrada</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div className="pp-row-actions">
+                          {!viewOnly && r.status === "ativa" && (
                             <button
                               type="button"
-                              className={`btn btn-sm btn-icon ${r.status === "ativa" ? "btn-secondary" : "btn-primary"}`}
-                              title={r.status === "ativa" ? "Pausar recorrência" : "Reativar recorrência"}
-                              onClick={() => handleToggleStatus(r)}
+                              className="pp-icon-btn pp-icon-btn-success"
+                              title="Gerar lançamento agora"
+                              onClick={() => setGerarTarget(r)}
                             >
-                              {r.status === "ativa" ? (
-                                <Pause size={14} strokeWidth={2} aria-hidden />
-                              ) : (
-                                <Play size={14} strokeWidth={2} aria-hidden />
-                              )}
+                              <CircleCheck size={14} strokeWidth={2} aria-hidden />
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-danger btn-icon"
-                            title="Excluir recorrência"
-                            onClick={() => handleDelete(r)}
-                          >
-                            <Trash2 size={14} strokeWidth={2} aria-hidden />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          {!viewOnly && (
+                            <>
+                              <button type="button" className="pp-icon-btn" title="Editar" onClick={() => setEditTarget(r)}>
+                                <PenLine size={14} strokeWidth={2} aria-hidden />
+                              </button>
+                              {r.status !== "encerrada" && (
+                                <button
+                                  type="button"
+                                  className="pp-icon-btn"
+                                  title={r.status === "ativa" ? "Pausar" : "Reativar"}
+                                  onClick={() => handleToggleStatus(r)}
+                                >
+                                  {r.status === "ativa"
+                                    ? <Pause size={14} strokeWidth={2} aria-hidden />
+                                    : <Play size={14} strokeWidth={2} aria-hidden />}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="pp-icon-btn pp-icon-btn-danger"
+                                title="Excluir"
+                                onClick={() => handleDelete(r)}
+                              >
+                                <Trash2 size={14} strokeWidth={2} aria-hidden />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
 
       {/* Modal: nova / editar recorrência */}
       {(showNova || editTarget) && (
@@ -744,7 +785,7 @@ export default function RecorrenciasPage() {
           onConfirm={handleGerarConfirm}
         />
       )}
-    </div>
     </PfPageShell>
+
   );
 }
