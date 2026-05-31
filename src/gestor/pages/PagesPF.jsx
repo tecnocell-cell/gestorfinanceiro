@@ -155,98 +155,212 @@ export function LancamentosPFPage() {
     pendente: { badge: "badge-amber", label: "Pendente", valor: "td-red" },
   };
 
+  const resumo = useMemo(() => {
+    let ent = 0, sai = 0;
+    for (const l of lancsFiltrados) {
+      if (l.tipo === "Entrada") ent += l.valor || 0;
+      else if (l.tipo === "Saida") sai += l.valor || 0;
+    }
+    return { entradas: ent, saidas: sai, saldo: ent - sai, qtd: lancsFiltrados.length };
+  }, [lancsFiltrados]);
+
   return (
     <PfPageShell pageId="lancamentos">
-    <div>
-      <div className="toolbar">
-        <PeriodToolbar />
-        <button className="btn btn-primary btn-sm" onClick={() => openModal("lancamento")}>+ Lançamento</button>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        {LANCAMENTO_FILTER_OPTIONS.map((t) => (
-          <div key={t} className={`filter-chip${tipoFilter === t ? " active" : ""}`} onClick={() => setTipoFilter(t)}>
-            {labelFilterChip(t, true)}
+    <div className="lanc-premium">
+      <div className="lanc-toolbar">
+        <div className="lanc-toolbar-row">
+          <PeriodToolbar />
+          <div className="lanc-search">
+            <span className="lanc-search-icon" aria-hidden>🔍</span>
+            <input
+              className="lanc-search-input"
+              placeholder="Buscar lançamentos…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-        ))}
-        <div className="search-wrap" style={{ marginLeft: "auto" }}>
-          <span className="search-icon">🔍</span>
-          <input className="form-input search-input" placeholder="Buscar…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="lanc-toolbar-actions">
+            <button
+              type="button"
+              className="lanc-btn-primary"
+              onClick={() => openModal("lancamento")}
+            >
+              <span aria-hidden>＋</span> Novo lançamento
+            </button>
+          </div>
+        </div>
+        <div className="lanc-chips-row">
+          <div className="lanc-chips">
+            {LANCAMENTO_FILTER_OPTIONS.map((t) => (
+              <button
+                type="button"
+                key={t}
+                className={`lanc-chip${tipoFilter === t ? " is-active" : ""} lanc-chip-${String(t).toLowerCase()}`}
+                onClick={() => setTipoFilter(t)}
+              >
+                {labelFilterChip(t, true)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Vencimento</th>
-                <th>Status</th>
-                <th>Tipo</th>
-                <th>Categoria</th>
-                <th>Conta</th>
-                <th>Valor</th>
-                <th>Histórico</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lancsFiltrados.length === 0 ? (
-                <tr><td colSpan={9} className="empty-state">Nenhum lançamento encontrado.</td></tr>
-              ) : lancsFiltrados.map((l) => {
-                const venc = getDueDate(l);
+      <div className="lanc-summary-grid">
+        <div className="lanc-summary-card lanc-summary-in">
+          <div className="lanc-summary-label">Receitas</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.entradas)}</div>
+          <div className="lanc-summary-hint">no período filtrado</div>
+        </div>
+        <div className="lanc-summary-card lanc-summary-out">
+          <div className="lanc-summary-label">Despesas</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.saidas)}</div>
+          <div className="lanc-summary-hint">no período filtrado</div>
+        </div>
+        <div className={`lanc-summary-card ${resumo.saldo >= 0 ? "lanc-summary-pos" : "lanc-summary-neg"}`}>
+          <div className="lanc-summary-label">Saldo do período</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.saldo)}</div>
+          <div className="lanc-summary-hint">{resumo.saldo >= 0 ? "sobrou" : "déficit"}</div>
+        </div>
+        <div className="lanc-summary-card lanc-summary-count">
+          <div className="lanc-summary-label">Lançamentos</div>
+          <div className="lanc-summary-value">{resumo.qtd}</div>
+          <div className="lanc-summary-hint">{resumo.qtd === 1 ? "registro" : "registros"}</div>
+        </div>
+      </div>
+
+      <div className="lanc-card">
+        {lancsFiltrados.length === 0 ? (
+          <div className="lanc-empty-premium">
+            <div className="lanc-empty-icon" aria-hidden>💰</div>
+            <div className="lanc-empty-title">Você ainda não tem lançamentos por aqui</div>
+            <div className="lanc-empty-text">
+              Comece adicionando suas receitas e despesas para acompanhar seu dinheiro de perto.
+            </div>
+            <button
+              type="button"
+              className="lanc-btn-primary"
+              onClick={() => openModal("lancamento")}
+            >
+              <span aria-hidden>＋</span> Novo lançamento
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="lanc-table-wrap">
+              <table className="lanc-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Tipo</th>
+                    <th>Categoria</th>
+                    <th>Conta</th>
+                    <th className="lanc-th-num">Valor</th>
+                    <th>Histórico</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lancsFiltrados.map((l) => {
+                    const venc = getDueDate(l);
+                    const situacao = getLancamentoSituacao(l);
+                    const info = statusInfo[situacao];
+                    const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
+                    const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
+                    return (
+                      <tr key={l.id} className={`lanc-row lanc-row-${tipoCls}${situacao ? ` lanc-row-${situacao}` : ""}`}>
+                        <td className="td-mono">
+                          <div className="lanc-date-cell">
+                            <span className={`lanc-type-dot lanc-type-${tipoCls}`} title={l.tipo} aria-hidden>{tipoIcon}</span>
+                            <div>
+                              <div>{fmtDate(l.data)}</div>
+                              {l.createdAt && (
+                                <div className="lanc-cell-meta">
+                                  {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                  {l.source === "whatsapp" && " 📱"}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className={`td-mono${situacao === "vencida" ? " td-red" : situacao === "proximo" ? " td-amber" : ""}`}>
+                          {l.tipo === "Saida" ? fmtDate(venc) : "—"}
+                        </td>
+                        <td>
+                          {l.tipo === "Saida" && info ? (
+                            <span className={`lanc-badge lanc-badge-${info.badge.replace("badge-", "")}`}>{info.label}</span>
+                          ) : l.tipo === "Entrada" ? (
+                            <span className="lanc-badge lanc-badge-blue">Receita</span>
+                          ) : "—"}
+                        </td>
+                        <td>
+                          <span className={`lanc-badge lanc-badge-${l.tipo === "Saida" ? "red" : "blue"}`}>
+                            {labelLancamentoTipo(l.tipo, true)}
+                          </span>
+                        </td>
+                        <td>{catMap[l.planoId] || "—"}</td>
+                        <td className="lanc-cell-quiet">
+                          {l.contaEntradaId ? contaMap[l.contaEntradaId] : ""}
+                          {l.contaSaidaId ? contaMap[l.contaSaidaId] : ""}
+                        </td>
+                        <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
+                        <td className="lanc-cell-hist">{l.historico}</td>
+                        <td className="lanc-actions-cell">
+                          <div className="lanc-actions">
+                            <button type="button" className="lanc-icon-btn" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>
+                              <PenLine size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                            <button type="button" className="lanc-icon-btn lanc-icon-btn-danger" title="Excluir lançamento" onClick={() => lancCrud.remove(l.id)}>
+                              <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="lanc-mobile-list">
+              {lancsFiltrados.map((l) => {
                 const situacao = getLancamentoSituacao(l);
                 const info = statusInfo[situacao];
-                const rowClass = info ? `lanc-row lanc-row-${situacao}` : "";
+                const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
+                const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
-                <tr key={l.id} className={rowClass}>
-                  <td className="td-mono">
-                    {fmtDate(l.data)}
-                    {l.createdAt && (
-                      <span style={{ display: "block", fontSize: 10, color: "var(--text3)", marginTop: 1 }}>
-                        {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        {l.source === "whatsapp" && " 📱"}
-                      </span>
-                    )}
-                  </td>
-                  <td className={`td-mono${situacao === "vencida" ? " td-red" : situacao === "proximo" ? " td-amber" : ""}`}>
-                    {l.tipo === "Saida" ? fmtDate(venc) : "—"}
-                  </td>
-                  <td>
-                    {l.tipo === "Saida" && info ? (
-                      <span className={`badge ${info.badge}`}>{info.label}</span>
-                    ) : l.tipo === "Entrada" ? (
-                      <span className="badge badge-blue">Receita</span>
-                    ) : "—"}
-                  </td>
-                  <td>
-                    <span className={`badge ${l.tipo === "Entrada" ? "badge-blue" : l.tipo === "Transferencia" ? "badge-blue" : "badge-red"}`}>
-                      {labelLancamentoTipo(l.tipo, true)}
-                    </span>
-                  </td>
-                  <td>{catMap[l.planoId] || "—"}</td>
-                  <td style={{ fontSize: 12, color: "var(--text2)" }}>
-                    {l.contaEntradaId ? contaMap[l.contaEntradaId] : ""}
-                    {l.contaSaidaId ? contaMap[l.contaSaidaId] : ""}
-                  </td>
-                  <td className={info?.valor || (l.tipo === "Entrada" ? "td-blue" : "td-red")}>{fmtBRL(l.valor)}</td>
-                  <td style={{ fontSize: 12, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.historico}</td>
-                  <td className="table-actions-cell">
-                    <div className="table-actions-inline">
-                      <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>
+                  <div key={l.id} className={`lanc-mobile-item lanc-mobile-${tipoCls}`}>
+                    <div className={`lanc-mobile-icon lanc-type-${tipoCls}`} aria-hidden>{tipoIcon}</div>
+                    <div className="lanc-mobile-body">
+                      <div className="lanc-mobile-top">
+                        <span className="lanc-mobile-hist">{l.historico || catMap[l.planoId] || "—"}</span>
+                        <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>
+                      </div>
+                      <div className="lanc-mobile-meta">
+                        <span>{fmtDate(l.data)}</span>
+                        {catMap[l.planoId] && (<><span>·</span><span>{catMap[l.planoId]}</span></>)}
+                        {info && (<><span>·</span><span className={`lanc-badge lanc-badge-${info.badge.replace("badge-", "")}`}>{info.label}</span></>)}
+                      </div>
+                    </div>
+                    <div className="lanc-actions">
+                      <button type="button" className="lanc-icon-btn" title="Editar" onClick={() => openModal("lancamento", l)}>
                         <PenLine size={14} strokeWidth={2} aria-hidden />
                       </button>
-                      <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir lançamento" onClick={() => lancCrud.remove(l.id)}>
+                      <button type="button" className="lanc-icon-btn lanc-icon-btn-danger" title="Excluir" onClick={() => lancCrud.remove(l.id)}>
                         <Trash2 size={14} strokeWidth={2} aria-hidden />
                       </button>
                     </div>
-                  </td>
-                </tr>
-              );})}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="lanc-footer">
+              <span>{lancsFiltrados.length} {lancsFiltrados.length === 1 ? "registro" : "registros"}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
     </PfPageShell>

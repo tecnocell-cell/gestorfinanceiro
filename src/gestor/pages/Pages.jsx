@@ -189,118 +189,255 @@ export function LancamentosPage() {
     return saldo;
   }, [contaFilter, filterPeriodo, lancamentos, contas]);
 
+  const resumo = useMemo(() => {
+    let ent = 0, sai = 0;
+    for (const l of rows) {
+      if (l.tipo === "Entrada") ent += l.valor || 0;
+      else if (l.tipo === "Saida") sai += l.valor || 0;
+    }
+    return { entradas: ent, saidas: sai, saldo: ent - sai, qtd: rows.length };
+  }, [rows]);
+
   return (
-    <div>
-      <div className="toolbar">
-        <div className="toolbar-left">
+    <div className="lanc-premium">
+      <div className="lanc-toolbar">
+        <div className="lanc-toolbar-row">
           <PeriodToolbar />
-          <div className="search-wrap">
-            <span className="search-icon">?</span>
-            <input className="search-input" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="lanc-search">
+            <span className="lanc-search-icon" aria-hidden>🔍</span>
+            <input
+              className="lanc-search-input"
+              placeholder="Buscar por histórico, cliente, valor…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <select className="form-select" style={{ width: 160 }} value={contaFilter} onChange={(e) => setContaFilter(e.target.value)}>
+          <select
+            className="lanc-select"
+            value={contaFilter}
+            onChange={(e) => setContaFilter(e.target.value)}
+          >
             <option value="">Todas as contas</option>
             {contas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
           </select>
+          <div className="lanc-toolbar-actions">
+            <label className="lanc-saldo-toggle">
+              <input
+                type="checkbox"
+                checked={showSaldoCol}
+                onChange={(e) => setShowSaldoCol(e.target.checked)}
+                disabled={!contaFilter}
+              />
+              <span>Saldo</span>
+            </label>
+            <button
+              type="button"
+              className="lanc-btn-primary"
+              onClick={() => openModal("lancamento")}
+            >
+              <span aria-hidden>＋</span> Novo lançamento
+            </button>
+          </div>
         </div>
-        <div className="toolbar-right">
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text2)" }}>
-            <input type="checkbox" checked={showSaldoCol} onChange={(e) => setShowSaldoCol(e.target.checked)} disabled={!contaFilter} />
-            Coluna saldo
-          </label>
-          <button type="button" className="btn btn-primary" onClick={() => openModal("lancamento")}>+ Novo Lançamento</button>
+        <div className="lanc-chips-row">
+          <div className="lanc-chips">
+            {["Todos", "Entrada", "Saida", "Transferencia"].map((t) => (
+              <button
+                type="button"
+                key={t}
+                className={`lanc-chip${tipoFilter === t ? " is-active" : ""} lanc-chip-${t.toLowerCase()}`}
+                onClick={() => setTipoFilter(t)}
+              >
+                {t === "Saida" ? "Saída" : t === "Transferencia" ? "Transferência" : t}
+              </button>
+            ))}
+          </div>
+          <div className="lanc-chips lanc-chips-divider">
+            {["Todos", "Conciliados", "Pendentes"].map((t) => {
+              const val = t === "Conciliados" ? "Sim" : t === "Pendentes" ? "Nao" : "Todos";
+              return (
+                <button
+                  type="button"
+                  key={t}
+                  className={`lanc-chip lanc-chip-quiet${consiliadoFilter === val ? " is-active" : ""}`}
+                  onClick={() => setConsiliadoFilter(val)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <div className="filter-bar">
-        {["Todos", "Entrada", "Saida", "Transferencia"].map((t) => (
-          <div key={t} className={`filter-chip${tipoFilter === t ? " active" : ""}`} onClick={() => setTipoFilter(t)}>{t}</div>
-        ))}
-        <span style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-        {["Todos", "Conciliados", "Pendentes"].map((t) => {
-          const val = t === "Conciliados" ? "Sim" : t === "Pendentes" ? "Nao" : "Todos";
-          return (
-            <div key={t} className={`filter-chip${consiliadoFilter === val ? " active" : ""}`} onClick={() => setConsiliadoFilter(val)}>{t}</div>
-          );
-        })}
+
+      <div className="lanc-summary-grid">
+        <div className="lanc-summary-card lanc-summary-in">
+          <div className="lanc-summary-label">Entradas</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.entradas)}</div>
+          <div className="lanc-summary-hint">no período filtrado</div>
+        </div>
+        <div className="lanc-summary-card lanc-summary-out">
+          <div className="lanc-summary-label">Saídas</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.saidas)}</div>
+          <div className="lanc-summary-hint">no período filtrado</div>
+        </div>
+        <div className={`lanc-summary-card ${resumo.saldo >= 0 ? "lanc-summary-pos" : "lanc-summary-neg"}`}>
+          <div className="lanc-summary-label">Saldo filtrado</div>
+          <div className="lanc-summary-value">{fmtBRL(resumo.saldo)}</div>
+          <div className="lanc-summary-hint">{resumo.saldo >= 0 ? "resultado positivo" : "resultado negativo"}</div>
+        </div>
+        <div className="lanc-summary-card lanc-summary-count">
+          <div className="lanc-summary-label">Lançamentos</div>
+          <div className="lanc-summary-value">{resumo.qtd}</div>
+          <div className="lanc-summary-hint">{resumo.qtd === 1 ? "registro listado" : "registros listados"}</div>
+        </div>
       </div>
 
       {contaFilter && saldoAnterior !== null && (
-        <div className="alert alert-info" style={{ marginBottom: 10 }}>
-          Saldo anterior ao início do período:{" "}
-          <strong style={{ fontFamily: "var(--font-mono)" }}>{fmtBRL(saldoAnterior)}</strong>
+        <div className="lanc-saldo-anterior">
+          <span>Saldo anterior ao início do período</span>
+          <strong>{fmtBRL(saldoAnterior)}</strong>
         </div>
       )}
 
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Cód.</th>
-                <th>Lote</th>
-                <th>Data</th>
-                <th>Cód. Saída</th>
-                <th>Conta Saída</th>
-                <th>Cód. Entrada</th>
-                <th>Conta Entrada</th>
-                <th>Valor</th>
-                {(showSaldoCol || contaFilter) && <th>Saldo</th>}
-                <th>Histórico</th>
-                <th>Domínio</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={(showSaldoCol || contaFilter) ? 12 : 11}><div className="empty-state"><div className="empty-icon">?</div><div className="empty-text">Nenhum lançamento</div></div></td></tr>
-              )}
+      <div className="lanc-card">
+        {rows.length === 0 ? (
+          <div className="lanc-empty-premium">
+            <div className="lanc-empty-icon" aria-hidden>📒</div>
+            <div className="lanc-empty-title">Nenhum lançamento encontrado</div>
+            <div className="lanc-empty-text">
+              Ajuste os filtros acima ou cadastre o primeiro lançamento deste período.
+            </div>
+            <button
+              type="button"
+              className="lanc-btn-primary"
+              onClick={() => openModal("lancamento")}
+            >
+              <span aria-hidden>＋</span> Novo lançamento
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="lanc-table-wrap">
+              <table className="lanc-table">
+                <thead>
+                  <tr>
+                    <th>Cód.</th>
+                    <th>Lote</th>
+                    <th>Data</th>
+                    <th>Cód. Saída</th>
+                    <th>Conta Saída</th>
+                    <th>Cód. Entrada</th>
+                    <th>Conta Entrada</th>
+                    <th className="lanc-th-num">Valor</th>
+                    {(showSaldoCol || contaFilter) && <th className="lanc-th-num">Saldo</th>}
+                    <th>Histórico</th>
+                    <th>Domínio</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((l) => {
+                    const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
+                    const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
+                    const plano = planoContas.find((p) => p.id === l.planoId);
+                    const cli = clientes.find((c) => c.id === l.clienteId);
+                    const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
+                    const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
+                    return (
+                      <tr key={l.id} className={`lanc-row lanc-row-${tipoCls}`}>
+                        <td className="td-mono">{l.codigo ?? "—"}</td>
+                        <td className="td-mono lanc-cell-quiet">{l.lote}</td>
+                        <td className="td-mono">
+                          <div className="lanc-date-cell">
+                            <span className={`lanc-type-dot lanc-type-${tipoCls}`} title={l.tipo} aria-hidden>{tipoIcon}</span>
+                            <div>
+                              <div>{fmtDate(l.data)}</div>
+                              {l.createdAt && (
+                                <div className="lanc-cell-meta">
+                                  {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                  {l.source === "whatsapp" && " 📱"}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "—"}</td>
+                        <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                        <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "—"}</td>
+                        <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                        <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
+                        {(showSaldoCol || contaFilter) && <td className="lanc-th-num td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
+                        <td className="lanc-cell-hist">
+                          {l.historico}
+                          {(plano || cli) && (
+                            <span className="lanc-cell-meta">
+                              {plano ? ` · ${plano.descricao}` : ""}{cli ? ` · ${cli.nome}` : ""}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {l.exportado
+                            ? <span className="lanc-badge lanc-badge-blue">Sim</span>
+                            : <span className="lanc-badge lanc-badge-amber">Não</span>}
+                        </td>
+                        <td className="lanc-actions-cell">
+                          <div className="lanc-actions">
+                            <button type="button" className="lanc-icon-btn" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>
+                              <PenLine size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                            <button type="button" className="lanc-icon-btn lanc-icon-btn-danger" title="Excluir lançamento" onClick={() => { if (confirm("Excluir?")) lancCrud.remove(l.id); }}>
+                              <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="lanc-mobile-list">
               {rows.map((l) => {
                 const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
                 const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
                 const plano = planoContas.find((p) => p.id === l.planoId);
-                const cli = clientes.find((c) => c.id === l.clienteId);
+                const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
+                const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
-                  <tr key={l.id}>
-                    <td className="td-mono">{l.codigo ?? "?"}</td>
-                    <td className="td-mono" style={{ fontSize: 12, color: "var(--text3)" }}>{l.lote}</td>
-                    <td className="td-mono">
-                      {fmtDate(l.data)}
-                      {l.createdAt && (
-                        <span style={{ display: "block", fontSize: 10, color: "var(--text3)", marginTop: 1 }}>
-                          {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          {l.source === "whatsapp" && " 📱"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "?"}</td>
-                    <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "?" : "")}</td>
-                    <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "?"}</td>
-                    <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "?" : "")}</td>
-                    <td className={l.tipo === "Entrada" ? "td-green" : "td-red"}>{fmtBRL(l.valor)}</td>
-                    {(showSaldoCol || contaFilter) && <td className="td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "?"}</td>}
-                    <td style={{ fontSize: 12, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {l.historico}{plano ? ` ? ${plano.descricao}` : ""}{cli ? ` ? ${cli.nome}` : ""}
-                    </td>
-                    <td>{l.exportado ? <span className="badge badge-blue">Sim</span> : <span className="badge badge-amber">Não</span>}</td>
-                    <td className="table-actions-cell">
-                      <div className="table-actions-inline">
-                        <button type="button" className="btn btn-secondary btn-sm btn-icon" title="Editar lançamento" onClick={() => openModal("lancamento", l)}>
-                          <PenLine size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                        <button type="button" className="btn btn-danger btn-sm btn-icon" title="Excluir lançamento" onClick={() => { if (confirm("Excluir?")) lancCrud.remove(l.id); }}>
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                        </button>
+                  <div key={l.id} className={`lanc-mobile-item lanc-mobile-${tipoCls}`}>
+                    <div className={`lanc-mobile-icon lanc-type-${tipoCls}`} aria-hidden>{tipoIcon}</div>
+                    <div className="lanc-mobile-body">
+                      <div className="lanc-mobile-top">
+                        <span className="lanc-mobile-hist">{l.historico || "—"}</span>
+                        <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>
                       </div>
-                    </td>
-                  </tr>
+                      <div className="lanc-mobile-meta">
+                        <span>{fmtDate(l.data)}</span>
+                        <span>·</span>
+                        <span>{cEnt?.nome || cSai?.nome || "—"}</span>
+                        {plano && (<><span>·</span><span>{plano.descricao}</span></>)}
+                      </div>
+                    </div>
+                    <div className="lanc-actions">
+                      <button type="button" className="lanc-icon-btn" title="Editar" onClick={() => openModal("lancamento", l)}>
+                        <PenLine size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                      <button type="button" className="lanc-icon-btn lanc-icon-btn-danger" title="Excluir" onClick={() => { if (confirm("Excluir?")) lancCrud.remove(l.id); }}>
+                        <Trash2 size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text2)" }}>
-          {rows.length} registros
-        </div>
+            </div>
+
+            <div className="lanc-footer">
+              <span>{rows.length} {rows.length === 1 ? "registro" : "registros"}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
