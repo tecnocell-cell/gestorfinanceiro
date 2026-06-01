@@ -471,7 +471,7 @@ export const css = `
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     padding: 0 0.5rem 8px;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -487,15 +487,15 @@ export const css = `
     position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0.32rem 0.65rem;
-    min-height: 32px;
+    gap: 10px;
+    padding: 0.45rem 0.75rem;
+    min-height: 36px;
     flex-shrink: 0;
     border-radius: 0.4rem;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.92);
+    color: rgba(255, 255, 255, 0.88);
     line-height: 1.3;
     border: 1px solid transparent;
     transition: background-color 0.2s, color 0.2s;
@@ -789,12 +789,12 @@ export const css = `
   }
 
   .card-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: color-mix(in oklab, var(--foreground) 80%, transparent);
+    letter-spacing: -0.01em;
+    color: var(--foreground);
     margin-bottom: 14px;
+    line-height: 1.3;
   }
 
   /* ─── KPI (rn-kpi) ─── */
@@ -806,20 +806,21 @@ export const css = `
   }
 
   .kpi-card {
-    background: linear-gradient(145deg, color-mix(in oklab, var(--forest-50) 50%, var(--card)) 0%, var(--card) 55%);
-    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
-    padding: 1rem 1.125rem;
+    padding: 1.125rem 1.25rem;
     min-height: 110px;
     position: relative;
     overflow: hidden;
-    transition: box-shadow 0.15s, border-color 0.15s;
-    border-left: 3px solid var(--kpi-color, var(--forest-700));
+    container-type: inline-size;
+    transition: box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
+    border-left: 3px solid var(--kpi-color, color-mix(in oklab, var(--border) 50%, var(--forest-600) 50%));
   }
   .kpi-card:hover {
     box-shadow: var(--shadow-elevated);
-    border-color: color-mix(in oklab, var(--border) 100%, var(--forest-600) 8%);
+    border-color: color-mix(in oklab, var(--forest-600) 20%, var(--border));
   }
 
   .kpi-label {
@@ -832,13 +833,17 @@ export const css = `
 
   .kpi-value {
     font-family: var(--font-mono);
-    font-size: 26px;
+    font-size: clamp(11px, min(8.5cqi, 26px), 26px);
     font-weight: 600;
     margin-top: 8px;
     color: var(--kpi-color, var(--foreground));
     letter-spacing: -0.01em;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
   }
 
   .kpi-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; }
@@ -868,8 +873,8 @@ export const css = `
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #475569;
-    background: #f8fafc;
+    color: var(--rn-label);
+    background: var(--rn-page-canvas);
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
@@ -1170,9 +1175,9 @@ export const css = `
   }
   .filter-chip:hover { border-color: var(--rn-forest-600); color: var(--rn-forest-800); background: var(--rn-forest-50); }
   .filter-chip.active {
-    background: var(--rn-success);
-    color: var(--rn-white);
-    border-color: var(--rn-success-hover);
+    background: color-mix(in oklab, var(--success) 10%, var(--card));
+    color: var(--success-fg);
+    border-color: color-mix(in oklab, var(--success) 35%, var(--border));
     font-weight: 600;
   }
 
@@ -2424,7 +2429,7 @@ export const css = `
 
   /* Topo: toolbar + KPIs no fundo claro (sem faixa verde escura) */
   .dash-hero {
-    padding: 1.5rem 1.625rem 0.375rem;
+    padding: 1.75rem 1.75rem 1.5rem;
     background: var(--rn-page-canvas);
     position: relative;
   }
@@ -2473,27 +2478,25 @@ export const css = `
 
   .dash-insight {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
-    padding: 13px 16px;
-    margin-bottom: 1.125rem;
+    padding: 10px 14px;
+    margin-bottom: 1.25rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     background: var(--card);
     box-shadow: var(--shadow-card);
     transition: border-color 0.2s var(--ease-out);
   }
+  /* Insight: toque sutil de cor — apenas borda esquerda semântica */
   .dash-insight--success {
-    border-color: color-mix(in oklab, var(--success) 26%, var(--border));
-    background: linear-gradient(135deg, color-mix(in oklab, var(--success-soft) 70%, var(--card)) 0%, var(--card) 65%);
+    border-left: 3px solid color-mix(in oklab, var(--success) 55%, var(--border));
   }
   .dash-insight--warn {
-    border-color: color-mix(in oklab, var(--warning) 30%, var(--border));
-    background: linear-gradient(135deg, color-mix(in oklab, var(--warning-soft) 75%, var(--card)) 0%, var(--card) 65%);
+    border-left: 3px solid color-mix(in oklab, var(--warning) 65%, var(--border));
   }
   .dash-insight--info {
-    border-color: color-mix(in oklab, var(--info, var(--forest-600)) 26%, var(--border));
-    background: linear-gradient(135deg, color-mix(in oklab, var(--info-soft, var(--forest-50)) 80%, var(--card)) 0%, var(--card) 65%);
+    border-left: 3px solid color-mix(in oklab, var(--info) 55%, var(--border));
   }
   .dash-insight-icon {
     width: 32px;
@@ -2528,18 +2531,24 @@ export const css = `
 
   .kpi-v2-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  /* Grid 4 colunas — primeira dobra com KPIs financeiros */
+  .kpi-v2-grid--4col {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .dash-v2-root .kpi-v2 {
-    background: linear-gradient(145deg, color-mix(in oklab, var(--forest-50) 55%, var(--card)) 0%, var(--card) 52%);
-    border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
-    border-left: 3px solid var(--forest-600);
+    /* Fundo neutro: branco limpo, sem gradiente verde padrão */
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid color-mix(in oklab, var(--border) 40%, var(--forest-600) 60%);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-float);
-    padding: 1.3125rem 1.375rem;
-    min-height: 132px;
+    box-shadow: var(--shadow-card);
+    padding: 1.375rem 1.5rem;
+    min-height: 126px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -2547,22 +2556,12 @@ export const css = `
     overflow: hidden;
     isolation: isolate;
     transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
-  }
-  .dash-v2-root .kpi-v2::after {
-    content: '';
-    position: absolute;
-    top: -35%;
-    right: -12%;
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in oklab, var(--forest-500) 16%, transparent) 0%, transparent 68%);
-    pointer-events: none;
-    z-index: 0;
+    /* Container queries — permite clamp() relativo à largura do card */
+    container-type: inline-size;
   }
   .dash-v2-root .kpi-v2 > * { position: relative; z-index: 1; }
   .dash-v2-root .kpi-v2:hover {
-    border-color: color-mix(in oklab, var(--forest-600) 28%, var(--border));
+    border-color: color-mix(in oklab, var(--forest-600) 35%, var(--border));
     box-shadow: var(--shadow-elevated);
   }
   .dash-v2-root .kpi-v2::before {
@@ -2571,32 +2570,25 @@ export const css = `
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 88%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
     z-index: 0;
   }
+
+  /* success: mantém leve toque verde — só nos KPIs semânticos */
   .dash-v2-root .kpi-v2--success {
-    background: linear-gradient(145deg, color-mix(in oklab, var(--success-soft) 88%, var(--card)) 0%, var(--card) 50%);
+    background: linear-gradient(160deg, color-mix(in oklab, var(--success-soft) 60%, var(--card)) 0%, var(--card) 55%);
     border-left-color: var(--success);
-    border-color: color-mix(in oklab, var(--success) 22%, var(--border));
-  }
-  .dash-v2-root .kpi-v2--success::after {
-    background: radial-gradient(circle, color-mix(in oklab, var(--success) 24%, transparent) 0%, transparent 68%);
+    border-color: color-mix(in oklab, var(--success) 18%, var(--border));
   }
   .dash-v2-root .kpi-v2--danger {
-    background: linear-gradient(145deg, color-mix(in oklab, var(--danger-soft) 90%, var(--card)) 0%, var(--card) 50%);
+    background: linear-gradient(160deg, color-mix(in oklab, var(--danger-soft) 65%, var(--card)) 0%, var(--card) 55%);
     border-left-color: var(--danger);
-    border-color: color-mix(in oklab, var(--danger) 20%, var(--border));
-  }
-  .dash-v2-root .kpi-v2--danger::after {
-    background: radial-gradient(circle, color-mix(in oklab, var(--danger) 20%, transparent) 0%, transparent 68%);
+    border-color: color-mix(in oklab, var(--danger) 16%, var(--border));
   }
   .dash-v2-root .kpi-v2--warning {
-    background: linear-gradient(145deg, color-mix(in oklab, var(--warning-soft) 90%, var(--card)) 0%, var(--card) 50%);
+    background: linear-gradient(160deg, color-mix(in oklab, var(--warning-soft) 65%, var(--card)) 0%, var(--card) 55%);
     border-left-color: var(--warning);
-    border-color: color-mix(in oklab, var(--warning) 22%, var(--border));
-  }
-  .dash-v2-root .kpi-v2--warning::after {
-    background: radial-gradient(circle, color-mix(in oklab, var(--warning) 22%, transparent) 0%, transparent 68%);
+    border-color: color-mix(in oklab, var(--warning) 18%, var(--border));
   }
 
   .kpi-v2-top {
@@ -2607,17 +2599,16 @@ export const css = `
     margin-bottom: 4px;
   }
   .kpi-v2-icon-wrap {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in oklab, var(--forest-100) 70%, var(--card));
-    color: var(--forest-700);
-    border: 1px solid color-mix(in oklab, var(--forest-600) 12%, transparent);
+    background: color-mix(in oklab, var(--border) 40%, var(--card));
+    color: var(--muted-foreground);
+    border: 1px solid var(--border);
     flex-shrink: 0;
-    box-shadow: var(--shadow-card);
   }
   .kpi-v2--success .kpi-v2-icon-wrap {
     background: color-mix(in oklab, var(--success) 18%, var(--card));
@@ -2645,6 +2636,10 @@ export const css = `
     stroke-linejoin: round;
   }
 
+  .kpi-v2-label-wrap {
+    flex: 1;
+    min-width: 0;
+  }
   .kpi-v2-label {
     font-size: 10px;
     font-weight: 600;
@@ -2652,18 +2647,44 @@ export const css = `
     letter-spacing: 0.1em;
     color: color-mix(in oklab, var(--muted-foreground) 94%, transparent);
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Hotfix KPI — valores longos sem quebra / estouro / sobreposição */
+  .kpi-v2-value-wrap {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    flex-shrink: 1;
   }
   .kpi-v2-value {
-    font-size: 30px;
+    --kpi-ch: 10;
+    /* min( largura do card via cqi , largura / caracteres ) */
+    font-size: clamp(
+      11px,
+      min(9.5cqi, calc(92cqi / var(--kpi-ch))),
+      30px
+    );
     font-weight: 600;
     color: var(--foreground);
     font-family: var(--font-mono);
     line-height: 1;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    display: block;
   }
+  .kpi-v2-value-wrap.success .kpi-v2-value,
   .kpi-v2-value.success { color: var(--success-fg); }
+  .kpi-v2-value-wrap.danger .kpi-v2-value,
   .kpi-v2-value.danger  { color: var(--danger-fg); }
+  .kpi-v2-value-wrap.warning .kpi-v2-value,
   .kpi-v2-value.warning { color: var(--warning-fg); }
 
   .kpi-v2-sub {
@@ -2695,7 +2716,7 @@ export const css = `
   /* ── Seção clara (charts) ─────────────────────────────────────────────────── */
 
   .dash-section {
-    padding: 0.875rem 1.625rem 1.875rem;
+    padding: 1.5rem 1.75rem 2rem;
   }
   .dash-section-title {
     font-size: 10.5px;
@@ -2730,28 +2751,18 @@ export const css = `
   }
 
   .dash-v2-root .chart-card-v2 {
-    background: linear-gradient(160deg, color-mix(in oklab, var(--forest-50) 45%, var(--card)) 0%, var(--card) 42%);
-    border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
-    border-top: 2px solid color-mix(in oklab, var(--forest-600) 35%, transparent);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    padding: 1.25rem 1.375rem 1.125rem;
-    box-shadow: var(--shadow-float);
+    padding: 1.375rem 1.5rem 1.25rem;
+    box-shadow: var(--shadow-card);
     position: relative;
     isolation: isolate;
     transition: box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
   }
   .dash-v2-root .chart-card-v2:hover {
-    border-color: color-mix(in oklab, var(--forest-600) 22%, var(--border));
+    border-color: color-mix(in oklab, var(--forest-600) 20%, var(--border));
     box-shadow: var(--shadow-elevated);
-  }
-  .dash-v2-root .chart-card-v2::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 85%, transparent);
-    z-index: 0;
   }
   .dash-v2-root .chart-card-v2 > * {
     position: relative;
@@ -2948,11 +2959,17 @@ export const css = `
 
   /* ── Responsividade ──────────────────────────────────────────────────────── */
 
+  @media (max-width: 1280px) {
+    .kpi-v2-grid--4col { grid-template-columns: repeat(2, 1fr); }
+  }
   @media (max-width: 1180px) {
-    .kpi-v2-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .kpi-v2-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .kpi-v2-grid--4col { gap: 16px; }
   }
   @media (max-width: 960px) {
-    .kpi-v2-grid      { grid-template-columns: repeat(2, 1fr); }
+    .kpi-v2-grid { grid-template-columns: repeat(2, 1fr); }
+    .kpi-v2-grid--4col { grid-template-columns: repeat(2, 1fr); }
+    .dash-widgets-grid--4col { grid-template-columns: repeat(2, 1fr); }
     .dash-charts-grid,
     .dash-charts-grid.dash-charts-grid--featured { grid-template-columns: 1fr; }
     .dash-charts-grid.dash-charts-grid--featured .chart-card-v2 { grid-column: 1 / -1; min-height: 260px; }
@@ -2960,18 +2977,21 @@ export const css = `
     .period-selector--dash { justify-content: flex-start; flex-wrap: wrap; }
   }
   @media (max-width: 768px) {
-    .dash-v2-root .kpi-v2 { padding: 1rem 1.05rem; min-height: 118px; }
-    .kpi-v2-value { font-size: 24px; }
-    .dash-v2-root .chart-card-v2 { padding: 1rem 1.05rem 0.875rem; }
+    .dash-v2-root .kpi-v2 { padding: 1rem 1.125rem; min-height: 110px; }
+    /* kpi-v2-value: não sobrepor o clamp() — a escala via cqi já lida com isso */
+    .dash-v2-root .chart-card-v2 { padding: 1rem 1.125rem 0.875rem; }
     .chart-card-v2-title { font-size: 13px; }
     .dash-account-right { min-width: 96px; }
+    .dash-hero { padding: 1.25rem 1.25rem 1.125rem; }
+    .dash-section { padding: 1.125rem 1.25rem 1.5rem; }
   }
   @media (max-width: 540px) {
-    .kpi-v2-grid   { grid-template-columns: 1fr; }
+    .kpi-v2-grid, .kpi-v2-grid--4col { grid-template-columns: 1fr; }
+    .dash-widgets-grid--4col { grid-template-columns: 1fr; }
     .dash-v2-root  { margin: -1rem; }
-    .dash-hero     { padding: 1rem 1rem 0.5rem; }
-    .dash-section  { padding: 0.75rem 1rem 1.25rem; }
-    .kpi-v2-value  { font-size: 26px; }
+    .dash-hero     { padding: 1rem 1rem 0.875rem; }
+    .dash-section  { padding: 0.875rem 1rem 1.25rem; }
+    /* kpi-v2-value: clamp() escala automaticamente — sem override de breakpoint */
     .table-wrap { border-radius: var(--radius-lg); }
     thead th, tbody td { padding-left: 0.75rem; padding-right: 0.75rem; }
   }
@@ -3181,9 +3201,9 @@ export const css = `
   /* KPI grid: 4 cards em linha */
   .cp-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
   }
   .cp-kpi {
     background: var(--card);
@@ -3192,6 +3212,9 @@ export const css = `
     padding: 14px 16px 12px;
     box-shadow: var(--shadow-card);
     transition: box-shadow 0.15s, border-color 0.15s;
+    container-type: inline-size;
+    overflow: hidden;
+    min-width: 0;
   }
   .cp-kpi:hover {
     box-shadow: var(--shadow-elevated);
@@ -3203,19 +3226,24 @@ export const css = `
   }
   .cp-kpi-label {
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--muted-foreground);
     margin-bottom: 4px;
   }
   .cp-kpi-value {
-    font-size: 20px;
-    font-weight: 800;
+    font-size: clamp(11px, 7.5cqi, 22px);
+    font-weight: 600;
     font-family: var(--font-mono);
     color: var(--foreground);
     line-height: 1.2;
     letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    font-variant-numeric: tabular-nums;
   }
   .cp-kpi-sub {
     font-size: 10px;
@@ -3757,9 +3785,9 @@ export const css = `
     align-items: center;
     justify-content: center;
     border-radius: 10px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--success-soft);
+    border: 1px solid color-mix(in oklab, var(--success) 30%, var(--border));
+    color: var(--success-fg);
   }
   .of-import-footer {
     margin-top: auto;
@@ -3779,13 +3807,13 @@ export const css = `
     font-weight: 600;
     padding: 6px 12px;
     border-radius: var(--radius-md);
-    border: 1px solid #86efac;
-    background: #f0fdf4;
-    color: #166534;
+    border: 1px solid color-mix(in oklab, var(--success) 35%, var(--border));
+    background: var(--success-soft);
+    color: var(--success-fg);
   }
   .of-import-action-btn:hover {
-    background: #dcfce7;
-    border-color: #4ade80;
+    background: color-mix(in oklab, var(--success) 18%, var(--card));
+    border-color: color-mix(in oklab, var(--success) 50%, var(--border));
   }
   .of-status-banner {
     display: flex;
@@ -3794,9 +3822,9 @@ export const css = `
     padding: 14px 16px;
     margin-bottom: 16px;
     border-radius: var(--radius-lg);
-    border: 1px solid #fcd34d;
-    background: #fffbeb;
-    color: #92400e;
+    border: 1px solid color-mix(in oklab, var(--warning) 40%, var(--border));
+    background: var(--warning-soft);
+    color: var(--warning-fg);
     font-size: 13px;
     line-height: 1.45;
   }
@@ -3946,13 +3974,23 @@ export const css = `
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .dash-v2-root .kpi-v2--compact .kpi-v2-value-wrap--compact .kpi-v2-value,
   .dash-v2-root .kpi-v2--compact .kpi-v2-value {
-    font-size: 22px;
+    font-size: clamp(
+      10px,
+      min(8cqi, calc(78cqi / var(--kpi-ch, 10))),
+      22px
+    );
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    display: block;
   }
   .dash-v2-root .kpi-v2--compact .kpi-v2-sub {
     font-size: 11px;
@@ -4119,8 +4157,13 @@ export const css = `
   .dash-widgets-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  /* Versão 4 colunas — KPIs operacionais + widgets na mesma linha */
+  .dash-widgets-grid--4col {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   /* List widget genérico */
@@ -4354,7 +4397,7 @@ export const css = `
   @media (max-width: 540px) {
     .kpi-v2-grid--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .dash-v2-root .kpi-v2.kpi-v2--compact { min-height: 96px; padding: 0.8rem 0.85rem; }
-    .dash-v2-root .kpi-v2.kpi-v2--compact .kpi-v2-value { font-size: 18px; }
+    /* kpi-v2--compact .kpi-v2-value: clamp() via cqi já escala — sem override */
     .dash-hero-chart { min-height: 300px; padding: 0.9rem; }
     .dash-hero-chart-body { min-height: 240px; }
     .dash-list-widget { min-height: 240px; padding: 0.85rem 0.9rem; }
@@ -4610,7 +4653,7 @@ export const css = `
   /* ETAPA 4.3 — LANÇAMENTOS PREMIUM (visual-only, sem lógica)           */
   /* ═══════════════════════════════════════════════════════════════════ */
 
-  .lanc-premium { display: flex; flex-direction: column; gap: 16px; }
+  .lanc-premium { display: flex; flex-direction: column; gap: 18px; }
 
   .lanc-toolbar {
     background: var(--bg2);
@@ -4656,15 +4699,15 @@ export const css = `
   .lanc-saldo-toggle input { accent-color: var(--primary); }
   .lanc-btn-primary {
     display: inline-flex; align-items: center; gap: 8px;
-    height: 38px; padding: 0 16px;
-    border-radius: 10px; border: 1px solid transparent;
+    height: var(--btn-h); padding: 0 var(--btn-px);
+    border-radius: var(--btn-radius); border: 1px solid transparent;
     background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 78%, #000));
     color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
     box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 6px 18px -8px color-mix(in oklab, var(--primary) 60%, transparent);
     transition: transform .12s ease, filter .15s ease;
   }
-  .lanc-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
-  .lanc-btn-primary:active { transform: translateY(0); }
+  .lanc-btn-primary:hover { background: var(--rn-success-hover); border-color: var(--rn-success-hover); }
+  .lanc-btn-primary:active { transform: translateY(1px); }
   .lanc-btn-primary > span[aria-hidden] { font-size: 15px; line-height: 1; }
 
   .lanc-chips-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 2px; }
@@ -4690,11 +4733,13 @@ export const css = `
   .lanc-chip-transferencia.is-active { background: color-mix(in oklab, #6366f1 16%, var(--bg)); border-color: color-mix(in oklab, #6366f1 40%, var(--border)); color: #4338ca; }
   .lanc-chip-quiet { font-size: 11.5px; height: 26px; padding: 0 10px; }
 
-  .lanc-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .lanc-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .lanc-summary-card {
     position: relative;
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: 14px; padding: 14px 16px; overflow: hidden;
+    container-type: inline-size;
+    min-width: 0;
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .lanc-summary-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(0,0,0,0.18); }
@@ -4712,8 +4757,17 @@ export const css = `
     text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
   }
   .lanc-summary-value {
-    font-family: var(--font-mono); font-size: 20px; font-weight: 700;
-    color: var(--text); letter-spacing: -0.01em; line-height: 1.1;
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 7cqi, 20px);
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    font-variant-numeric: tabular-nums;
   }
   .lanc-summary-in .lanc-summary-value { color: #059669; }
   .lanc-summary-out .lanc-summary-value { color: #dc2626; }
@@ -4935,7 +4989,7 @@ export const css = `
   @media (max-width: 540px) {
     .lanc-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .lanc-summary-card { padding: 11px 12px; }
-    .lanc-summary-value { font-size: 16.5px; }
+    .lanc-summary-value { font-size: clamp(10px, 6.5cqi, 16.5px); }
     .lanc-toolbar { padding: 10px; }
   }
 
@@ -4993,12 +5047,14 @@ export const css = `
   }
 
   /* — Summary grid (KPI compactos com barra colorida) — */
-  .pp-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .pp-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
   .pp-summary-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pp-summary-card {
     position: relative; overflow: hidden;
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: 14px; padding: 14px 16px;
+    container-type: inline-size;
+    min-width: 0;
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .pp-summary-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(0,0,0,0.18); }
@@ -5027,8 +5083,17 @@ export const css = `
     text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
   }
   .pp-summary-value {
-    font-family: var(--font-mono); font-size: 20px; font-weight: 700;
-    color: var(--text); letter-spacing: -0.01em; line-height: 1.1;
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 7cqi, 20px);
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    font-variant-numeric: tabular-nums;
   }
   .pp-summary-in  .pp-summary-value { color: #059669; }
   .pp-summary-out .pp-summary-value { color: #dc2626; }
@@ -5082,24 +5147,24 @@ export const css = `
   /* — Action buttons — */
   .pp-btn-primary {
     display: inline-flex; align-items: center; gap: 8px;
-    height: 36px; padding: 0 14px;
-    border-radius: 10px; border: 1px solid transparent;
+    height: var(--btn-h); padding: 0 var(--btn-px);
+    border-radius: var(--btn-radius); border: 1px solid transparent;
     background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 78%, #000));
     color: #fff; font-weight: 600; font-size: 13px; cursor: pointer;
     box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 6px 18px -8px color-mix(in oklab, var(--primary) 60%, transparent);
     transition: transform .12s ease, filter .15s ease;
   }
-  .pp-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
-  .pp-btn-primary:active { transform: translateY(0); }
+  .pp-btn-primary:hover { background: var(--rn-success-hover); border-color: var(--rn-success-hover); }
+  .pp-btn-primary:active { transform: translateY(1px); }
   .pp-btn-secondary {
     display: inline-flex; align-items: center; gap: 6px;
-    height: 36px; padding: 0 14px;
-    border-radius: 10px; border: 1px solid var(--border);
+    height: var(--btn-h); padding: 0 var(--btn-px);
+    border-radius: var(--btn-radius); border: 1px solid var(--border);
     background: var(--bg); color: var(--text);
     font-weight: 500; font-size: 13px; cursor: pointer;
     transition: all .12s ease;
   }
-  .pp-btn-secondary:hover { background: color-mix(in oklab, var(--primary) 6%, var(--bg)); border-color: color-mix(in oklab, var(--primary) 28%, var(--border)); }
+  .pp-btn-secondary:hover { background: var(--rn-neutral-hover); border-color: color-mix(in oklab, var(--forest-600) 28%, var(--border)); }
 
   .pp-row-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.45; transition: opacity .12s ease; }
   .pp-icon-btn {
@@ -5154,7 +5219,7 @@ export const css = `
     .pp-summary-grid,
     .pp-summary-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .pp-summary-card { padding: 11px 12px; }
-    .pp-summary-value { font-size: 16.5px; }
+    .pp-summary-value { font-size: clamp(10px, 6.5cqi, 16.5px); }
     .pp-toolbar { padding: 10px; }
   }
 
@@ -5182,11 +5247,14 @@ export const css = `
   .lanc-card    { width: 100%; }
 
   /* ═══════════════════════════════════════════════════════════════════ */
-  /* SAAS CLEAN — contraste, cards sólidos, ações visíveis (visual-only) */
+  /* FASE 1 — PADRONIZAÇÃO VISUAL (CSS-only, sem alteração de JSX)      */
+  /* Tokens em vez de hexadecimais. Sombras, bordas e tipografia        */
+  /* unificados entre todos os sistemas de componentes (A–F).           */
   /* ═══════════════════════════════════════════════════════════════════ */
 
+  /* ── 1. Fundo e sombra de cards — todos os sistemas ───────────────── */
   .card, .kpi-card, .dash-resumo-card, .form-card {
-    background: #ffffff;
+    background: var(--card);
     border-color: var(--border);
     box-shadow: var(--shadow-card);
   }
@@ -5194,139 +5262,222 @@ export const css = `
   .lanc-toolbar, .pp-toolbar,
   .lanc-summary-card, .pp-summary-card,
   .lanc-card, .pp-card {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--card);
+    border-color: var(--border);
+    box-shadow: var(--shadow-card);
   }
 
-  .pp-page-header { border-bottom-color: #e2e8f0; }
-  .pp-page-sub, .lanc-summary-label, .pp-summary-label { color: #475569; }
-  .lanc-summary-hint, .pp-summary-hint { color: #64748b; }
-  .lanc-cell-quiet, .lanc-cell-meta { color: #64748b; }
+  /* Remove translateY do hover de cards — muito lúdico para SaaS financeiro */
+  .lanc-summary-card:hover, .pp-summary-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-elevated);
+  }
 
+  /* ── 2. Tipografia de rótulos e subtítulos — padronização ─────────── */
+  .pp-page-header { border-bottom-color: var(--border); }
+  .pp-page-title   { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; color: var(--foreground); }
+  .pp-page-sub     { font-size: 13px; color: var(--muted-foreground); }
+
+  .pp-page-sub, .lanc-summary-label, .pp-summary-label { color: var(--rn-label); }
+  .lanc-summary-hint, .pp-summary-hint { color: var(--rn-text-soft); }
+  .lanc-cell-quiet, .lanc-cell-meta { color: var(--rn-text-soft); }
+
+  /* Valor de KPI dos sistemas secundários — hotfix overflow (cqi nos cards pai) */
+  .lanc-summary-value, .pp-summary-value {
+    font-size: clamp(11px, 7cqi, 22px);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 100%;
+  }
+  .cp-kpi-value {
+    font-size: clamp(11px, 7.5cqi, 22px);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  /* ── 3. Tabelas — todos os sistemas ───────────────────────────────── */
   .lanc-table thead th, .pp-table thead th {
-    color: #475569;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    color: var(--rn-label);
+    background: var(--rn-page-canvas);
+    border-bottom: 1px solid var(--border);
   }
   .lanc-table tbody td, .pp-table tbody td {
-    border-bottom: 1px solid #e2e8f0;
-    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
   }
-  .pp-table tbody tr:hover { background: #f1f5f9; }
-  .lanc-table tbody tr.lanc-row:hover td {
-    background: #f1f5f9 !important;
-  }
-  .lanc-table tbody tr.lanc-row-entrada td { background: #eff6ff; }
-  .lanc-table tbody tr.lanc-row-entrada:hover td { background: #dbeafe !important; }
-  .lanc-table tbody tr.lanc-row-pago td { background: #f0fdf4; }
-  .lanc-table tbody tr.lanc-row-pago:hover td { background: #dcfce7 !important; }
-  .lanc-table tbody tr.lanc-row-vencida td { background: #fef2f2; }
-  .lanc-table tbody tr.lanc-row-vencida:hover td { background: #fee2e2 !important; }
-  .lanc-table tbody tr.lanc-row-proximo td { background: #fffbeb; }
-  .lanc-table tbody tr.lanc-row-proximo:hover td { background: #fef3c7 !important; }
+  .pp-table tbody tr:hover { background: var(--rn-neutral); }
+  .lanc-table tbody tr.lanc-row:hover td { background: var(--rn-neutral) !important; }
 
+  /* Linhas de status semântico — tokens de superfície */
+  .lanc-table tbody tr.lanc-row-entrada td { background: var(--info-soft); }
+  .lanc-table tbody tr.lanc-row-entrada:hover td { background: color-mix(in oklab, var(--info) 12%, var(--card)) !important; }
+  .lanc-table tbody tr.lanc-row-pago td    { background: var(--success-soft); }
+  .lanc-table tbody tr.lanc-row-pago:hover td { background: color-mix(in oklab, var(--success) 14%, var(--card)) !important; }
+  .lanc-table tbody tr.lanc-row-vencida td { background: var(--danger-soft); }
+  .lanc-table tbody tr.lanc-row-vencida:hover td { background: color-mix(in oklab, var(--danger) 12%, var(--card)) !important; }
+  .lanc-table tbody tr.lanc-row-proximo td { background: var(--warning-soft); }
+  .lanc-table tbody tr.lanc-row-proximo:hover td { background: color-mix(in oklab, var(--warning) 14%, var(--card)) !important; }
+
+  /* ── 4. Botões primários — unificados ─────────────────────────────── */
   .lanc-btn-primary, .pp-btn-primary {
-    background: #16a34a;
-    border-color: #15803d;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    background: var(--rn-success);
+    border-color: var(--rn-success-hover);
+    color: var(--rn-white);
+    font-size: var(--btn-font);
+    font-weight: var(--btn-fw);
+    box-shadow: none;
+    transition: background-color 0.15s, border-color 0.15s, transform 0.05s;
   }
   .lanc-btn-primary:hover, .pp-btn-primary:hover {
-    background: #15803d;
+    background: var(--rn-success-hover);
+    border-color: var(--rn-success-hover);
     filter: none;
+    transform: none;
   }
+  .lanc-btn-primary:active, .pp-btn-primary:active { transform: translateY(1px); }
 
+  /* ── 5. Chips de filtro — estado ativo menos saturado ─────────────── */
   .lanc-chip, .pp-chip {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    color: #475569;
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--rn-label);
   }
+  /* Padrão "Todos" — neutro sem cor semântica */
   .lanc-chip.is-active, .pp-chip.is-active {
-    background: #f0fdf4;
-    border-color: #86efac;
-    color: #166534;
+    background: color-mix(in oklab, var(--success) 10%, var(--card));
+    border-color: color-mix(in oklab, var(--success) 35%, var(--border));
+    color: var(--success-fg);
+    font-weight: 600;
   }
+  /* Semânticos: mantêm cor mas com intensidade reduzida */
   .lanc-chip-entrada.is-active, .pp-chip-in.is-active {
-    background: #dcfce7; border-color: #86efac; color: #166534;
+    background: var(--success-soft);
+    border-color: color-mix(in oklab, var(--success) 35%, var(--border));
+    color: var(--success-fg);
   }
   .lanc-chip-saida.is-active, .pp-chip-out.is-active {
-    background: #fee2e2; border-color: #fca5a5; color: #b91c1c;
+    background: var(--danger-soft);
+    border-color: color-mix(in oklab, var(--danger) 35%, var(--border));
+    color: var(--danger-fg);
   }
   .lanc-chip-transferencia.is-active {
-    background: #e0e7ff; border-color: #a5b4fc; color: #4338ca;
+    background: var(--info-soft);
+    border-color: color-mix(in oklab, var(--info) 35%, var(--border));
+    color: var(--info-fg);
   }
   .pp-chip-warn.is-active {
-    background: #fef3c7; border-color: #fcd34d; color: #b45309;
+    background: var(--warning-soft);
+    border-color: color-mix(in oklab, var(--warning) 35%, var(--border));
+    color: var(--warning-fg);
   }
 
-  .lanc-badge-blue, .pp-badge-blue { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
-  .lanc-badge-green, .pp-badge-green { background: #dcfce7; color: #166534; border-color: #86efac; }
-  .lanc-badge-red, .pp-badge-red { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-  .lanc-badge-amber, .pp-badge-amber { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
-  .pp-badge-violet { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
-  .pp-badge-muted { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+  /* ── 6. Badges — tokens de sistema ───────────────────────────────── */
+  .lanc-badge-blue,  .pp-badge-blue  { background: var(--info-soft);    color: var(--info-fg);    border-color: color-mix(in oklab, var(--info)    35%, var(--border)); }
+  .lanc-badge-green, .pp-badge-green { background: var(--success-soft); color: var(--success-fg); border-color: color-mix(in oklab, var(--success) 35%, var(--border)); }
+  .lanc-badge-red,   .pp-badge-red   { background: var(--danger-soft);  color: var(--danger-fg);  border-color: color-mix(in oklab, var(--danger)  35%, var(--border)); }
+  .lanc-badge-amber, .pp-badge-amber { background: var(--warning-soft); color: var(--warning-fg); border-color: color-mix(in oklab, var(--warning) 35%, var(--border)); }
+  .pp-badge-violet { background: color-mix(in oklab, #6d28d9 10%, var(--card)); color: #6d28d9; border-color: color-mix(in oklab, #6d28d9 28%, var(--border)); }
+  .pp-badge-muted  { background: var(--rn-neutral); color: var(--rn-label); border-color: var(--border); }
 
-  .lanc-type-in { background: #dcfce7; color: #166534; }
-  .lanc-type-out { background: #fee2e2; color: #b91c1c; }
-  .lanc-type-tr { background: #e0e7ff; color: #4338ca; }
+  /* ── 7. Type dots das linhas de lançamento ─────────────────────────── */
+  .lanc-type-in  { background: var(--success-soft); color: var(--success-fg); }
+  .lanc-type-out { background: var(--danger-soft);  color: var(--danger-fg);  }
+  .lanc-type-tr  { background: var(--info-soft);    color: var(--info-fg);    }
 
-  .pp-summary-in .pp-summary-icon { background: #dcfce7; color: #166534; }
-  .pp-summary-out .pp-summary-icon { background: #fee2e2; color: #b91c1c; }
-  .pp-summary-warn .pp-summary-icon { background: #fef3c7; color: #b45309; }
-  .pp-summary-info .pp-summary-icon { background: #dbeafe; color: #1d4ed8; }
+  /* ── 8. Summary icons — tokens semânticos ─────────────────────────── */
+  .pp-summary-in   .pp-summary-icon { background: var(--success-soft); color: var(--success-fg); }
+  .pp-summary-out  .pp-summary-icon { background: var(--danger-soft);  color: var(--danger-fg);  }
+  .pp-summary-warn .pp-summary-icon { background: var(--warning-soft); color: var(--warning-fg); }
+  .pp-summary-info .pp-summary-icon { background: var(--info-soft);    color: var(--info-fg);    }
 
+  /* ── 9. Summary card — barras laterais coloridas com tokens ────────── */
+  .pp-summary-in::before    { background: linear-gradient(180deg, var(--success), var(--success-fg)); }
+  .pp-summary-out::before   { background: linear-gradient(180deg, var(--danger),  var(--rn-danger-hover)); }
+  .pp-summary-warn::before  { background: linear-gradient(180deg, var(--warning), var(--warning-fg)); }
+  .pp-summary-info::before  { background: linear-gradient(180deg, var(--info),    var(--rn-info-hover)); }
+  .pp-summary-muted::before { background: linear-gradient(180deg, #8b5cf6, #6d28d9); }
+
+  /* ── 10. Idem para lanc-summary-cards ─────────────────────────────── */
+  .lanc-summary-in::before    { background: linear-gradient(180deg, var(--success), var(--success-fg)); }
+  .lanc-summary-out::before   { background: linear-gradient(180deg, var(--danger),  var(--rn-danger-hover)); }
+  .lanc-summary-pos::before   { background: linear-gradient(180deg, var(--info),    var(--rn-info-hover)); }
+  .lanc-summary-neg::before   { background: linear-gradient(180deg, var(--warning), var(--warning-fg)); }
+  .lanc-summary-count::before { background: linear-gradient(180deg, #8b5cf6, #6d28d9); }
+
+  /* ── 11. Valores coloridos dos summary cards — tokens ──────────────── */
+  .lanc-summary-in  .lanc-summary-value { color: var(--success-fg); }
+  .lanc-summary-out .lanc-summary-value { color: var(--danger-fg);  }
+  .lanc-summary-pos .lanc-summary-value { color: var(--info-fg);    }
+  .lanc-summary-neg .lanc-summary-value { color: var(--warning-fg); }
+  .pp-summary-in    .pp-summary-value   { color: var(--success-fg); }
+  .pp-summary-out   .pp-summary-value   { color: var(--danger-fg);  }
+  .pp-summary-warn  .pp-summary-value   { color: var(--warning-fg); }
+  .pp-summary-info  .pp-summary-value   { color: var(--info-fg);    }
+
+  /* ── 12. Botões de ação inline — ações visíveis ────────────────────── */
   .lanc-actions, .pp-row-actions { opacity: 1; }
   .lanc-icon-btn, .pp-icon-btn {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    color: #475569;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--rn-label);
   }
   .lanc-icon-btn:hover, .pp-icon-btn:hover {
-    background: #f0fdf4;
-    border-color: #86efac;
-    color: #166534;
+    background: var(--success-soft);
+    border-color: color-mix(in oklab, var(--success) 35%, var(--border));
+    color: var(--success-fg);
   }
   .lanc-icon-btn-danger:hover, .pp-icon-btn-danger:hover {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #b91c1c;
+    background: var(--danger-soft);
+    border-color: color-mix(in oklab, var(--danger) 35%, var(--border));
+    color: var(--danger-fg);
   }
   .pp-icon-btn-success:hover {
-    background: #dcfce7;
-    border-color: #86efac;
-    color: #166534;
+    background: var(--success-soft);
+    border-color: color-mix(in oklab, var(--success) 35%, var(--border));
+    color: var(--success-fg);
   }
 
+  /* ── 13. Rodapé e saldo anterior ──────────────────────────────────── */
   .lanc-footer {
-    background: #f8fafc;
-    border-top-color: #e2e8f0;
-    color: #475569;
+    background: var(--rn-page-canvas);
+    border-top-color: var(--border);
+    color: var(--rn-label);
   }
   .lanc-saldo-anterior {
-    background: #f0fdf4;
-    border-color: #bbf7d0;
-    color: #475569;
+    background: color-mix(in oklab, var(--success) 6%, var(--card));
+    border-color: color-mix(in oklab, var(--success) 25%, var(--border));
+    color: var(--rn-label);
   }
 
+  /* ── 14. Empty states ──────────────────────────────────────────────── */
   .pp-empty-icon, .lanc-empty-icon {
-    background: #f0fdf4;
-    box-shadow: inset 0 0 0 1px #bbf7d0;
+    background: var(--rn-page-canvas);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
-  .rec-type-in .rec-type-icon { background: #dcfce7; color: #166534; }
-  .rec-type-out .rec-type-icon { background: #fee2e2; color: #b91c1c; }
+  /* ── 15. Recorrências type icons ──────────────────────────────────── */
+  .rec-type-in  .rec-type-icon { background: var(--success-soft); color: var(--success-fg); }
+  .rec-type-out .rec-type-icon { background: var(--danger-soft);  color: var(--danger-fg);  }
 
-  .cp-row-late td { background: #fef2f2; }
-  .cp-row-soon td { background: #fffbeb; }
-  .pp-table tbody tr.cp-row-late:hover td { background: #fee2e2; }
-  .pp-table tbody tr.cp-row-soon:hover td { background: #fef3c7; }
+  /* ── 16. Contas a Pagar — linhas de status ─────────────────────────── */
+  .cp-row-late td { background: var(--danger-soft); }
+  .cp-row-soon td { background: var(--warning-soft); }
+  .pp-table tbody tr.cp-row-late:hover td { background: color-mix(in oklab, var(--danger)  10%, var(--card)); }
+  .pp-table tbody tr.cp-row-soon:hover td { background: color-mix(in oklab, var(--warning) 12%, var(--card)); }
 
+  /* ── 17. Valores e status de lançamento — tokens ──────────────────── */
+  .lanc-value-in  { color: var(--success-fg); }
+  .lanc-value-out { color: var(--danger-fg);  }
+  .lanc-meta-late { color: var(--danger-fg);  font-weight: 600; }
+  .lanc-meta-soon { color: var(--warning-fg); font-weight: 600; }
+
+  /* ── 18. Sidebar — limpar sobreposição de padding ──────────────────── */
   .sidebar .nav-section { padding: 4px 8px 8px; }
-  .sidebar .nav-section .nav-label {
-    font-size: 9px;
-    padding: 6px 8px 4px;
-  }
-  .sidebar .nav-list { gap: 0; }
+  .sidebar .nav-section .nav-label { font-size: 9px; padding: 6px 8px 4px; }
+  .sidebar .nav-list { gap: 2px; }
 
   /* ─── Ícones Lucide — refinamento visual ─────────────────────────────── */
   .pp-summary-icon,
@@ -5357,8 +5508,8 @@ export const css = `
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--rn-neutral);
+    color: var(--rn-label);
     flex-shrink: 0;
   }
 
@@ -5369,9 +5520,9 @@ export const css = `
     width: 32px;
     height: 32px;
     border-radius: 9px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    color: #475569;
+    background: var(--rn-page-canvas);
+    border: 1px solid var(--border);
+    color: var(--rn-label);
     font-size: inherit;
     flex-shrink: 0;
   }
@@ -5382,9 +5533,9 @@ export const css = `
     width: 56px;
     height: 56px;
     border-radius: 14px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--rn-page-canvas);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
   }
 
   .dash-tipo-pill {
@@ -5416,26 +5567,26 @@ export const css = `
   }
 
   .kpi-v2-icon-wrap {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    color: #334155;
+    background: var(--rn-page-canvas);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
     border-radius: 10px;
     box-shadow: none;
   }
   .kpi-v2--success .kpi-v2-icon-wrap {
-    background: #dcfce7;
-    color: #166534;
-    border-color: #86efac;
+    background: var(--success-soft);
+    color: var(--success-fg);
+    border-color: color-mix(in oklab, var(--success) 32%, var(--border));
   }
   .kpi-v2--danger .kpi-v2-icon-wrap {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fca5a5;
+    background: var(--danger-soft);
+    color: var(--danger-fg);
+    border-color: color-mix(in oklab, var(--danger) 32%, var(--border));
   }
   .kpi-v2--warning .kpi-v2-icon-wrap {
-    background: #fef3c7;
-    color: #b45309;
-    border-color: #fcd34d;
+    background: var(--warning-soft);
+    color: var(--warning-fg);
+    border-color: color-mix(in oklab, var(--warning) 32%, var(--border));
   }
   .kpi-v2-delta-arrow {
     display: inline-flex;
@@ -5453,9 +5604,9 @@ export const css = `
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--rn-page-canvas);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
     flex-shrink: 0;
   }
 
@@ -5471,9 +5622,9 @@ export const css = `
     width: 32px;
     height: 32px;
     border-radius: 10px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--rn-page-canvas);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
   }
 
 `;

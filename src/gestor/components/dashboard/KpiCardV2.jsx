@@ -1,6 +1,7 @@
 import { memo } from "react";
 import Sparkline from "./Sparkline.jsx";
 import { TrendIcon } from "../icons.jsx";
+import KpiValue from "./KpiValue.jsx";
 
 /**
  * KPI premium — Lucide, sparkline opcional, delta comparativo, badge de tendência.
@@ -59,11 +60,12 @@ function KpiCardV2({
         <div className="kpi-v2-label-wrap">
           <div className="kpi-v2-label">{label}</div>
         </div>
-        {sparkline?.length >= 2 && (
-          <Sparkline data={sparkline} tone={sparkTone} width={compact ? 56 : 80} height={compact ? 22 : 32} />
+        {/* sparkline apenas no modo full — no compact reduz densidade */}
+        {!compact && sparkline?.length >= 2 && (
+          <Sparkline data={sparkline} tone={sparkTone} width={80} height={32} />
         )}
       </div>
-      <div className={`kpi-v2-value ${valueClass}`}>{value}</div>
+      <KpiValue className={valueClass} compact={compact}>{value}</KpiValue>
       {deltaText && (
         <div className={`kpi-v2-delta kpi-v2-delta--${deltaCls}`} title={delta.label || ""}>
           <span className="kpi-v2-delta-arrow"><TrendIcon dir={deltaArrow === "flat" ? null : deltaArrow} size={12} /></span>
