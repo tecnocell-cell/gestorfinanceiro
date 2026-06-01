@@ -75,9 +75,12 @@ import {
   ExternalLink,
   Video,
   MessageSquare,
+  CheckCircle,
+  XCircle,
+  ChevronLeft,
 } from "lucide-react";
 
-/** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
+/** Icones de navegacao (Lucide) — chave = id da rota em constants.js */
 export const NAV_ICON_MAP = {
   dashboard: LayoutDashboard,
   lancamentos: Receipt,
@@ -184,4 +187,8 @@ export {
   ExternalLink,
   Video,
   MessageSquare,
+  Upload,
+  CheckCircle,
+  XCircle,
+  ChevronLeft,
 };

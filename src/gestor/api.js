@@ -135,6 +135,22 @@ export const conexoesApi = {
   registerInteresse: (banco_slug) =>
     request("/conexoes/interesse", { method: "POST", body: { banco_slug } }),
 };
+// ─── Importações (OFX com histórico e deduplicação) ──────────────────────────
+export const importacoesApi = {
+  /**
+   * Preview OFX/QIF — parse + deduplicação, sem gravar lançamentos (Etapa 4.6A).
+   * fileContent: string (conteúdo do arquivo, não base64)
+   */
+  previewOFX: (contaId, planoId, fileName, fileContent) =>
+    request("/importacoes/ofx-preview", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent },
+    }),
+
+  /** Lista histórico de importações confirmadas (últimas 50) */
+  list: () => request("/importacoes"),
+};
+
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 export const tokenStorage = {
