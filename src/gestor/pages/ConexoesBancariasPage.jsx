@@ -1,12 +1,7 @@
 /**
  * ConexoesBancariasPage — Open Finance / Conexões Bancárias
  *
- * Etapa 4.6B — Preview + confirmação OFX:
- * - POST /api/importacoes/ofx-preview   — parse + deduplicação
- * - POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
- * - Wizard: conta+plano → upload → preview com tabela
- * - Histórico GET (vazio até Etapa 4.6B)
- * - "Avise-me" + roadmap mantidos
+ * Etapa 4.6C — Histórico profissional de importações (somente leitura)
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGestor }      from "../GestorContext.jsx";
@@ -14,7 +9,7 @@ import { conexoesApi, importacoesApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
   Bell, FileText, Table, PenLine, ArrowRight, Link2, AlertCircle,
-  Upload, CheckCircle, XCircle, Clock, ChevronLeft,
+  Upload, CheckCircle, XCircle, Clock, ChevronLeft, Eye, ExternalLink,
 } from "../components/icons.jsx";
 
 const BANCOS = [
@@ -417,7 +412,176 @@ function OFXWizard({ contas, planoContas, onClose, onSuccess }) {
   );
 }
 
-function HistoricoImportacoes({ importacoes, loading, erro }) {
+function statusBadgeClass(s) {
+  if (s === "sucesso") return "badge-cp-pago";
+  if (s === "parcial") return "badge-cp-pendente";
+  return "badge-cp-atrasado";
+}
+
+function ImportacaoDetalheModal({ importacaoId, onClose, onNavigate }) {
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro]       = useState(null);
+  const [detalhe, setDetalhe] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setErro(null);
+      try {
+        const data = await importacoesApi.get(importacaoId);
+        if (!cancelled) setDetalhe(data);
+      } catch (err) {
+        if (!cancelled) setErro(err.message || "Erro ao carregar detalhes.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [importacaoId]);
+
+  const imp = detalhe?.importacao;
+  const lancs = detalhe?.lancamentosImportados || [];
+
+  const handleVerLancamentos = () => {
+    if (imp?.lote_id) {
+      window.alert(
+        `Na tela de Lancamentos, use a busca pelo lote:\n\n${imp.lote_id}\n\n` +
+        "Nao ha filtro automatico por lote nesta versao."
+      );
+    }
+    onClose();
+    onNavigate?.("lancamentos");
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Detalhes da importacao</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>X</button>
+        </div>
+        <div className="modal-body">
+          {loading && (
+            <div style={{ padding: "24px 0", color: "var(--muted-foreground)", fontSize: 13 }}>
+              Carregando detalhes...
+            </div>
+          )}
+          {erro && <div className="alert alert-warn">{erro}</div>}
+          {!loading && !erro && imp && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px 20px", fontSize: 13 }}>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Banco</div>
+                  {imp.banco_slug
+                    ? <span className="badge badge-blue" style={{ textTransform: "capitalize" }}>{imp.banco_slug}</span>
+                    : "—"}
+                </div>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Formato</div>
+                  <span className="td-mono">{imp.formato || "—"}</span>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Arquivo</div>
+                  {imp.nome_arquivo || "—"}
+                </div>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Data da importacao</div>
+                  {fmtData(imp.created_at)}
+                </div>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Status</div>
+                  <span className={"badge " + statusBadgeClass(imp.status)} style={{ textTransform: "capitalize" }}>
+                    {imp.status}
+                  </span>
+                </div>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Lote</div>
+                  <span className="td-mono" style={{ fontSize: 12 }}>{imp.lote_id || "—"}</span>
+                </div>
+                <div>
+                  <div style={{ color: "var(--muted-foreground)", fontSize: 11, marginBottom: 2 }}>Total processado</div>
+                  <span className="td-mono">{imp.total_linhas}</span>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                <div style={{ background: "var(--rn-page-canvas)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "10px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{imp.total_linhas}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted-foreground)", fontWeight: 600 }}>Total</div>
+                </div>
+                <div style={{ background: "var(--success-soft)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "10px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--success-fg)" }}>{imp.importados}</div>
+                  <div style={{ fontSize: 10, color: "var(--success-fg)", fontWeight: 600 }}>Importados</div>
+                </div>
+                <div style={{ background: "var(--warning-soft)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "10px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--warning-fg)" }}>{imp.duplicatas}</div>
+                  <div style={{ fontSize: 10, color: "var(--warning-fg)", fontWeight: 600 }}>Duplicados</div>
+                </div>
+                <div style={{ background: "var(--rn-page-canvas)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "10px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)", color: imp.erros > 0 ? "var(--danger-fg)" : "var(--muted-foreground)" }}>{imp.erros}</div>
+                  <div style={{ fontSize: 10, color: imp.erros > 0 ? "var(--danger-fg)" : "var(--muted-foreground)", fontWeight: 600 }}>Erros</div>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  Lancamentos deste lote ({lancs.length})
+                </div>
+                {lancs.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "var(--muted-foreground)", padding: "12px 0" }}>
+                    Nenhum lancamento encontrado para o lote {imp.lote_id || "—"}.
+                    {imp.importados === 0 && " Esta importacao nao gravou transacoes novas."}
+                  </div>
+                ) : (
+                  <div className="table-wrap" style={{ maxHeight: 280, overflow: "auto" }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Historico</th>
+                          <th style={{ textAlign: "right" }}>Valor</th>
+                          <th>Tipo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lancs.map((l) => (
+                          <tr key={l.id}>
+                            <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(l.data)}</td>
+                            <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                title={l.historico || ""}>
+                              {l.historico || "—"}
+                            </td>
+                            <td className="td-mono" style={{
+                              textAlign: "right",
+                              color: l.tipo === "Entrada" ? "var(--success-fg)" : "var(--danger-fg)",
+                            }}>
+                              {fmtBRL(l.valor)}
+                            </td>
+                            <td style={{ fontSize: 12 }}>{l.tipo || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Fechar</button>
+          {imp?.lote_id && onNavigate && (
+            <button type="button" className="btn btn-primary" onClick={handleVerLancamentos}>
+              <ExternalLink size={14} strokeWidth={2} aria-hidden />
+              Ver lancamentos
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoricoImportacoes({ importacoes, total, loading, erro, onVerDetalhes, onVerLancamentos }) {
   if (loading) return (
     <div style={{ padding: "20px 0", color: "var(--muted-foreground)", fontSize: 13 }}>Carregando historico...</div>
   );
@@ -433,42 +597,72 @@ function HistoricoImportacoes({ importacoes, loading, erro }) {
     return <XCircle size={14} strokeWidth={2} style={{ color: "var(--danger-fg)" }} />;
   };
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th><th>Arquivo</th><th>Banco</th>
-            <th style={{ textAlign: "right" }}>Importados</th>
-            <th style={{ textAlign: "right" }}>Duplicados</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {importacoes.map((imp) => (
-            <tr key={imp.id}>
-              <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtData(imp.created_at)}</td>
-              <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                  title={imp.nome_arquivo || ""}>
-                {imp.nome_arquivo || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
-              </td>
-              <td>
-                {imp.banco_slug
-                  ? <span className="badge badge-blue" style={{ textTransform: "capitalize" }}>{imp.banco_slug}</span>
-                  : <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>—</span>}
-              </td>
-              <td className="td-mono" style={{ textAlign: "right", color: "var(--success-fg)" }}>{imp.importados}</td>
-              <td className="td-mono" style={{ textAlign: "right", color: "var(--muted-foreground)" }}>{imp.duplicatas}</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  {statusIcon(imp.status)}
-                  <span style={{ fontSize: 12, textTransform: "capitalize" }}>{imp.status}</span>
-                </div>
-              </td>
+    <>
+      {total > importacoes.length && (
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 10 }}>
+          Exibindo {importacoes.length} de {total} importacoes.
+        </div>
+      )}
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Banco</th>
+              <th>Arquivo</th>
+              <th style={{ textAlign: "right" }}>Importados</th>
+              <th style={{ textAlign: "right" }}>Duplicados</th>
+              <th>Status</th>
+              <th>Lote</th>
+              <th>Acoes</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {importacoes.map((imp) => (
+              <tr key={imp.id}>
+                <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtData(imp.created_at)}</td>
+                <td>
+                  {imp.banco_slug
+                    ? <span className="badge badge-blue" style={{ textTransform: "capitalize" }}>{imp.banco_slug}</span>
+                    : <span style={{ color: "var(--muted-foreground)", fontSize: 12 }}>—</span>}
+                </td>
+                <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={imp.nome_arquivo || ""}>
+                  {imp.nome_arquivo || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
+                </td>
+                <td className="td-mono" style={{ textAlign: "right", color: "var(--success-fg)" }}>{imp.importados}</td>
+                <td className="td-mono" style={{ textAlign: "right", color: "var(--muted-foreground)" }}>{imp.duplicatas}</td>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    {statusIcon(imp.status)}
+                    <span style={{ fontSize: 12, textTransform: "capitalize" }}>{imp.status}</span>
+                  </div>
+                </td>
+                <td className="td-mono" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                  {imp.lote_id || "—"}
+                </td>
+                <td>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button type="button" className="btn btn-secondary btn-sm"
+                      onClick={() => onVerDetalhes(imp.id)} title="Ver detalhes">
+                      <Eye size={13} strokeWidth={2} aria-hidden />
+                      Detalhes
+                    </button>
+                    {imp.lote_id && imp.importados > 0 && (
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        onClick={() => onVerLancamentos(imp)} title="Ver lancamentos">
+                        <ExternalLink size={13} strokeWidth={2} aria-hidden />
+                        Lancamentos
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -482,8 +676,10 @@ export default function ConexoesBancariasPage({ onNavigate }) {
   const [interesseError, setInteresseError]   = useState(null);
   const [wizardOpen, setWizardOpen]           = useState(false);
   const [importacoes, setImportacoes]         = useState([]);
+  const [importacoesTotal, setImportacoesTotal] = useState(0);
   const [loadingHist, setLoadingHist]         = useState(true);
   const [histErro, setHistErro]               = useState(null);
+  const [detalheId, setDetalheId]             = useState(null);
 
   const loadInteresses = useCallback(async () => {
     setLoadingInteresse(true); setInteresseError(null);
@@ -497,11 +693,24 @@ export default function ConexoesBancariasPage({ onNavigate }) {
   const loadHistorico = useCallback(async () => {
     setLoadingHist(true); setHistErro(null);
     try {
-      const { importacoes: list } = await importacoesApi.list();
+      const { importacoes: list, total } = await importacoesApi.list({ limit: 50 });
       setImportacoes(list || []);
+      setImportacoesTotal(total ?? (list?.length || 0));
     } catch { setHistErro("Nao foi possivel carregar o historico."); }
     finally { setLoadingHist(false); }
   }, []);
+
+  const handleVerDetalhes = useCallback((id) => setDetalheId(id), []);
+
+  const handleVerLancamentos = useCallback((imp) => {
+    if (imp?.lote_id) {
+      window.alert(
+        `Na tela de Lancamentos, use a busca pelo lote:\n\n${imp.lote_id}\n\n` +
+        "Nao ha filtro automatico por lote nesta versao."
+      );
+    }
+    onNavigate?.("lancamentos");
+  }, [onNavigate]);
 
   useEffect(() => { loadInteresses(); loadHistorico(); }, [loadInteresses, loadHistorico]);
 
@@ -633,7 +842,14 @@ export default function ConexoesBancariasPage({ onNavigate }) {
         <div className="of-section-sub" style={{ marginBottom: 16 }}>
           Registro das ultimas importacoes confirmadas. Transacoes duplicadas sao ignoradas automaticamente.
         </div>
-        <HistoricoImportacoes importacoes={importacoes} loading={loadingHist} erro={histErro} />
+        <HistoricoImportacoes
+          importacoes={importacoes}
+          total={importacoesTotal}
+          loading={loadingHist}
+          erro={histErro}
+          onVerDetalhes={handleVerDetalhes}
+          onVerLancamentos={handleVerLancamentos}
+        />
       </div>
 
       <div className="of-section">
@@ -683,6 +899,13 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       {wizardOpen && (
         <OFXWizard contas={contas || []} planoContas={planoContas || []}
           onClose={() => setWizardOpen(false)} onSuccess={handleImportSuccess} />
+      )}
+      {detalheId && (
+        <ImportacaoDetalheModal
+          importacaoId={detalheId}
+          onClose={() => setDetalheId(null)}
+          onNavigate={onNavigate}
+        />
       )}
     </div>
   );

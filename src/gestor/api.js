@@ -154,8 +154,17 @@ export const importacoesApi = {
       body: { contaId, planoId, fileName, fileContent },
     }),
 
-  /** Lista histórico de importações confirmadas (últimas 50) */
-  list: () => request("/importacoes"),
+  /** Lista histórico de importações (paginado) */
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return request(q ? `/importacoes?${q}` : "/importacoes");
+  },
+
+  /** Detalhe de uma importação + lançamentos do lote (somente leitura) */
+  get: (id) => request(`/importacoes/${id}`),
 };
 
 

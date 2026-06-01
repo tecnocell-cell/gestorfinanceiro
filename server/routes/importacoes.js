@@ -1,10 +1,11 @@
 /**
- * Importações — Etapa 4.6A/4.6B
+ * Importações — Etapa 4.6A/4.6B/4.6C
  *
  * Rotas:
  *   POST /api/importacoes/ofx-preview   — parse + deduplicação, sem gravar
  *   POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
- *   GET  /api/importacoes               — histórico
+ *   GET  /api/importacoes               — histórico paginado
+ *   GET  /api/importacoes/:id           — detalhe + lançamentos do lote (somente leitura)
  */
 
 import { Router } from 'express';
@@ -16,10 +17,20 @@ import {
   loadExistingFingerprints,
   parseOfxForImport,
   confirmOfxImport,
+  findLancamentosImportados,
 } from '../utils/ofxImport.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
+
+const IMPORTACAO_COLS = `id, formato, banco_slug, nome_arquivo,
+  total_linhas, importados, duplicatas, erros, lote_id, status, created_at`;
+
+function parsePagination(queryParams) {
+  const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 50, 1), 100);
+  const offset = Math.max(parseInt(queryParams.offset, 10) || 0, 0);
+  return { limit, offset };
+}
 
 // ─── POST /api/importacoes/ofx-preview ────────────────────────────────────────
 
@@ -107,20 +118,74 @@ router.post('/ofx-confirmar', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await query(
-      `SELECT id, formato, banco_slug, nome_arquivo,
-              total_linhas, importados, duplicatas, erros,
-              lote_id, status, created_at
-       FROM importacoes
-       WHERE usuario_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [req.user.id]
-    );
-    res.json({ importacoes: rows });
+    const usuarioId = req.user.id;
+    const { limit, offset } = parsePagination(req.query);
+
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      query(
+        `SELECT ${IMPORTACAO_COLS}
+         FROM importacoes
+         WHERE usuario_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [usuarioId, limit, offset]
+      ),
+      query(
+        'SELECT COUNT(*)::int AS total FROM importacoes WHERE usuario_id = $1',
+        [usuarioId]
+      ),
+    ]);
+
+    res.json({
+      importacoes: rows,
+      total: countRows[0]?.total ?? 0,
+      limit,
+      offset,
+    });
   } catch (err) {
     console.error('importacoes GET:', err.message);
     res.status(500).json({ error: 'Erro ao carregar histórico.' });
+  }
+});
+
+// ─── GET /api/importacoes/:id ─────────────────────────────────────────────────
+
+router.get('/:id', async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+    const { id } = req.params;
+
+    const { rows: impRows } = await query(
+      `SELECT ${IMPORTACAO_COLS}
+       FROM importacoes
+       WHERE id = $1 AND usuario_id = $2`,
+      [id, usuarioId]
+    );
+
+    if (!impRows.length) {
+      return res.status(404).json({ error: 'Importação não encontrada.' });
+    }
+
+    const importacao = impRows[0];
+    let lancamentosImportados = [];
+
+    if (importacao.lote_id) {
+      const { rows: estadoRows } = await query(
+        'SELECT dados FROM estados WHERE usuario_id = $1',
+        [usuarioId]
+      );
+      if (estadoRows.length) {
+        lancamentosImportados = findLancamentosImportados(
+          estadoRows[0].dados,
+          importacao.lote_id
+        );
+      }
+    }
+
+    res.json({ importacao, lancamentosImportados });
+  } catch (err) {
+    console.error('importacoes GET/:id:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar detalhes da importação.' });
   }
 });
 

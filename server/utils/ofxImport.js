@@ -281,3 +281,35 @@ export async function confirmOfxImport(client, {
     duplicadas,
   };
 }
+
+/**
+ * Busca lançamentos do JSONB cujo lote coincide com o lote_id da importação (somente leitura).
+ */
+export function findLancamentosImportados(dados, loteId) {
+  if (!loteId || !dados) return [];
+
+  const empresas = Array.isArray(dados.empresas) ? dados.empresas : [];
+  const found = [];
+
+  for (const emp of empresas) {
+    for (const l of emp.lancamentos || []) {
+      if (String(l.lote || '') === String(loteId)) {
+        found.push({
+          id: l.id,
+          data: l.data,
+          tipo: l.tipo,
+          valor: l.valor,
+          historico: l.historico || l.descricao || '',
+          planoId: l.planoId || null,
+          contaEntradaId: l.contaEntradaId || null,
+          contaSaidaId: l.contaSaidaId || null,
+          source: l.source || null,
+          lote: l.lote,
+          createdAt: l.createdAt || null,
+        });
+      }
+    }
+  }
+
+  return found.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+}
