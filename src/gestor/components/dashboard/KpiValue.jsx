@@ -3,7 +3,8 @@ import { memo } from "react";
 /** Comprimento do texto formatado — usado em --kpi-ch para escala fluida no CSS. */
 export function kpiCharCount(value) {
   const s = value == null ? "" : String(value);
-  return Math.max(8, s.length);
+  /* Comprimento real: valores curtos (ex. R$ 15.000,00) ganham fonte maior; longos encolhem */
+  return Math.max(10, s.length);
 }
 
 /**

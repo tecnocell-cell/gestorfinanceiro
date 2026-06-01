@@ -3122,11 +3122,11 @@ export const css = `
   }
   .kpi-v2-value {
     --kpi-ch: 10;
-    /* min( largura do card via cqi , largura / caracteres ) */
+    /* Cresce com espaço livre; encolhe só quando o texto é longo ou o card estreito */
     font-size: clamp(
-      11px,
-      min(9.5cqi, calc(92cqi / var(--kpi-ch))),
-      30px
+      12px,
+      calc(135cqi / var(--kpi-ch)),
+      min(32px, 11.5cqi)
     );
     font-weight: 600;
     color: var(--foreground);
@@ -3136,7 +3136,7 @@ export const css = `
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: clip;
+    text-overflow: ellipsis;
     max-width: 100%;
     display: block;
   }
@@ -4681,9 +4681,9 @@ export const css = `
   .dash-v2-root .kpi-v2--compact .kpi-v2-value-wrap--compact .kpi-v2-value,
   .dash-v2-root .kpi-v2--compact .kpi-v2-value {
     font-size: clamp(
-      10px,
-      min(8cqi, calc(78cqi / var(--kpi-ch, 10))),
-      22px
+      11px,
+      calc(128cqi / var(--kpi-ch, 10)),
+      min(26px, 10.8cqi)
     );
     font-weight: 700;
     line-height: 1.15;
@@ -4692,7 +4692,7 @@ export const css = `
     color: var(--foreground);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: clip;
+    text-overflow: ellipsis;
     max-width: 100%;
     display: block;
   }
