@@ -166,9 +166,34 @@ export const importacoesApi = {
   /** Detalhe de uma importação + lançamentos do lote (somente leitura) */
   get: (id) => request(`/importacoes/${id}`),
 
-  /** Desfaz importação OFX pelo lote (Etapa 4.6D) */
+  /** Desfaz importação (OFX/CSV/XLSX) pelo lote */
   rollback: (id) =>
     request(`/importacoes/${id}/rollback`, { method: "POST" }),
+
+  /** Preview CSV — sem columnMap retorna headers/suggestedMapping; com columnMap retorna dedup */
+  previewCSV: (contaId, planoId, fileName, fileContent, columnMap) =>
+    request("/importacoes/csv-preview", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent, columnMap: columnMap || undefined },
+    }),
+
+  confirmarCSV: (contaId, planoId, fileName, fileContent, columnMap) =>
+    request("/importacoes/csv-confirmar", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent, columnMap },
+    }),
+
+  previewXLSX: (contaId, planoId, fileName, fileContent, columnMap) =>
+    request("/importacoes/xlsx-preview", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent, columnMap: columnMap || undefined },
+    }),
+
+  confirmarXLSX: (contaId, planoId, fileName, fileContent, columnMap) =>
+    request("/importacoes/xlsx-confirmar", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent, columnMap },
+    }),
 };
 
 

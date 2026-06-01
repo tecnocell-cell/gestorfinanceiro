@@ -11,6 +11,7 @@ import {
   Bell, FileText, Table, PenLine, ArrowRight, Link2, AlertCircle,
   Upload, CheckCircle, XCircle, Clock, ChevronLeft, Eye, ExternalLink,
 } from "../components/icons.jsx";
+import PlanilhaImportWizard from "./PlanilhaImportWizard.jsx";
 
 const BANCOS = [
   { slug: "nubank",    nome: "Nubank",         sigla: "Nu",   cor: "oklch(0.52 0.22 295)", descricao: "Conta + Cartão de crédito"   },
@@ -25,7 +26,8 @@ const BANCOS = [
 
 const ROADMAP = [
   { fase: "Disponível", data: "Agora",     titulo: "Importação OFX / QIF",         descricao: "Preview, deduplicação e gravação com histórico", done: true  },
-  { fase: "Em breve",   data: "2025-2026", titulo: "Importação CSV multi-banco", descricao: "Nubank, Inter, Mercado Pago — com mapeamento de colunas",   done: false },
+  { fase: "Disponível", data: "Agora",     titulo: "Importação CSV / XLSX",        descricao: "Mapeamento de colunas, preview, deduplicação e rollback", done: true  },
+  { fase: "Em breve",   data: "2025-2026", titulo: "Importação CSV multi-banco", descricao: "Templates prontos Nubank, Inter, Mercado Pago",           done: false },
   { fase: "Planejado",  data: "2026",      titulo: "Conector Open Finance",      descricao: "Integração com APIs reguladas pelo Banco Central",          done: false },
   { fase: "Futuro",     data: "2026+",     titulo: "Sincronização Automática",   descricao: "Extratos direto da conta, sem upload manual",               done: false },
 ];
@@ -592,7 +594,7 @@ function HistoricoImportacoes({
   if (erro) return <div className="alert alert-warn">{erro}</div>;
   if (!importacoes.length) return (
     <div style={{ padding: "20px 0", color: "var(--muted-foreground)", fontSize: 13 }}>
-      Nenhuma importacao confirmada ainda. Use &quot;Importar OFX&quot; acima para importar seu primeiro extrato.
+      Nenhuma importacao confirmada ainda. Use &quot;Importar OFX&quot; ou &quot;Importar CSV/XLSX&quot; acima.
     </div>
   );
   const statusIcon = (s) => {
@@ -679,14 +681,14 @@ function HistoricoImportacoes({
 }
 
 export default function ConexoesBancariasPage({ onNavigate }) {
-  const { tipo, viewOnly, contas, planoContas, reloadAppState } = useGestor();
-  const isPF = tipo === "fisica";
+  const { viewOnly, contas, planoContas, reloadAppState } = useGestor();
 
   const [avisados, setAvisados]               = useState(new Set());
   const [loadingInteresse, setLoadingInteresse] = useState(true);
   const [savingSlug, setSavingSlug]           = useState(null);
   const [interesseError, setInteresseError]   = useState(null);
   const [wizardOpen, setWizardOpen]           = useState(false);
+  const [planilhaWizardOpen, setPlanilhaWizardOpen] = useState(false);
   const [importacoes, setImportacoes]         = useState([]);
   const [importacoesTotal, setImportacoesTotal] = useState(0);
   const [loadingHist, setLoadingHist]         = useState(true);
@@ -775,7 +777,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
         <AlertCircle size={18} strokeWidth={2} aria-hidden />
         <div>
           <strong>Conexao automatica ainda nao disponivel.</strong>
-          {" "}Importacao OFX com deduplicacao e historico esta disponivel.
+          {" "}Importacao OFX e CSV/XLSX com deduplicacao e historico disponiveis.
           Open Finance no roadmap.
         </div>
       </div>
@@ -788,7 +790,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
           </div>
           <h2 className="of-hero-title">Conexoes Bancarias</h2>
           <p className="of-hero-sub">
-            Importe extratos OFX com preview, deduplicacao e historico de importacoes.
+            Importe extratos OFX ou planilhas CSV/XLSX com preview, deduplicacao e historico.
             A integracao com Open Finance Brasil esta planejada para 2026.
           </p>
           <div className="of-hero-chips">
@@ -809,10 +811,16 @@ export default function ConexoesBancariasPage({ onNavigate }) {
             </div>
           </div>
           {!viewOnly && (
-            <button type="button" className="btn btn-primary" onClick={() => setWizardOpen(true)} style={{ flexShrink: 0 }}>
-              <Upload size={15} strokeWidth={2} aria-hidden />
-              Importar OFX
-            </button>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button type="button" className="btn btn-primary" onClick={() => setWizardOpen(true)}>
+                <Upload size={15} strokeWidth={2} aria-hidden />
+                Importar OFX
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setPlanilhaWizardOpen(true)}>
+                <Table size={15} strokeWidth={2} aria-hidden />
+                Importar CSV/XLSX
+              </button>
+            </div>
           )}
         </div>
 
@@ -838,7 +846,9 @@ export default function ConexoesBancariasPage({ onNavigate }) {
             </div>
           </div>
 
-          <div className="of-import-card">
+          <div className="of-import-card of-import-card--action"
+            onClick={() => !viewOnly && setPlanilhaWizardOpen(true)}
+            style={{ cursor: viewOnly ? "default" : "pointer" }}>
             <div className="of-import-icon-wrap" aria-hidden><Table size={22} strokeWidth={1.75} /></div>
             <div className="of-import-titulo">CSV / XLSX</div>
             <div className="of-import-desc">
@@ -846,11 +856,11 @@ export default function ConexoesBancariasPage({ onNavigate }) {
             </div>
             <div className="of-import-dica">No app do banco: Extrato - Exportar CSV</div>
             <div className="of-import-footer">
-              <span className="badge badge-cp-pago of-import-badge">Disponivel</span>
-              {onNavigate && (
+              <span className="badge badge-cp-pago of-import-badge">Disponivel agora</span>
+              {!viewOnly && (
                 <button type="button" className="btn btn-sm of-import-action-btn"
-                  onClick={() => onNavigate(isPF ? "lancamentos" : "importacoes")}>
-                  {isPF ? "Lancamentos" : "Importacoes"} <ArrowRight size={14} strokeWidth={2} aria-hidden />
+                  onClick={(e) => { e.stopPropagation(); setPlanilhaWizardOpen(true); }}>
+                  Preview <ArrowRight size={14} strokeWidth={2} aria-hidden />
                 </button>
               )}
             </div>
@@ -945,6 +955,10 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       {wizardOpen && (
         <OFXWizard contas={contas || []} planoContas={planoContas || []}
           onClose={() => setWizardOpen(false)} onSuccess={handleImportSuccess} />
+      )}
+      {planilhaWizardOpen && (
+        <PlanilhaImportWizard contas={contas || []} planoContas={planoContas || []}
+          onClose={() => setPlanilhaWizardOpen(false)} onSuccess={handleImportSuccess} />
       )}
       {detalheId && (
         <ImportacaoDetalheModal

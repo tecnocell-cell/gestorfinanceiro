@@ -128,16 +128,24 @@ function validatePlano(empresa, planoId) {
   return plano;
 }
 
-function buildLancamento(tx, { conta, contaId, planoId, loteId, codigo }) {
+function defaultHistoricoForSource(source) {
+  if (source === 'csv') return 'Importação CSV';
+  if (source === 'xlsx') return 'Importação XLSX';
+  return 'Importação OFX';
+}
+
+function buildLancamento(tx, { conta, contaId, planoId, loteId, codigo, source = 'ofx' }) {
   const isEntrada = tx.tipo === 'Entrada';
+  const fallback = defaultHistoricoForSource(source);
+  const hist = String(tx.historico || '').trim() || fallback;
   return {
     id: randomUUID(),
     codigo,
     data: tx.data,
     tipo: tx.tipo,
     valor: Math.abs(Number(tx.valor)),
-    historico: String(tx.historico || '').trim() || 'Importação OFX',
-    descricao: String(tx.historico || '').trim() || 'Importação OFX',
+    historico: hist,
+    descricao: hist,
     planoId: planoId || '',
     contaEntradaId: isEntrada ? contaId : null,
     contaSaidaId: !isEntrada ? contaId : null,
@@ -153,7 +161,7 @@ function buildLancamento(tx, { conta, contaId, planoId, loteId, codigo }) {
     clienteId: null,
     fornecedorId: null,
     createdAt: new Date().toISOString(),
-    source: 'ofx',
+    source,
   };
 }
 
@@ -163,19 +171,29 @@ function resolveImportStatus(importados, duplicatas, erros) {
   return 'sucesso';
 }
 
+export function sourceFromFormato(formato) {
+  const f = String(formato || 'OFX').toUpperCase();
+  if (f === 'CSV') return 'csv';
+  if (f === 'XLSX') return 'xlsx';
+  return 'ofx';
+}
+
 /**
- * Confirma importação OFX dentro de uma transação SQL (client já em BEGIN).
+ * Confirma importação genérica (OFX/CSV/XLSX) dentro de transação SQL.
  * Requer SELECT ... FOR UPDATE em estados feito pelo caller.
  */
-export async function confirmOfxImport(client, {
+export async function confirmImport(client, {
   usuarioId,
   contaId,
   planoId,
   fileName,
-  fileContent,
   dados,
+  txs,
+  formato = 'OFX',
+  source = 'ofx',
+  bancoSlug = null,
+  totalLinhas,
 }) {
-  const { txs, bancoSlug, formato } = parseOfxForImport(fileContent);
   const { empresas, idx, empresa } = resolveEmpresaAtiva(dados);
   const conta = validateConta(empresa, contaId);
   validatePlano(empresa, planoId || null);
@@ -213,6 +231,7 @@ export async function confirmOfxImport(client, {
         planoId: planoId || '',
         loteId,
         codigo,
+        source,
       });
       codigo += 1;
       novosLancamentos.push(lanc);
@@ -236,6 +255,7 @@ export async function confirmOfxImport(client, {
 
   const importados = novosLancamentos.length;
   const status = resolveImportStatus(importados, duplicadas, erros);
+  const linhas = totalLinhas ?? txs.length;
 
   const { rows: impRows } = await client.query(
     `INSERT INTO importacoes (
@@ -247,12 +267,12 @@ export async function confirmOfxImport(client, {
     [
       importacaoId,
       usuarioId,
-      formato || 'OFX',
+      formato,
       bancoSlug,
       fileName || null,
       contaId,
       planoId || null,
-      txs.length,
+      linhas,
       importados,
       duplicadas,
       erros,
@@ -280,6 +300,21 @@ export async function confirmOfxImport(client, {
     novas,
     duplicadas,
   };
+}
+
+/**
+ * Confirma importação OFX dentro de uma transação SQL (client já em BEGIN).
+ */
+export async function confirmOfxImport(client, params) {
+  const { txs, bancoSlug, formato } = parseOfxForImport(params.fileContent);
+  return confirmImport(client, {
+    ...params,
+    txs,
+    formato: formato || 'OFX',
+    source: 'ofx',
+    bancoSlug,
+    totalLinhas: txs.length,
+  });
 }
 
 /**
@@ -315,10 +350,9 @@ export function findLancamentosImportados(dados, loteId) {
 }
 
 /**
- * Remove lançamentos OFX de um lote específico do JSONB (Etapa 4.6D).
- * Retorna novos dados e quantidade removida.
+ * Remove lançamentos de um lote específico do JSONB por source (ofx/csv/xlsx).
  */
-export function removeLancamentosOfxLote(dados, loteId) {
+export function removeLancamentosImportLote(dados, loteId, source) {
   if (!loteId || !dados) {
     return { novosDados: dados, removidos: 0 };
   }
@@ -330,7 +364,7 @@ export function removeLancamentosOfxLote(dados, loteId) {
     const lancamentos = Array.isArray(emp.lancamentos) ? emp.lancamentos : [];
     const filtrados = lancamentos.filter((l) => {
       const deveRemover =
-        String(l.source || '') === 'ofx' &&
+        String(l.source || '') === source &&
         String(l.lote || '') === String(loteId);
       if (deveRemover) removidos += 1;
       return !deveRemover;
@@ -346,13 +380,18 @@ export function removeLancamentosOfxLote(dados, loteId) {
   };
 }
 
+/** @deprecated use removeLancamentosImportLote — mantido para compatibilidade OFX */
+export function removeLancamentosOfxLote(dados, loteId) {
+  return removeLancamentosImportLote(dados, loteId, 'ofx');
+}
+
 /**
- * Desfaz importação OFX: remove lançamentos do lote, fingerprints e marca status rollback.
+ * Desfaz importação (OFX/CSV/XLSX): remove lançamentos do lote, fingerprints e marca rollback.
  * Requer transação SQL ativa (client em BEGIN).
  */
-export async function rollbackOfxImport(client, { usuarioId, importacaoId }) {
+export async function rollbackImport(client, { usuarioId, importacaoId }) {
   const { rows: impRows } = await client.query(
-    `SELECT id, lote_id, status
+    `SELECT id, lote_id, status, formato
      FROM importacoes
      WHERE id = $1 AND usuario_id = $2
      FOR UPDATE`,
@@ -390,9 +429,11 @@ export async function rollbackOfxImport(client, { usuarioId, importacaoId }) {
     throw err;
   }
 
-  const { novosDados, removidos } = removeLancamentosOfxLote(
+  const source = sourceFromFormato(importacao.formato);
+  const { novosDados, removidos } = removeLancamentosImportLote(
     estadoRows[0].dados,
-    importacao.lote_id
+    importacao.lote_id,
+    source
   );
 
   await client.query(
@@ -416,4 +457,9 @@ export async function rollbackOfxImport(client, { usuarioId, importacaoId }) {
     importacaoId: importacao.id,
     loteId: importacao.lote_id,
   };
+}
+
+/** Alias — rollback OFX usa rollbackImport com formato da importação */
+export async function rollbackOfxImport(client, params) {
+  return rollbackImport(client, params);
 }

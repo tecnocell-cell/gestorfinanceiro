@@ -1,12 +1,16 @@
 /**
- * Importações — Etapa 4.6A/4.6B/4.6C
+ * Importações — Etapa 4.6A/4.6B/4.6C/4.7
  *
  * Rotas:
- *   POST /api/importacoes/ofx-preview   — parse + deduplicação, sem gravar
- *   POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
- *   GET  /api/importacoes               — histórico paginado
- *   GET  /api/importacoes/:id           — detalhe + lançamentos do lote (somente leitura)
- *   POST /api/importacoes/:id/rollback  — desfaz importação por lote (Etapa 4.6D)
+ *   POST /api/importacoes/ofx-preview      — parse + deduplicação, sem gravar
+ *   POST /api/importacoes/ofx-confirmar    — grava novas transações no JSONB
+ *   POST /api/importacoes/csv-preview      — preview CSV com mapeamento (Etapa 4.7)
+ *   POST /api/importacoes/csv-confirmar    — confirma importação CSV
+ *   POST /api/importacoes/xlsx-preview     — preview XLSX com mapeamento
+ *   POST /api/importacoes/xlsx-confirmar   — confirma importação XLSX
+ *   GET  /api/importacoes                  — histórico paginado
+ *   GET  /api/importacoes/:id              — detalhe + lançamentos do lote
+ *   POST /api/importacoes/:id/rollback     — desfaz importação por lote
  */
 
 import { Router } from 'express';
@@ -19,8 +23,14 @@ import {
   parseOfxForImport,
   confirmOfxImport,
   findLancamentosImportados,
-  rollbackOfxImport,
+  rollbackImport,
 } from '../utils/ofxImport.js';
+import {
+  previewPlanilhaImport,
+  confirmPlanilhaImport,
+  parseCsvImport,
+  parseXlsxImport,
+} from '../utils/planilhaImport.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -32,6 +42,87 @@ function parsePagination(queryParams) {
   const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 50, 1), 100);
   const offset = Math.max(parseInt(queryParams.offset, 10) || 0, 0);
   return { limit, offset };
+}
+
+function handleRouteError(res, err, label) {
+  if (err.status) {
+    return res.status(err.status).json({ error: err.message });
+  }
+  console.error(`${label}:`, err.message);
+  return res.status(500).json({ error: 'Erro ao processar importação.' });
+}
+
+async function handlePlanilhaPreview(req, res, { parseFn }) {
+  const { contaId, planoId, fileName, fileContent, columnMap } = req.body || {};
+  const usuarioId = req.user.id;
+
+  try {
+    const result = await previewPlanilhaImport(query, usuarioId, {
+      fileContent,
+      columnMap: columnMap || null,
+      parseFn,
+    });
+    return res.json({
+      ...result,
+      meta: { contaId: contaId || null, planoId: planoId || null, fileName: fileName || null },
+    });
+  } catch (err) {
+    return handleRouteError(res, err, 'importacoes/planilha-preview');
+  }
+}
+
+async function handlePlanilhaConfirmar(req, res, { parseFn, formato, source }) {
+  const { contaId, planoId, fileName, fileContent, columnMap } = req.body || {};
+  const usuarioId = req.user.id;
+
+  if (!columnMap?.data || !columnMap?.valor || !columnMap?.historico) {
+    return res.status(400).json({ error: 'Mapeamento incompleto: data, valor e histórico são obrigatórios.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      'SELECT dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+      [usuarioId]
+    );
+
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Estado do usuário não encontrado.' });
+    }
+
+    const result = await confirmPlanilhaImport(client, {
+      usuarioId,
+      contaId,
+      planoId: planoId || null,
+      fileName,
+      fileContent,
+      columnMap,
+      dados: rows[0].dados,
+      parseFn,
+      formato,
+      source,
+    });
+
+    await client.query('COMMIT');
+
+    return res.json({
+      importados: result.importados,
+      duplicados: result.duplicados,
+      erros: result.erros,
+      importacaoId: result.importacaoId,
+      loteId: result.loteId,
+      status: result.status,
+      total: result.total,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return handleRouteError(res, err, `importacoes/${formato.toLowerCase()}-confirmar`);
+  } finally {
+    client.release();
+  }
 }
 
 // ─── POST /api/importacoes/ofx-preview ────────────────────────────────────────
@@ -116,6 +207,30 @@ router.post('/ofx-confirmar', async (req, res) => {
   }
 });
 
+// ─── POST /api/importacoes/csv-preview ────────────────────────────────────────
+
+router.post('/csv-preview', (req, res) =>
+  handlePlanilhaPreview(req, res, { parseFn: parseCsvImport })
+);
+
+// ─── POST /api/importacoes/csv-confirmar ──────────────────────────────────────
+
+router.post('/csv-confirmar', (req, res) =>
+  handlePlanilhaConfirmar(req, res, { parseFn: parseCsvImport, formato: 'CSV', source: 'csv' })
+);
+
+// ─── POST /api/importacoes/xlsx-preview ───────────────────────────────────────
+
+router.post('/xlsx-preview', (req, res) =>
+  handlePlanilhaPreview(req, res, { parseFn: parseXlsxImport })
+);
+
+// ─── POST /api/importacoes/xlsx-confirmar ─────────────────────────────────────
+
+router.post('/xlsx-confirmar', (req, res) =>
+  handlePlanilhaConfirmar(req, res, { parseFn: parseXlsxImport, formato: 'XLSX', source: 'xlsx' })
+);
+
 // ─── GET /api/importacoes ─────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
@@ -160,7 +275,7 @@ router.post('/:id/rollback', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const result = await rollbackOfxImport(client, {
+    const result = await rollbackImport(client, {
       usuarioId,
       importacaoId: id,
     });

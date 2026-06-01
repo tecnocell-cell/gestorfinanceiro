@@ -10,6 +10,7 @@
     "server": "node server/index.js",
     "start": "node server/index.js",
     "test:api": "node server/integrationTest.js",
+    "test:47": "node server/test47.js",
     "migrate": "node server/migrate.js",
     "seed:centertech": "node server/seed-centertech.js",
     "repair:tenants": "node server/repairTenants.js",
@@ -20,6 +21,7 @@
     "build:all": "npm run build && npm run build:landing"
   },
   "dependencies": {
+    "@rolldown/binding-linux-x64-gnu": "^1.0.3",
     "bcryptjs": "^2.4.3",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
