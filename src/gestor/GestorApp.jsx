@@ -274,8 +274,8 @@ export default function GestorApp() {
 
           {appLoadError && (
             <div style={{
-              background: "#fef3c7", borderBottom: "1px solid #f59e0b",
-              color: "#92400e", padding: "10px 20px",
+              background: "var(--warning-soft)", borderBottom: "1px solid var(--warning)",
+              color: "var(--warning-fg)", padding: "10px 20px",
               fontSize: 13, display: "flex", alignItems: "center", gap: 8,
             }}>
               <span>⚠</span>
@@ -287,7 +287,7 @@ export default function GestorApp() {
                 type="button"
                 onClick={() => window.location.reload()}
                 style={{
-                  marginLeft: "auto", background: "#f59e0b", color: "#fff",
+                  marginLeft: "auto", background: "var(--warning)", color: "#fff",
                   border: "none", borderRadius: 6, padding: "4px 12px",
                   fontSize: 12, fontWeight: 600, cursor: "pointer",
                 }}

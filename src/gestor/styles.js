@@ -122,6 +122,7 @@ export const css = `
     --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.72 0.12 80);
     --chart-5: oklch(0.769 0.188 70.08);
+    --chart-impostos: #7c3aed;   /* violeta semântico — impostos */
 
     --rn-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
     --rn-shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.08);
@@ -166,7 +167,7 @@ export const css = `
     --bg2: #ffffff;
     --text: var(--foreground);
     --text2: var(--muted-foreground);
-    --text3: #64748b;
+    --text3: var(--rn-text-soft);
     --green: var(--success);
     --green-dark: var(--success-fg);
     --accent-bright: var(--indicator);
@@ -2454,9 +2455,9 @@ export const css = `
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--rn-green-hover);
-    color: var(--rn-green-dark);
-    border: 1px solid color-mix(in oklab, var(--rn-green) 20%, var(--border));
+    background: var(--rn-page-canvas);
+    color: var(--muted-foreground);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
     flex-shrink: 0;
   }
@@ -4600,7 +4601,7 @@ export const css = `
     color: color-mix(in oklab, currentColor 50%, transparent);
     padding: 8px 10px 6px;
   }
-  .sidebar .nav-list { gap: 1px; display: flex; flex-direction: column; }
+  .sidebar .nav-list { gap: 2px; display: flex; flex-direction: column; }
   .sidebar .nav-item {
     height: auto;
     min-height: 26px;
@@ -5474,10 +5475,9 @@ export const css = `
   .lanc-meta-late { color: var(--danger-fg);  font-weight: 600; }
   .lanc-meta-soon { color: var(--warning-fg); font-weight: 600; }
 
-  /* ── 18. Sidebar — limpar sobreposição de padding ──────────────────── */
+  /* ── 18. Sidebar — padding consolidado (gap já definido em 4.2) ─────── */
   .sidebar .nav-section { padding: 4px 8px 8px; }
   .sidebar .nav-section .nav-label { font-size: 9px; padding: 6px 8px 4px; }
-  .sidebar .nav-list { gap: 2px; }
 
   /* ─── Ícones Lucide — refinamento visual ─────────────────────────────── */
   .pp-summary-icon,
@@ -5557,7 +5557,7 @@ export const css = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #475569;
+    color: var(--muted-foreground);
   }
 
   .dash-hero-chip {

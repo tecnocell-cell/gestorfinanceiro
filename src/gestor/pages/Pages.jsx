@@ -53,7 +53,7 @@ export function DashboardPage() {
     { name: "Impostos", value: dreAtual.impostos },
     { name: "Lucro", value: Math.max(dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido, 0) },
   ].filter((d) => d.value > 0);
-  const COLORS = [...CHART.pie, "#7c3aed"];
+  const COLORS = [...CHART.pie, "var(--chart-impostos)"];
 
   return (
     <div>
@@ -77,7 +77,7 @@ export function DashboardPage() {
           <div className="kpi-value">{fmtBRL(dreAtual.despesas)}</div>
           <div className="kpi-sub">Operacionais</div>
         </div>
-        <div className="kpi-card" style={{ "--kpi-color": "#7c3aed" }}>
+        <div className="kpi-card" style={{ "--kpi-color": "var(--chart-impostos)" }}>
           <div className="kpi-label">Impostos</div>
           <div className="kpi-value">{fmtBRL(dreAtual.impostos)}</div>
           <div className="kpi-sub">Simples / IRPJ / etc.</div>
@@ -95,7 +95,7 @@ export function DashboardPage() {
       </div>
       <div className="charts-grid">
         <div className="card">
-          <div className="card-title">Receita ?? Custo ?? Despesa (Mensal)</div>
+          <div className="card-title">Receita × Custo × Despesa (Mensal)</div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={mensal}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
@@ -491,9 +491,9 @@ function DRETable({ dre, planoContas, label }) {
 
             {impostos.length > 0 && (
               <>
-                <tr><td colSpan={4} style={{ padding: "10px 16px", fontWeight: 600, color: "#7c3aed", fontSize: 12 }}>(-) IMPOSTOS</td></tr>
+                <tr><td colSpan={4} style={{ padding: "10px 16px", fontWeight: 600, color: "var(--chart-impostos)", fontSize: 12 }}>(-) IMPOSTOS</td></tr>
                 {impostos.map((pc) => <Row key={pc.id} pc={pc} />)}
-                <tr className="dre-total"><td colSpan={2}>Total Impostos</td><td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(dre.impostos)}</td><td></td></tr>
+                <tr className="dre-total"><td colSpan={2}>Total Impostos</td><td className="td-mono" style={{ color: "var(--chart-impostos)" }}>{fmtBRL(dre.impostos)}</td><td></td></tr>
               </>
             )}
 
@@ -996,7 +996,7 @@ export function ImpostosPage() {
       </div>
 
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ "--kpi-color": "#7c3aed" }}>
+        <div className="kpi-card" style={{ "--kpi-color": "var(--chart-impostos)" }}>
           <div className="kpi-label">Total Impostos (período)</div>
           <div className="kpi-value">{fmtBRL(dreAtual.impostos)}</div>
           <div className="kpi-sub">{dreAtual.receitas > 0 ? fmtPct(dreAtual.impostos / dreAtual.receitas) : "?"} das receitas</div>
@@ -1031,7 +1031,7 @@ export function ImpostosPage() {
                     <td>{pc.descricao}</td>
                     <td style={{ fontSize: 12, color: "var(--text2)" }}>{pc.classificacao}</td>
                     <td className="td-mono" style={{ fontSize: 12 }}>{pc.contaContabil || "?"}</td>
-                    <td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(valor)}</td>
+                    <td className="td-mono" style={{ color: "var(--chart-impostos)" }}>{fmtBRL(valor)}</td>
                     <td>{pc.inativo ? <span className="badge badge-red">Inativo</span> : <span className="badge badge-green">Ativo</span>}</td>
                     <td className="table-actions-cell">
                       <div className="table-actions-inline">
@@ -1381,8 +1381,8 @@ export function FechamentoPage() {
   const jaFechado = fechamentos.some((f) => f.periodo === `${formAno}-${formMes}`);
 
   const handleFechar = () => {
-    if (jaFechado) return alert("Este período j? foi fechado.");
-    if (preview.count === 0) return alert("Não h? lançamentos neste período para fechar.");
+    if (jaFechado) return alert("Este período já foi fechado.");
+    if (preview.count === 0) return alert("Não há lançamentos neste período para fechar.");
     if (!confirm(`Confirmar fechamento de ${MESES[parseInt(formMes, 10) - 1]}/${formAno}?\n\nEsta ação registra um snapshot do período.`)) return;
     const lastDay = new Date(parseInt(formAno), parseInt(formMes), 0).getDate();
     fechamentoCrud.add({
@@ -1483,7 +1483,7 @@ export function FechamentoPage() {
                     <td className="td-green td-mono">{fmtBRL(f.dreSnapshot?.receitas)}</td>
                     <td className="td-red td-mono">{fmtBRL(f.dreSnapshot?.custos)}</td>
                     <td className="td-amber td-mono">{fmtBRL(f.dreSnapshot?.despesas)}</td>
-                    <td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(f.dreSnapshot?.impostos)}</td>
+                    <td className="td-mono" style={{ color: "var(--chart-impostos)" }}>{fmtBRL(f.dreSnapshot?.impostos)}</td>
                     <td className="td-mono" style={{ fontWeight: 700, color: (f.dreSnapshot?.lucroAposImpostos ?? f.dreSnapshot?.lucroLiquido) >= 0 ? "var(--accent)" : "var(--danger)" }}>
                       {fmtBRL(f.dreSnapshot?.lucroAposImpostos ?? f.dreSnapshot?.lucroLiquido)}
                     </td>
@@ -1577,7 +1577,7 @@ export function RelatoriosPage() {
                     <td className="td-green td-mono">{fmtBRL(m.Receita)}</td>
                     <td className="td-red td-mono">{fmtBRL(m.Custo)}</td>
                     <td className="td-amber td-mono">{fmtBRL(m.Despesas)}</td>
-                    <td className="td-mono" style={{ color: "#7c3aed" }}>{fmtBRL(m.Impostos)}</td>
+                    <td className="td-mono" style={{ color: "var(--chart-impostos)" }}>{fmtBRL(m.Impostos)}</td>
                     <td className="td-mono">{fmtBRL(m["Lucro Líquido"])}</td>
                     <td className="td-mono" style={{ color: (m["Lucro %"] || 0) >= 0 ? "var(--accent)" : "var(--danger)" }}>
                       {fmtPct(m["Lucro %"] || 0)}
