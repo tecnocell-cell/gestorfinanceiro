@@ -8,6 +8,15 @@ import {
   labelLancamentoTipo,
   isPerfilFisica,
 } from "../profileLabels.js";
+import {
+  ModalShell,
+  ModalSection,
+  ModalFooter,
+  ModalGrid,
+  ModalField,
+  ModalTipoPills,
+  modalToneFromTipo,
+} from "./ModalShell.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -96,11 +105,44 @@ const Ftr = ({ onClose, onSave, saveLabel = "Salvar" }) => (
   </div>
 );
 
-const Section = ({ label }) => (
-  <div className="modal-section">
-    <div className="modal-section-label">{label}</div>
-  </div>
-);
+function lancamentoModalMeta(formTipo, isPF, isEdit) {
+  const tone = modalToneFromTipo(formTipo, isPF);
+  const tipoLabel = labelLancamentoTipo(formTipo, isPF);
+  if (isEdit) {
+    return {
+      tone,
+      title: "Editar lançamento",
+      subtitle: `Altere os dados deste lançamento (${tipoLabel.toLowerCase()}).`,
+    };
+  }
+  return {
+    tone,
+    title: `Novo lançamento — ${tipoLabel}`,
+    subtitle: `Preencha as informações abaixo para registrar uma ${tipoLabel.toLowerCase()}.`,
+  };
+}
+
+function categoriaModalMeta(formTipo, isEdit) {
+  const tone = formTipo === "Receita" ? "receita" : "despesa";
+  const tipoLabel = formTipo === "Receita" ? "receita" : "despesa";
+  if (isEdit) {
+    return {
+      tone,
+      title: "Editar categoria",
+      subtitle: "Atualize nome, ícone e cor da categoria.",
+    };
+  }
+  return {
+    tone,
+    title: "Nova categoria",
+    subtitle: `Cadastre uma categoria de ${tipoLabel} para classificar seus lançamentos.`,
+  };
+}
+
+const CATEGORIA_TIPO_OPTIONS = [
+  { value: "Receita", label: "Receita" },
+  { value: "Despesa", label: "Despesa" },
+];
 
 // ─── Modal Lançamento ─────────────────────────────────────────────────────────
 
@@ -190,192 +232,196 @@ export function ModalLancamento() {
     }));
   };
 
+  const meta = lancamentoModalMeta(form.tipo, isPF, !!item?.id);
+
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: isPF ? 640 : 820 }}>
-        <Hdr onClose={closeModal} title={item?.id ? "Editar Lançamento" : "Novo Lançamento"} />
-
-        <div className="modal-body">
-
-          {/* ── Linha principal ── */}
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-            <div className="form-group">
-              <label className="form-label">Data *</label>
-              <input className="form-input" type="date" value={form.data} onChange={(e) => set("data", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tipo *</label>
-              <select className="form-select" value={form.tipo} onChange={(e) => handleTipoChange(e.target.value)}>
-                {tipoOptions.map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Valor (R$) *</label>
-              <input className="form-input" type="number" step="0.01" min="0" value={form.valor}
-                onChange={(e) => set("valor", e.target.value)} placeholder="0,00" />
-            </div>
-          </div>
-
-          {isPF && form.tipo === "Saida" && (
-            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 14 }}>
-              <div className="form-group">
-                <label className="form-label">Vencimento</label>
-                <input
-                  className="form-input"
-                  type="date"
-                  value={form.vencimento}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setForm((p) => ({
-                      ...p,
-                      vencimento: v,
-                      pago: v <= todayIso ? p.pago : false,
-                    }));
-                  }}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Pagamento</label>
-                <label className="check-item" style={{ marginTop: 8 }}>
-                  <input type="checkbox" checked={!!form.pago} onChange={(e) => set("pago", e.target.checked)} />
-                  Conta já paga
-                </label>
-                {!form.pago && (
-                  <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 6 }}>
-                    Você será avisado 3 dias antes do vencimento.
-                  </p>
-                )}
-              </div>
-            </div>
+    <ModalShell
+      onClose={closeModal}
+      title={meta.title}
+      subtitle={meta.subtitle}
+      tone={meta.tone}
+      size={isPF ? "lg" : "xl"}
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Salvar"}
+        />
+      }
+    >
+      <ModalSection label="Tipo e valores">
+        <ModalField label="Tipo" required>
+          <ModalTipoPills
+            value={form.tipo}
+            onChange={handleTipoChange}
+            options={tipoOptions}
+            ariaLabel="Tipo do lançamento"
+          />
+        </ModalField>
+        <ModalGrid cols={form.tipo === "Transferencia" ? 2 : 3}>
+          <ModalField label="Data" required>
+            <input className="form-input" type="date" value={form.data} onChange={(e) => set("data", e.target.value)} />
+          </ModalField>
+          {form.tipo !== "Transferencia" && (
+            <ModalField label="Valor (R$)" required className="modal-field--span-2">
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.valor}
+                onChange={(e) => set("valor", e.target.value)}
+                placeholder="0,00"
+              />
+            </ModalField>
           )}
-
-          {/* ── Contas ── */}
-          <div className="modal-section">
-            <div className="modal-section-label">{contaLabels.section}</div>
-            <div className="form-grid" style={{ gridTemplateColumns: showEntrada && showSaida ? "1fr 1fr" : "1fr" }}>
-              {showEntrada && (
-                <div className="form-group">
-                  <label className="form-label">
-                    {form.tipo === "Transferencia" ? contaLabels.origem : contaLabels.entrada}
-                  </label>
-                  <select className="form-select" value={form.contaEntradaId} onChange={(e) => set("contaEntradaId", e.target.value)}>
-                    <option value="">— Selecione —</option>
-                    {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
-                  </select>
-                </div>
-              )}
-              {showSaida && (
-                <div className="form-group">
-                  <label className="form-label">
-                    {form.tipo === "Transferencia" ? contaLabels.destino : contaLabels.saida}
-                  </label>
-                  <select className="form-select" value={form.contaSaidaId} onChange={(e) => set("contaSaidaId", e.target.value)}>
-                    <option value="">— Selecione —</option>
-                    {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Categoria / Plano ── */}
-          <div className="modal-section">
-            <div className="modal-section-label">{isPF ? "Categoria" : "Classificação"}</div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">{isPF ? "Categoria *" : "Plano de Contas *"}</label>
-              <select className="form-select" value={form.planoId} onChange={(e) => set("planoId", e.target.value)}>
-                <option value="">— Selecione —</option>
-                {categoriasFiltradas.map((p) => (
-                  <option key={p.id} value={p.id}>{p.descricao}</option>
-                ))}
-              </select>
-            </div>
-
-            {!isPF && (
-              <div className="form-grid" style={{ marginTop: 12, gridTemplateColumns: "1fr 1fr" }}>
-                <div className="form-group">
-                  <label className="form-label">Cliente</label>
-                  <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
-                    <option value="">— Nenhum —</option>
-                    {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Fornecedor</label>
-                  <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
-                    <option value="">— Nenhum —</option>
-                    {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Histórico ── */}
-          <div className="modal-section">
-            <div className="modal-section-label">Descrição</div>
-            <div className="form-group">
-              <label className="form-label">Histórico / Observação</label>
-              <textarea className="form-textarea" value={form.historico}
-                onChange={(e) => set("historico", e.target.value)}
-                placeholder="Descreva o lançamento…" />
-            </div>
-          </div>
-
-          {/* ── Campos PJ avançados ── */}
-          {!isPF && (
-            <div className="modal-section">
-              <div className="modal-section-label">Identificação Contábil</div>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
-                <div className="form-group">
-                  <label className="form-label">Código</label>
-                  <input className="form-input" type="number" value={form.codigo}
-                    onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Lote</label>
-                  <input className="form-input" value={form.lote}
-                    onChange={(e) => set("lote", e.target.value)} placeholder="Auto" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Conta Contábil</label>
-                  <input className="form-input" value={form.contaContabil}
-                    onChange={(e) => set("contaContabil", e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Natureza</label>
-                  <input className="form-input" value={form.natureza}
-                    onChange={(e) => set("natureza", e.target.value)} />
-                </div>
-              </div>
-              <div className="check-row">
-                <label className="check-item">
-                  <input type="checkbox" checked={form.exportado} onChange={(e) => set("exportado", e.target.checked)} />
-                  Exportado Domínio
-                </label>
-                <label className="check-item">
-                  <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
-                  Conciliado
-                </label>
-              </div>
-            </div>
+          {form.tipo === "Transferencia" && (
+            <ModalField label="Valor (R$)" required>
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.valor}
+                onChange={(e) => set("valor", e.target.value)}
+                placeholder="0,00"
+              />
+            </ModalField>
           )}
+        </ModalGrid>
 
-          {isPF && (
-            <div className="check-row" style={{ marginTop: 18 }}>
-              <label className="check-item">
-                <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
-                Confirmado
+        {isPF && form.tipo === "Saida" && (
+          <ModalGrid cols={2}>
+            <ModalField label="Vencimento">
+              <input
+                className="form-input"
+                type="date"
+                value={form.vencimento}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setForm((p) => ({
+                    ...p,
+                    vencimento: v,
+                    pago: v <= todayIso ? p.pago : false,
+                  }));
+                }}
+              />
+            </ModalField>
+            <ModalField label="Pagamento">
+              <label className="check-item" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={!!form.pago} onChange={(e) => set("pago", e.target.checked)} />
+                Conta já paga
               </label>
-            </div>
-          )}
-        </div>
+              {!form.pago && (
+                <p className="modal-field-hint">Você será avisado 3 dias antes do vencimento.</p>
+              )}
+            </ModalField>
+          </ModalGrid>
+        )}
+      </ModalSection>
 
-        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Salvar"} />
-      </div>
-    </div>
+      <ModalSection label={contaLabels.section}>
+        <ModalGrid cols={showEntrada && showSaida ? 2 : 1}>
+          {showEntrada && (
+            <ModalField label={form.tipo === "Transferencia" ? contaLabels.origem : contaLabels.entrada}>
+              <select className="form-select" value={form.contaEntradaId} onChange={(e) => set("contaEntradaId", e.target.value)}>
+                <option value="">— Selecione —</option>
+                {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
+              </select>
+            </ModalField>
+          )}
+          {showSaida && (
+            <ModalField label={form.tipo === "Transferencia" ? contaLabels.destino : contaLabels.saida}>
+              <select className="form-select" value={form.contaSaidaId} onChange={(e) => set("contaSaidaId", e.target.value)}>
+                <option value="">— Selecione —</option>
+                {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
+              </select>
+            </ModalField>
+          )}
+        </ModalGrid>
+      </ModalSection>
+
+      <ModalSection label={isPF ? "Categoria" : "Classificação"}>
+        <ModalField label={isPF ? "Categoria" : "Plano de contas"} required>
+          <select className="form-select" value={form.planoId} onChange={(e) => set("planoId", e.target.value)}>
+            <option value="">— Selecione —</option>
+            {categoriasFiltradas.map((p) => (
+              <option key={p.id} value={p.id}>{p.descricao}</option>
+            ))}
+          </select>
+        </ModalField>
+
+        {!isPF && (
+          <ModalGrid cols={2}>
+            <ModalField label="Cliente">
+              <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
+                <option value="">— Nenhum —</option>
+                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </ModalField>
+            <ModalField label="Fornecedor">
+              <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
+                <option value="">— Nenhum —</option>
+                {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </ModalField>
+          </ModalGrid>
+        )}
+      </ModalSection>
+
+      <ModalSection label="Descrição">
+        <ModalField label="Histórico / observação">
+          <textarea
+            className="form-textarea"
+            value={form.historico}
+            onChange={(e) => set("historico", e.target.value)}
+            placeholder="Descreva o lançamento…"
+          />
+        </ModalField>
+      </ModalSection>
+
+      {!isPF && (
+        <ModalSection label="Identificação contábil">
+          <ModalGrid cols={4}>
+            <ModalField label="Código">
+              <input className="form-input" type="number" value={form.codigo}
+                onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
+            </ModalField>
+            <ModalField label="Lote">
+              <input className="form-input" value={form.lote}
+                onChange={(e) => set("lote", e.target.value)} placeholder="Auto" />
+            </ModalField>
+            <ModalField label="Conta contábil">
+              <input className="form-input" value={form.contaContabil}
+                onChange={(e) => set("contaContabil", e.target.value)} />
+            </ModalField>
+            <ModalField label="Natureza">
+              <input className="form-input" value={form.natureza}
+                onChange={(e) => set("natureza", e.target.value)} />
+            </ModalField>
+          </ModalGrid>
+          <div className="check-row">
+            <label className="check-item">
+              <input type="checkbox" checked={form.exportado} onChange={(e) => set("exportado", e.target.checked)} />
+              Exportado Domínio
+            </label>
+            <label className="check-item">
+              <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
+              Conciliado
+            </label>
+          </div>
+        </ModalSection>
+      )}
+
+      {isPF && (
+        <div className="check-row">
+          <label className="check-item">
+            <input type="checkbox" checked={form.consiliado} onChange={(e) => set("consiliado", e.target.checked)} />
+            Confirmado
+          </label>
+        </div>
+      )}
+    </ModalShell>
   );
 }
 
@@ -803,85 +849,72 @@ export function ModalCategoriaPF() {
     closeModal();
   };
 
-  const tipoColor = form.tipo === "Receita" ? "#059669" : "#e11d48";
+  const meta = categoriaModalMeta(form.tipo, !!item?.id);
 
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 580 }}>
-        <Hdr onClose={closeModal} title={item?.id ? "Editar Categoria" : "Nova Categoria"} />
+    <ModalShell
+      onClose={closeModal}
+      title={meta.title}
+      subtitle={meta.subtitle}
+      tone={meta.tone}
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Criar categoria"}
+        />
+      }
+    >
+      <ModalSection label="Identificação">
+        <ModalField label="Tipo" required>
+          <ModalTipoPills
+            value={form.tipo}
+            onChange={handleTipo}
+            options={CATEGORIA_TIPO_OPTIONS}
+            ariaLabel="Tipo da categoria"
+          />
+        </ModalField>
+        <ModalField label="Nome da categoria" required>
+          <input
+            className="form-input"
+            value={form.descricao}
+            onChange={(e) => set("descricao", e.target.value)}
+            placeholder="Ex: Alimentação, Salário, Academia…"
+            autoFocus
+          />
+        </ModalField>
+        <ModalField label="Código" hint="Opcional — ex.: 2.9">
+          <input
+            className="form-input"
+            value={form.codigo}
+            onChange={(e) => set("codigo", e.target.value)}
+            placeholder="Ex: 2.9"
+          />
+        </ModalField>
+      </ModalSection>
 
-        <div className="modal-body">
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label className="form-label">Tipo *</label>
-            <div style={{ display: "flex", gap: 10 }}>
-              {["Receita", "Despesa"].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => handleTipo(t)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: `2px solid ${form.tipo === t ? tipoColor : "var(--border)"}`,
-                    background: form.tipo === t ? (t === "Receita" ? "rgba(5,150,105,0.08)" : "rgba(225,29,72,0.08)") : "var(--surface)",
-                    color: form.tipo === t ? tipoColor : "var(--text2)",
-                    fontWeight: form.tipo === t ? 700 : 500,
-                    cursor: "pointer",
-                    fontSize: 14,
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {t === "Receita" ? "↑ Receita" : "↓ Despesa"}
-                </button>
-              ))}
-            </div>
-          </div>
+      <ModalSection label="Visual (opcional)">
+        <ModalField label="Ícone">
+          {form.icone && (
+            <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18, marginBottom: 8, display: "inline-flex" }}>
+              {form.icone}
+            </span>
+          )}
+          <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
+        </ModalField>
+        <ModalField label="Cor">
+          <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
+        </ModalField>
+      </ModalSection>
 
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label className="form-label">Nome da Categoria *</label>
-            <input className="form-input" value={form.descricao}
-              onChange={(e) => set("descricao", e.target.value)}
-              placeholder="Ex: Alimentação, Salário, Academia…" autoFocus />
-          </div>
-
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label className="form-label">Código (opcional)</label>
-            <input className="form-input" value={form.codigo}
-              onChange={(e) => set("codigo", e.target.value)} placeholder="Ex: 2.9" />
-          </div>
-
-          {/* ── Fase 5: Ícone + Cor ─────────────────────────────────────── */}
-          <div className="modal-section">
-            <div className="modal-section-label">Visual (opcional)</div>
-            <div className="form-group" style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <label className="form-label" style={{ margin: 0 }}>Ícone</label>
-                {form.icone && (
-                  <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18 }}>
-                    {form.icone}
-                  </span>
-                )}
-              </div>
-              <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Cor</label>
-              <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
-            </div>
-          </div>
-
-          <div className="check-row">
-            <label className="check-item">
-              <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
-              Inativo (ocultar nas listas)
-            </label>
-          </div>
-        </div>
-
-        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Categoria"} />
+      <div className="check-row">
+        <label className="check-item">
+          <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
+          Inativo (ocultar nas listas)
+        </label>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -909,54 +942,76 @@ export function ModalMeta() {
   const pct = form.valorAlvo > 0 ? Math.min(((form.valorAtual || 0) / form.valorAlvo) * 100, 100) : 0;
 
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 580 }}>
-        <Hdr onClose={closeModal} title={item?.id ? "Editar Meta" : "Nova Meta de Poupança"} />
+    <ModalShell
+      onClose={closeModal}
+      title={item?.id ? "Editar meta" : "Nova meta de poupança"}
+      subtitle="Defina o valor alvo e acompanhe o progresso da sua meta financeira."
+      tone="meta"
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Criar meta"}
+        />
+      }
+    >
+      <ModalSection label="Dados da meta">
+        <ModalField label="Nome da meta" required>
+          <input
+            className="form-input"
+            value={form.descricao}
+            onChange={(e) => set("descricao", e.target.value)}
+            placeholder="Ex: Reserva de emergência, Viagem, Carro…"
+            autoFocus
+          />
+        </ModalField>
+        <ModalGrid cols={2}>
+          <ModalField label="Valor alvo (R$)" required>
+            <input
+              className="form-input"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.valorAlvo}
+              onChange={(e) => set("valorAlvo", e.target.value)}
+              placeholder="0,00"
+            />
+          </ModalField>
+          <ModalField label="Já acumulado (R$)">
+            <input
+              className="form-input"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.valorAtual}
+              onChange={(e) => set("valorAtual", e.target.value)}
+              placeholder="0,00"
+            />
+          </ModalField>
+          <ModalField label="Prazo" className="modal-field--full">
+            <input
+              className="form-input"
+              value={form.prazo}
+              onChange={(e) => set("prazo", e.target.value)}
+              placeholder="Ex: Dez/2025 ou Dezembro de 2025"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-        <div className="modal-body">
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label className="form-label">Nome da Meta *</label>
-            <input className="form-input" value={form.descricao}
-              onChange={(e) => set("descricao", e.target.value)}
-              placeholder="Ex: Reserva de Emergência, Viagem, Carro…" autoFocus />
+      {form.valorAlvo > 0 && (
+        <div className="modal-panel">
+          <div className="modal-panel-label">Progresso atual</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)", marginBottom: 8 }}>
+            <span>Percentual alcançado</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--accent)" }}>{pct.toFixed(0)}%</span>
           </div>
-
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="form-group">
-              <label className="form-label">Valor Alvo (R$) *</label>
-              <input className="form-input" type="number" step="0.01" min="0"
-                value={form.valorAlvo} onChange={(e) => set("valorAlvo", e.target.value)}
-                placeholder="0,00" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Já acumulado (R$)</label>
-              <input className="form-input" type="number" step="0.01" min="0"
-                value={form.valorAtual} onChange={(e) => set("valorAtual", e.target.value)}
-                placeholder="0,00" />
-            </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Prazo</label>
-              <input className="form-input" value={form.prazo}
-                onChange={(e) => set("prazo", e.target.value)} placeholder="Ex: Dez/2025 ou Dezembro de 2025" />
-            </div>
+          <div className="progress-wrap">
+            <div className={`progress-fill ${pct >= 100 ? "green" : pct >= 50 ? "blue" : "purple"}`} style={{ width: `${pct}%` }} />
           </div>
-
-          {/* Preview progresso */}
-          {form.valorAlvo > 0 && (
-            <div style={{ marginTop: 20, padding: "14px 16px", background: "var(--surface2)", borderRadius: 10, border: "1px solid var(--border-light)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", marginBottom: 8 }}>
-                <span>Progresso atual</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--accent)" }}>{pct.toFixed(0)}%</span>
-              </div>
-              <div className="progress-wrap">
-                <div className={`progress-fill ${pct >= 100 ? "green" : pct >= 50 ? "blue" : "purple"}`} style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          )}
         </div>
-
-        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Meta"} />
-      </div>
-    </div>
+      )}
+    </ModalShell>
   );
 }

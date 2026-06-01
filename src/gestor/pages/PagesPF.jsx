@@ -471,8 +471,9 @@ export function CategoriasPFPage() {
           <button type="button" className="pp-btn-secondary" onClick={importarSugestoes} title="Adiciona categorias padrão sugeridas que ainda não existem">
             ✦ Sugestões
           </button>
-          <button type="button" className="pp-btn-secondary" onClick={() => openModal("categoria-pf", { tipo: "Receita" })}>+ Receita</button>
-          <button type="button" className="pp-btn-primary" onClick={() => openModal("categoria-pf", { tipo: "Despesa" })}><span aria-hidden>＋</span> Despesa</button>
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("categoria-pf")}>
+            <span aria-hidden>＋</span> Nova categoria
+          </button>
         </div>
       </div>
       <Section title="Receitas" items={receitas} badgeCls="pp-badge-green" />

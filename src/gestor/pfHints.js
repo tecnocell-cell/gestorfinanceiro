@@ -28,6 +28,10 @@ export const PF_PAGE_HINTS = {
     title: "Relatórios",
     text: "Analise receitas, despesas e gastos por categoria ao longo do ano. Exporte CSV para planilha se precisar.",
   },
+  "resumo-anual": {
+    title: "Resumo Anual",
+    text: "Visão mês a mês do ano: saldos por conta, receitas, gastos (VBSP/GSC), investimentos (SER) e fechamento. Filtre por banco e ano no topo.",
+  },
   perfil: {
     title: "Perfil",
     text: "Mantenha seus dados pessoais atualizados. As informações aparecem nos relatórios e identificam seu perfil financeiro.",

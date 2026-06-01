@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { css } from "./styles.js";
-import { NAV_ITEMS, NAV_ITEMS_FISICA } from "./constants.js";
+import { NAV_ITEMS, NAV_ITEMS_FISICA, NAV_SECTIONS_FISICA, NAV_SECTIONS_PJ } from "./constants.js";
+import ResumoAnualPage from "./pages/ResumoAnualPage.jsx";
 import { useGestor } from "./GestorContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import {
@@ -35,6 +36,7 @@ import { NavIcon, Shield, Menu, LogOut, Eye } from "./components/icons.jsx";
 const PAGE_MAP_PJ = {
   // dashboard → V2 premium. Rollback: trocar DashboardV2Page por DashboardPage
   dashboard: DashboardV2Page, lancamentos: LancamentosPage, recorrencias: RecorrenciasPage,
+  "resumo-anual": () => <ResumoAnualPage variant="pj" />,
   "contas-pagar": ContasAPagarPage,
   dre: DREPage, contas: ContasPage, plano: PlanoContasPage, impostos: ImpostosPage,
   clientes: ClientesPage, fornecedores: FornecedoresPage,
@@ -49,6 +51,7 @@ const PAGE_MAP_PF = {
   // dashboard → V2 premium. Rollback: trocar DashboardPFV2Page por DashboardPFPage
   dashboard: DashboardPFV2Page, lancamentos: LancamentosPFPage,
   recorrencias: RecorrenciasPage,
+  "resumo-anual": () => <ResumoAnualPage variant="pf" />,
   "contas-pagar": ContasAPagarPage,
   categorias: CategoriasPFPage, orcamento: OrcamentoPage,
   metas: MetasPage, contas: ContasPFPage,
@@ -111,6 +114,7 @@ export default function GestorApp() {
 
   const isPF = tipo === "fisica";
   const navItems = isPF ? NAV_ITEMS_FISICA : NAV_ITEMS;
+  const navSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
   const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
 
   const isAdminPage = page === "super-admin";
@@ -191,20 +195,27 @@ export default function GestorApp() {
 
           {/* ── Navegação financeira (oculta no painel admin) ───── */}
           {!isAdminPage && (
-          <nav className="nav-section">
-            <div className="nav-label">{isPF ? "Finanças pessoais" : "Gestão empresarial"}</div>
-            <div className="nav-list">
-              {navItems.map(n => (
-                <div key={n.id}
-                  className={`nav-item${currentPage === n.id ? " active" : ""}`}
-                  onClick={() => goTo(n.id)}
-                  onKeyDown={e => e.key === "Enter" && goTo(n.id)}
-                  role="button" tabIndex={0}>
-                  <span className="nav-icon"><NavIcon name={n.id} /></span>
-                  <span className="nav-label">{n.label}</span>
+          <nav className="nav-sections-wrap" aria-label="Menu principal">
+            {navSections.map((block) => (
+              <div key={block.section} className="nav-section-block">
+                <div className="nav-label">{block.section}</div>
+                <div className="nav-list">
+                  {block.items.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`nav-item${currentPage === n.id ? " active" : ""}`}
+                      onClick={() => goTo(n.id)}
+                      onKeyDown={(e) => e.key === "Enter" && goTo(n.id)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <span className="nav-icon"><NavIcon name={n.id} /></span>
+                      <span className="nav-text">{n.label}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </nav>
           )}
 

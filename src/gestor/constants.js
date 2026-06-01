@@ -20,38 +20,83 @@ export const CHART = {
 
 export const STORAGE_KEY = "gestor_financeiro_v2";
 
-export const NAV_ITEMS_FISICA = [
-  { id: "dashboard",    icon: "◉", label: "Dashboard"        },
-  { id: "lancamentos",  icon: "↔", label: "Lançamentos"      },
-  { id: "recorrencias", icon: "↺", label: "Recorrências"     },
-  { id: "contas-pagar", icon: "⊖", label: "A Pagar/Receber"  },
-  { id: "categorias",   icon: "▤", label: "Categorias"       },
-  { id: "orcamento",    icon: "◎", label: "Orçamento"      },
-  { id: "metas",        icon: "◈", label: "Metas"          },
-  { id: "contas",       icon: "▦", label: "Contas"         },
-  { id: "relatorios",   icon: "▥", label: "Relatórios"        },
-  { id: "whatsapp",     icon: "◫", label: "WhatsApp"          },
-  { id: "open-finance", icon: "⇌", label: "Conexões"          },
-  { id: "perfil",       icon: "⚙", label: "Perfil"            },
+/** Menu lateral PF — agrupado por seção (estilo Anatomia Financeira). */
+export const NAV_SECTIONS_FISICA = [
+  {
+    section: "Principal",
+    items: [{ id: "dashboard", label: "Dashboard" }],
+  },
+  {
+    section: "Finanças",
+    items: [
+      { id: "lancamentos", label: "Lançamentos" },
+      { id: "recorrencias", label: "Recorrências" },
+      { id: "contas-pagar", label: "A Pagar/Receber" },
+      { id: "resumo-anual", label: "Resumo Anual" },
+    ],
+  },
+  {
+    section: "Planejamento",
+    items: [
+      { id: "categorias", label: "Categorias" },
+      { id: "orcamento", label: "Orçamento" },
+      { id: "metas", label: "Metas" },
+      { id: "contas", label: "Contas" },
+      { id: "relatorios", label: "Relatórios" },
+    ],
+  },
+  {
+    section: "Sistema",
+    items: [
+      { id: "whatsapp", label: "WhatsApp" },
+      { id: "open-finance", label: "Conexões" },
+      { id: "perfil", label: "Perfil" },
+    ],
+  },
 ];
 
-export const NAV_ITEMS = [
-  { id: "dashboard",    icon: "◉", label: "Dashboard"        },
-  { id: "lancamentos",  icon: "↔", label: "Lançamentos"      },
-  { id: "recorrencias", icon: "↺", label: "Recorrências"     },
-  { id: "contas-pagar", icon: "⊖", label: "A Pagar/Receber"  },
-  { id: "dre",          icon: "▤", label: "D.R.E."           },
-  { id: "contas",       icon: "◎", label: "Contas"         },
-  { id: "plano",        icon: "▦", label: "Plano Contas"   },
-  { id: "impostos",     icon: "%", label: "Impostos"       },
-  { id: "clientes",     icon: "◐", label: "Clientes"       },
-  { id: "fornecedores", icon: "◑", label: "Fornecedores"   },
-  { id: "importacoes",  icon: "⇪", label: "Importações"    },
-  { id: "conciliacao",  icon: "≈", label: "Conciliação"    },
-  { id: "balancete",    icon: "☰", label: "Balancete"      },
-  { id: "fechamento",   icon: "⊛", label: "Fechamento"     },
-  { id: "relatorios",   icon: "▥", label: "Relatórios"        },
-  { id: "whatsapp",     icon: "◫", label: "WhatsApp"          },
-  { id: "open-finance", icon: "⇌", label: "Conexões"          },
-  { id: "empresa",      icon: "⚙", label: "Empresa"           },
+/** Menu lateral PJ — agrupado por seção. */
+export const NAV_SECTIONS_PJ = [
+  {
+    section: "Principal",
+    items: [{ id: "dashboard", label: "Dashboard" }],
+  },
+  {
+    section: "Finanças",
+    items: [
+      { id: "lancamentos", label: "Lançamentos" },
+      { id: "recorrencias", label: "Recorrências" },
+      { id: "contas-pagar", label: "A Pagar/Receber" },
+      { id: "resumo-anual", label: "Resumo Anual" },
+      { id: "dre", label: "D.R.E." },
+      { id: "contas", label: "Contas" },
+      { id: "plano", label: "Plano de Contas" },
+      { id: "impostos", label: "Impostos" },
+    ],
+  },
+  {
+    section: "Operacional",
+    items: [
+      { id: "clientes", label: "Clientes" },
+      { id: "fornecedores", label: "Fornecedores" },
+      { id: "importacoes", label: "Importações" },
+      { id: "conciliacao", label: "Conciliação" },
+      { id: "balancete", label: "Balancete" },
+      { id: "fechamento", label: "Fechamento" },
+      { id: "relatorios", label: "Relatórios" },
+    ],
+  },
+  {
+    section: "Sistema",
+    items: [
+      { id: "whatsapp", label: "WhatsApp" },
+      { id: "open-finance", label: "Conexões" },
+      { id: "empresa", label: "Empresa" },
+    ],
+  },
 ];
+
+const flattenNav = (sections) => sections.flatMap((s) => s.items);
+
+export const NAV_ITEMS_FISICA = flattenNav(NAV_SECTIONS_FISICA);
+export const NAV_ITEMS = flattenNav(NAV_SECTIONS_PJ);

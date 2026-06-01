@@ -66,6 +66,9 @@ import {
   AlertCircle,
   ArrowRight,
   Bell,
+  Heart,
+  Smile,
+  Info,
 } from "lucide-react";
 
 /** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
@@ -74,6 +77,7 @@ export const NAV_ICON_MAP = {
   lancamentos: Receipt,
   recorrencias: Repeat,
   "contas-pagar": CalendarClock,
+  "resumo-anual": LineChart,
   categorias: Tags,
   orcamento: PieChart,
   metas: Target,
@@ -161,4 +165,8 @@ export {
   AlertCircle,
   ArrowRight,
   Bell,
+  Heart,
+  Smile,
+  Info,
+  BarChart3,
 };

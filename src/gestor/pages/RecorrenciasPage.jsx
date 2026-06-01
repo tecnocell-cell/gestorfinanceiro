@@ -11,6 +11,19 @@ import { fmtBRL, fmtDate, generateId, toDateKey } from "../finance.js";
 import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2 } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
+import {
+  ModalShell,
+  ModalSection,
+  ModalFooter,
+  ModalGrid,
+  ModalField,
+  ModalTipoPills,
+} from "../components/ModalShell.jsx";
+
+const REC_TIPO_OPTIONS = [
+  { value: "Receita", label: "Receita" },
+  { value: "Despesa", label: "Despesa" },
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,52 +144,56 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
     }
   };
 
+  const recTone = form.tipo === "Receita" ? "receita" : "despesa";
+
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 520 }}>
-        <div className="modal-header">
-          <span className="modal-title">
-            {isEdit ? "✏ Editar Recorrência" : "↺ Nova Recorrência"}
-          </span>
-          <button type="button" className="modal-close" onClick={onClose}>✕</button>
-        </div>
+    <ModalShell
+      onClose={onClose}
+      title={isEdit ? "Editar recorrência" : "Nova recorrência"}
+      subtitle={
+        isEdit
+          ? "Atualize valor, periodicidade e próxima data desta recorrência."
+          : "Cadastre receitas ou despesas que se repetem automaticamente."
+      }
+      tone={recTone}
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={onClose}
+          submitType="submit"
+          formId="modal-rec-form"
+          loading={loading}
+          saveLabel={isEdit ? "Salvar alterações" : "Criar recorrência"}
+        />
+      }
+    >
+      <form id="modal-rec-form" onSubmit={handleSubmit}>
+        <ModalSection label="Tipo">
+          <ModalField label="Receita ou despesa" required>
+            <ModalTipoPills
+              value={form.tipo}
+              onChange={(v) => set("tipo", v)}
+              options={REC_TIPO_OPTIONS}
+              ariaLabel="Tipo da recorrência"
+            />
+          </ModalField>
+        </ModalSection>
 
-        <form onSubmit={handleSubmit} className="modal-body">
-          {/* Tipo */}
-          <div className="form-group">
-            <label className="form-label">Tipo</label>
-            <div className="rec-tipo-row">
-              {["Receita", "Despesa"].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`rec-tipo-btn ${t.toLowerCase()}${form.tipo === t ? " active" : ""}`}
-                  onClick={() => set("tipo", t)}
-                >
-                  <span style={{ fontSize: 18 }}>{t === "Receita" ? "↑" : "↓"}</span>
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
+        <ModalSection label="Detalhes">
+          <ModalField label="Descrição" required>
+            <input
+              className="form-input"
+              type="text"
+              placeholder={form.tipo === "Receita" ? "Ex: Salário, Aluguel recebido…" : "Ex: Aluguel, Internet…"}
+              value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              required
+              autoFocus
+            />
+          </ModalField>
 
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {/* Descrição */}
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Descrição *</label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder={form.tipo === "Receita" ? "Ex: Salário, Aluguel recebido…" : "Ex: Aluguel, Internet…"}
-                value={form.descricao}
-                onChange={(e) => set("descricao", e.target.value)}
-                required autoFocus
-              />
-            </div>
-
-            {/* Valor */}
-            <div className="form-group">
-              <label className="form-label">Valor (R$) *</label>
+          <ModalGrid cols={2}>
+            <ModalField label="Valor (R$)" required>
               <input
                 className="form-input"
                 type="number"
@@ -187,11 +204,8 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                 onChange={(e) => set("valor", e.target.value)}
                 required
               />
-            </div>
-
-            {/* Periodicidade */}
-            <div className="form-group">
-              <label className="form-label">Periodicidade *</label>
+            </ModalField>
+            <ModalField label="Periodicidade" required>
               <select
                 className="form-select"
                 value={form.periodicidade}
@@ -201,11 +215,8 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                 <option value="semanal">Semanal</option>
                 <option value="anual">Anual</option>
               </select>
-            </div>
-
-            {/* Próxima data */}
-            <div className="form-group">
-              <label className="form-label">Próxima data *</label>
+            </ModalField>
+            <ModalField label="Próxima data" required>
               <input
                 className="form-input"
                 type="date"
@@ -213,11 +224,8 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                 onChange={(e) => set("proxima_data", e.target.value)}
                 required
               />
-            </div>
-
-            {/* Conta */}
-            <div className="form-group">
-              <label className="form-label">Conta</label>
+            </ModalField>
+            <ModalField label="Conta">
               <select
                 className="form-select"
                 value={form.conta_id}
@@ -230,11 +238,8 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Categoria */}
-            <div className="form-group">
-              <label className="form-label">Categoria</label>
+            </ModalField>
+            <ModalField label="Categoria">
               <select
                 className="form-select"
                 value={form.plano_id}
@@ -247,12 +252,9 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Status (só em edição) */}
+            </ModalField>
             {isEdit && (
-              <div className="form-group">
-                <label className="form-label">Status</label>
+              <ModalField label="Status">
                 <select
                   className="form-select"
                   value={form.status}
@@ -262,12 +264,9 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                   <option value="pausada">Pausada</option>
                   <option value="encerrada">Encerrada</option>
                 </select>
-              </div>
+              </ModalField>
             )}
-
-            {/* Observação */}
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Observação</label>
+            <ModalField label="Observação" className="modal-field--full">
               <input
                 className="form-input"
                 type="text"
@@ -275,24 +274,13 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
                 value={form.observacao}
                 onChange={(e) => set("observacao", e.target.value)}
               />
-            </div>
-          </div>
+            </ModalField>
+          </ModalGrid>
+        </ModalSection>
 
-          {error && (
-            <div className="alert alert-warn" style={{ marginTop: 10 }}>⚠ {error}</div>
-          )}
-
-          <div className="modal-footer" style={{ margin: "16px -1.25rem -1.25rem", borderRadius: 0 }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading} className="btn btn-primary">
-              {loading ? "Salvando…" : isEdit ? "Salvar alterações" : "↺ Criar recorrência"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {error && <div className="modal-inline-error" role="alert">{error}</div>}
+      </form>
+    </ModalShell>
   );
 }
 
@@ -338,114 +326,94 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
     return p.natureza === "Debito" || p.tipo === "Despesa" || p.tipo === "Custo";
   });
 
+  const gerarTone = recorrencia.tipo === "Receita" ? "receita" : "despesa";
+
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 440 }}>
-        <div className="modal-header">
-          <span className="modal-title">✔ Gerar Lançamento</span>
-          <button type="button" className="modal-close" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="modal-body">
-          {/* Preview da recorrência */}
-          <div style={{
-            background: "var(--surface-2)",
-            borderRadius: "var(--radius-md)",
-            padding: "10px 14px",
-            marginBottom: 16,
-            fontSize: 13,
-          }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{recorrencia.descricao}</div>
-            <div style={{ color: "var(--muted-foreground)", display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <span className={`badge ${recorrencia.tipo === "Receita" ? "badge-green" : "badge-red"}`}>
-                {recorrencia.tipo}
-              </span>
-              <span>{PERIODO_LABEL[recorrencia.periodicidade]}</span>
-              <span style={{ fontWeight: 600, color: "var(--foreground)" }}>
-                Vencimento: {fmtDate(dataVenc)}
-              </span>
-              <span style={{ color: "var(--muted-foreground)" }}>
-                Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, dataVenc))}
-              </span>
-            </div>
-          </div>
-
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">Valor (R$) *</label>
-              <input
-                className="form-input"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={valorLanc}
-                onChange={(e) => setValorLanc(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Conta *</label>
-              <select
-                className="form-select"
-                value={contaId}
-                onChange={(e) => setContaId(e.target.value)}
-                required
-              >
-                <option value="">— Selecione a conta —</option>
-                {contas.filter((c) => !c.inativo).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.apelido || c.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Categoria</label>
-              <select
-                className="form-select"
-                value={planoId}
-                onChange={(e) => setPlanoId(e.target.value)}
-              >
-                <option value="">— Nenhuma —</option>
-                {categorias.map((p) => (
-                  <option key={p.id} value={p.id}>{p.descricao}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Histórico</label>
-              <input
-                className="form-input"
-                type="text"
-                value={obs}
-                onChange={(e) => setObs(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="alert alert-warn" style={{ marginTop: 10 }}>⚠ {error}</div>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleConfirm}
-            disabled={loading || !contaId}
-          >
-            {loading ? "Gerando…" : "✔ Confirmar lançamento"}
-          </button>
+    <ModalShell
+      onClose={onClose}
+      title="Gerar lançamento"
+      subtitle="Confirme os dados antes de criar o lançamento a partir desta recorrência."
+      tone={gerarTone}
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={onClose}
+          onSave={handleConfirm}
+          loading={loading}
+          disabled={!contaId}
+          saveLabel={loading ? "Gerando…" : "Confirmar lançamento"}
+        />
+      }
+    >
+      <div className="modal-rec-preview">
+        <div className="modal-rec-preview-title">{recorrencia.descricao}</div>
+        <div className="modal-rec-preview-meta">
+          <span className={`badge ${recorrencia.tipo === "Receita" ? "badge-green" : "badge-red"}`}>
+            {recorrencia.tipo}
+          </span>
+          <span>{PERIODO_LABEL[recorrencia.periodicidade]}</span>
+          <span style={{ fontWeight: 600, color: "var(--foreground)" }}>
+            Vencimento: {fmtDate(dataVenc)}
+          </span>
+          <span>
+            Próximo ciclo: {fmtDate(calcProximaDataLocal(recorrencia.periodicidade, dataVenc))}
+          </span>
         </div>
       </div>
-    </div>
+
+      <ModalSection label="Lançamento">
+        <ModalGrid cols={1}>
+          <ModalField label="Valor (R$)" required>
+            <input
+              className="form-input"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={valorLanc}
+              onChange={(e) => setValorLanc(e.target.value)}
+              required
+            />
+          </ModalField>
+          <ModalField label="Conta" required>
+            <select
+              className="form-select"
+              value={contaId}
+              onChange={(e) => setContaId(e.target.value)}
+              required
+            >
+              <option value="">— Selecione a conta —</option>
+              {contas.filter((c) => !c.inativo).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.apelido || c.nome}
+                </option>
+              ))}
+            </select>
+          </ModalField>
+          <ModalField label="Categoria">
+            <select
+              className="form-select"
+              value={planoId}
+              onChange={(e) => setPlanoId(e.target.value)}
+            >
+              <option value="">— Nenhuma —</option>
+              {categorias.map((p) => (
+                <option key={p.id} value={p.id}>{p.descricao}</option>
+              ))}
+            </select>
+          </ModalField>
+          <ModalField label="Histórico">
+            <input
+              className="form-input"
+              type="text"
+              value={obs}
+              onChange={(e) => setObs(e.target.value)}
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
+
+      {error && <div className="modal-inline-error" role="alert">{error}</div>}
+    </ModalShell>
   );
 }
 
