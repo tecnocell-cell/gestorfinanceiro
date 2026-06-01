@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
 import { fmtBRL, fmtPct, fmtDate, fmtDateTime, lancamentosComSaldoConta, contaPorCodigo, generateId } from "../finance.js";
+import { labelInstituicaoConta } from "../bancosBrasil.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
@@ -847,7 +848,10 @@ export function ContasPage({ pfMode = false } = {}) {
               <table className="pp-table">
                 <thead>
                   <tr>
-                    <th>Cód.</th><th>Nome</th><th>Apelido</th><th>Tipo</th><th>Contábil</th>
+                    <th>Cód.</th>
+                    {pfMode && <th>Ícone</th>}
+                    <th>Nome</th><th>Apelido</th><th>Tipo</th>
+                    <th>{pfMode ? "Instituição" : "Contábil"}</th>
                     <th className="pp-th-num">Inicial</th><th className="pp-th-num">Atual</th><th>Status</th>
                     <th style={{ textAlign: "right" }}>Ações</th>
                   </tr>
@@ -856,10 +860,23 @@ export function ContasPage({ pfMode = false } = {}) {
                   {sorted.map((c) => (
                     <tr key={c.id} style={c.inativo ? { opacity: 0.55 } : undefined}>
                       <td className="td-mono">{c.codigo}</td>
+                      {pfMode && (
+                        <td>
+                          {c.icone ? (
+                            <span className="cat-icone" style={{ background: c.cor || "var(--muted)", fontSize: 15 }}>
+                              {c.icone}
+                            </span>
+                          ) : (
+                            <span className="cat-icone cat-icone-empty">🏦</span>
+                          )}
+                        </td>
+                      )}
                       <td>{c.nome}</td>
                       <td className="lanc-cell-quiet lanc-cell-clip">{c.apelido || "—"}</td>
                       <td><span className={`pp-badge ${contaTipoBadge(c.tipo)}`}>{c.tipo}</span></td>
-                      <td className="td-mono lanc-cell-quiet" style={{ fontSize: 12 }}>{c.contaContabil || "—"}</td>
+                      <td className={`${pfMode ? "lanc-cell-quiet" : "td-mono lanc-cell-quiet"}`} style={{ fontSize: 12 }}>
+                        {pfMode ? labelInstituicaoConta(c) : (c.contaContabil || "—")}
+                      </td>
                       <td className="pp-cell-value">{fmtBRL(c.saldoInicial)}</td>
                       <td className={`pp-cell-value ${getSaldoConta(c.id) >= 0 ? "pp-cell-value-in" : "pp-cell-value-out"}`}>{fmtBRL(getSaldoConta(c.id))}</td>
                       <td>{c.inativo ? <span className="pp-badge pp-badge-red">Inativo</span> : <span className="pp-badge pp-badge-green">Ativo</span>}</td>

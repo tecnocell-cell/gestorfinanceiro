@@ -1618,6 +1618,146 @@ export const css = `
     .modal-tipo-pill { min-width: calc(50% - 8px); flex: 1 1 calc(50% - 8px); }
   }
 
+  /* Modal conta — bancos e ícones */
+  .conta-banco-picker { display: flex; flex-direction: column; gap: 12px; }
+  .conta-banco-grid {
+    display: grid;
+    gap: 10px;
+  }
+  .conta-banco-grid--destaque {
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  }
+  .conta-banco-grid--presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .conta-banco-grid--more {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    padding-top: 4px;
+  }
+  .conta-banco-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+    min-height: 88px;
+  }
+  .conta-banco-card:hover {
+    border-color: color-mix(in oklab, var(--forest-600) 40%, var(--border));
+  }
+  .conta-banco-card.is-active {
+    border-color: var(--forest-600);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--forest-600) 16%, transparent);
+  }
+  .conta-banco-sigla {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+  .conta-banco-nome {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-align: center;
+    line-height: 1.25;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .conta-banco-more-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .conta-banco-more-toggle:hover {
+    background: var(--rn-neutral);
+    color: var(--foreground);
+  }
+  .conta-banco-chevron {
+    display: inline-block;
+    transition: transform 0.15s;
+    font-size: 14px;
+  }
+  .conta-banco-chevron.is-flip {
+    transform: rotate(180deg);
+  }
+  .conta-icone-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .conta-icone-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    font-size: 18px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .conta-icone-btn:hover {
+    border-color: color-mix(in oklab, var(--forest-600) 35%, var(--border));
+  }
+  .conta-icone-btn.is-active {
+    border-color: var(--forest-600);
+    background: color-mix(in oklab, var(--forest-600) 10%, var(--card));
+  }
+  .modal-info-box {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--forest-600) 8%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--forest-600) 22%, var(--border));
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--foreground);
+  }
+  .modal-info-box strong { font-weight: 700; }
+  .modal-info-box p { margin: 4px 0 0; font-size: 12px; color: var(--muted-foreground); }
+  .modal-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  .modal-advanced-toggle:hover { color: var(--foreground); }
+
   .check-row {
     display: flex;
     flex-wrap: wrap;

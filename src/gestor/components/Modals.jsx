@@ -17,6 +17,8 @@ import {
   ModalTipoPills,
   modalToneFromTipo,
 } from "./ModalShell.jsx";
+import ContaInstituicaoPicker from "./ContaInstituicaoPicker.jsx";
+import { CONTA_ICONES } from "../bancosBrasil.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,26 @@ const EMOJI_LIST = [
   "🏥","📮","🎁","🎯","🔑","🏋️","👥","🎬","🍷","🐕",
   "🐈","🌺","🎪","🥂","🚀","🎀","📺","🎻","🌮","🏄",
 ];
+
+function ContaIconePicker({ value, onChange }) {
+  return (
+    <div className="conta-icone-picker" role="listbox" aria-label="Ícone da conta">
+      {CONTA_ICONES.map((e) => (
+        <button
+          key={e}
+          type="button"
+          role="option"
+          aria-selected={value === e}
+          className={`conta-icone-btn${value === e ? " is-active" : ""}`}
+          onClick={() => onChange(e)}
+          title={e}
+        >
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function IconePicker({ value, onChange }) {
   return (
@@ -437,6 +459,9 @@ export function ModalConta() {
     nome:                item?.nome                || "",
     apelido:             item?.apelido             || "",
     tipo:                item?.tipo                || "Banco",
+    instituicao:         item?.instituicao         || "",
+    icone:               item?.icone               || "🏦",
+    cor:                 item?.cor                 || "",
     saldoInicial:        item?.saldoInicial        ?? 0,
     contaContabil:       item?.contaContabil       || "",
     codigoClassificacao: item?.codigoClassificacao ?? "",
@@ -446,15 +471,31 @@ export function ModalConta() {
     inativo:             item?.inativo             || false,
     usarSaldo:           item?.usarSaldo           !== false,
   });
+  const [showContabilPJ, setShowContabilPJ] = useState(!!item?.contaContabil);
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  const handleInstituicao = (preset) => {
+    setForm((p) => ({
+      ...p,
+      instituicao: preset.instituicao,
+      icone: preset.icone || p.icone,
+      cor: preset.cor || p.cor,
+      tipo: preset.tipo || p.tipo,
+      nome: p.nome.trim() ? p.nome : preset.nome,
+      apelido: p.apelido.trim() ? p.apelido : preset.apelido,
+    }));
+  };
+
   const handleSave = () => {
-    if (!form.nome.trim()) return alert("Nome obrigatório.");
+    if (!form.nome.trim()) return alert("Informe o nome da conta.");
     const data = {
       ...form,
       codigo: Number(form.codigo) || form.codigo,
       saldoInicial: parseFloat(form.saldoInicial) || 0,
       codigoClassificacao: form.codigoClassificacao ? Number(form.codigoClassificacao) : null,
+      instituicao: form.instituicao || null,
+      icone: form.icone || null,
+      cor: form.cor || null,
     };
     if (item?.id) contaCrud.update(item.id, data);
     else contaCrud.add({ ...data, id: generateId() });
@@ -465,83 +506,152 @@ export function ModalConta() {
     ? ["Banco", "Caixa", "Poupança", "Investimento", "Outros"]
     : ["Banco", "Caixa", "Outros"];
 
+  const saldoFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    parseFloat(form.saldoInicial) || 0
+  );
+
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 660 }}>
-        <Hdr onClose={closeModal} title={item?.id ? "Editar Conta" : "Nova Conta"} />
+    <ModalShell
+      onClose={closeModal}
+      title={item?.id ? "Editar conta" : "Nova conta bancária"}
+      subtitle="Escolha o banco ou tipo de conta, personalize o ícone e defina o saldo inicial."
+      tone="conta"
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Criar conta"}
+        />
+      }
+    >
+      <ModalSection label="Banco ou instituição">
+        <ContaInstituicaoPicker
+          value={form.instituicao}
+          onSelect={handleInstituicao}
+        />
+      </ModalSection>
 
-        <div className="modal-body">
-          {/* Identificação */}
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Nome da Conta *</label>
-              <input className="form-input" value={form.nome}
-                onChange={(e) => set("nome", e.target.value)} placeholder="Ex: Conta Bradesco" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Apelido (exibição)</label>
-              <input className="form-input" value={form.apelido}
-                onChange={(e) => set("apelido", e.target.value)} placeholder="Ex: Bradesco CC" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tipo</label>
-              <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
-                {tipoOptions.map((t) => <option key={t}>{t}</option>)}
-              </select>
-            </div>
+      <ModalSection label="Identificação">
+        <ModalGrid cols={2}>
+          <ModalField label="Nome da conta" required className="modal-field--full">
+            <input
+              className="form-input"
+              value={form.nome}
+              onChange={(e) => set("nome", e.target.value)}
+              placeholder="Ex: Conta Nubank, Carteira…"
+            />
+          </ModalField>
+          <ModalField label="Apelido (exibição)">
+            <input
+              className="form-input"
+              value={form.apelido}
+              onChange={(e) => set("apelido", e.target.value)}
+              placeholder="Como aparece nos lançamentos"
+            />
+          </ModalField>
+          <ModalField label="Tipo de conta">
+            <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
+              {tipoOptions.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
+
+      <ModalSection label="Ícone da conta">
+        <ModalField
+          label="Ícone"
+          hint="Toque em um ícone ou selecione um banco acima para preencher automaticamente."
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 20 }}>
+              {form.icone || "🏦"}
+            </span>
+            <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Pré-visualização</span>
           </div>
+          <ContaIconePicker value={form.icone} onChange={(v) => set("icone", v)} />
+        </ModalField>
+      </ModalSection>
 
-          {/* Saldo */}
-          <div className="modal-section">
-            <div className="modal-section-label">Saldo</div>
-            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-              <div className="form-group">
-                <label className="form-label">Saldo Inicial (R$)</label>
-                <input className="form-input" type="number" step="0.01"
-                  value={form.saldoInicial} onChange={(e) => set("saldoInicial", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Código</label>
-                <input className="form-input" type="number" value={form.codigo}
-                  onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
-              </div>
-            </div>
-          </div>
-
-          {/* Contábil — só PJ */}
-          {!isPF && (
-            <div className="modal-section">
-              <div className="modal-section-label">Informações Contábeis</div>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                <div className="form-group">
-                  <label className="form-label">Conta Contábil</label>
-                  <input className="form-input" value={form.contaContabil}
-                    onChange={(e) => set("contaContabil", e.target.value)} placeholder="1.1.01" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Cód. Classificação DRE</label>
-                  <input className="form-input" type="number" value={form.codigoClassificacao}
-                    onChange={(e) => set("codigoClassificacao", e.target.value)} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="check-row">
-            <label className="check-item">
-              <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
-              Incluir no saldo total
-            </label>
-            <label className="check-item">
-              <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
-              Inativo
-            </label>
-          </div>
+      <ModalSection label="Saldo">
+        <div className="modal-info-box">
+          <strong>Saldo inicial: {saldoFmt}</strong>
+          <p>
+            Use este valor se já tinha dinheiro na conta no dia em que começou a usar o sistema.
+            Depois, ajuste lançamentos para refletir o saldo real do banco.
+          </p>
         </div>
+        <ModalGrid cols={2}>
+          <ModalField label="Saldo inicial (R$)">
+            <input
+              className="form-input"
+              type="number"
+              step="0.01"
+              value={form.saldoInicial}
+              onChange={(e) => set("saldoInicial", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Código interno" hint="Opcional — numeração automática se vazio.">
+            <input
+              className="form-input"
+              type="number"
+              value={form.codigo}
+              onChange={(e) => set("codigo", e.target.value)}
+              placeholder="Auto"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar Conta"} />
+      {!isPF && (
+        <ModalSection label="Contabilidade (empresa)">
+          <button
+            type="button"
+            className="modal-advanced-toggle"
+            onClick={() => setShowContabilPJ((v) => !v)}
+          >
+            {showContabilPJ ? "▾ Ocultar campos contábeis" : "▸ Código contábil (opcional, só PJ)"}
+          </button>
+          {showContabilPJ && (
+            <>
+              <p className="modal-field-hint" style={{ marginBottom: 12 }}>
+                <strong>Contábil</strong> é o código da conta no plano contábil da empresa (ex.: 1.1.01),
+                usado em exportações e relatórios PJ — não é o número da agência/conta bancária.
+              </p>
+              <ModalGrid cols={2}>
+                <ModalField label="Conta contábil">
+                  <input
+                    className="form-input"
+                    value={form.contaContabil}
+                    onChange={(e) => set("contaContabil", e.target.value)}
+                    placeholder="1.1.01"
+                  />
+                </ModalField>
+                <ModalField label="Cód. classificação DRE">
+                  <input
+                    className="form-input"
+                    type="number"
+                    value={form.codigoClassificacao}
+                    onChange={(e) => set("codigoClassificacao", e.target.value)}
+                  />
+                </ModalField>
+              </ModalGrid>
+            </>
+          )}
+        </ModalSection>
+      )}
+
+      <div className="check-row">
+        <label className="check-item">
+          <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
+          Incluir no saldo total
+        </label>
+        <label className="check-item">
+          <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
+          Inativo
+        </label>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
