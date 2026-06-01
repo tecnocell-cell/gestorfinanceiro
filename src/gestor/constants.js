@@ -50,6 +50,8 @@ export const NAV_SECTIONS_FISICA = [
     items: [
       { id: "whatsapp", label: "WhatsApp" },
       { id: "open-finance", label: "Conexões" },
+      { id: "tutoriais", label: "Tutoriais" },
+      { id: "suporte", label: "Suporte" },
       { id: "perfil", label: "Perfil" },
     ],
   },
@@ -91,6 +93,8 @@ export const NAV_SECTIONS_PJ = [
     items: [
       { id: "whatsapp", label: "WhatsApp" },
       { id: "open-finance", label: "Conexões" },
+      { id: "tutoriais", label: "Tutoriais" },
+      { id: "suporte", label: "Suporte" },
       { id: "empresa", label: "Empresa" },
     ],
   },

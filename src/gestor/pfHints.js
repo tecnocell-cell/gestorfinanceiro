@@ -52,4 +52,12 @@ export const PF_PAGE_HINTS = {
     title: "WhatsApp Financeiro",
     text: "Conecte seu WhatsApp para registrar lançamentos por mensagem. Envie algo como \"Paguei R$150 de mercado\" e confirme com \"sim\" — o lançamento é salvo automaticamente.",
   },
+  tutoriais: {
+    title: "Tutoriais",
+    text: "Vídeos passo a passo sobre o sistema. Novos tutoriais aparecem aqui conforme forem publicados no YouTube.",
+  },
+  suporte: {
+    title: "Suporte",
+    text: "Abra um ticket para dúvidas ou problemas. Acompanhe o status dos seus chamados nesta página.",
+  },
 };

@@ -4354,6 +4354,250 @@ export const css = `
     .of-hero-title  { font-size: 20px; }
   }
 
+  /* ─── Suporte + Tutoriais ─────────────────────────────────────────────────── */
+  .sys-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .sys-hero {
+    background: linear-gradient(155deg, var(--forest-900) 0%, var(--forest-700) 100%);
+    padding: 1.5rem 1.75rem;
+    border-radius: var(--radius-xl);
+    margin-bottom: 20px;
+    color: #fff;
+  }
+  .sys-hero--toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .sys-hero-inner { min-width: 0; flex: 1; }
+  .sys-hero-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sys-hero-sub {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: color-mix(in oklab, white 78%, transparent);
+    line-height: 1.45;
+  }
+  .sys-hero-meta {
+    margin: 10px 0 0;
+    font-size: 11px;
+    color: color-mix(in oklab, white 55%, transparent);
+  }
+  .sys-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .sys-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .sys-btn--ghost {
+    background: color-mix(in oklab, white 12%, transparent);
+    border-color: color-mix(in oklab, white 25%, transparent);
+    color: #fff;
+  }
+  .sys-btn--ghost:hover {
+    background: color-mix(in oklab, white 22%, transparent);
+  }
+  .sys-btn--primary {
+    background: #fff;
+    color: var(--forest-900);
+  }
+  .sys-btn--primary:hover {
+    background: color-mix(in oklab, white 92%, var(--forest-100));
+  }
+  .sys-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .sys-summary-grid { margin-bottom: 20px; }
+  .sys-summary-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sys-kpi-card {
+    border-left: 3px solid var(--forest-600);
+  }
+  .sys-panel { margin-bottom: 24px; }
+  .sys-panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .sys-panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .sys-filter-select {
+    min-width: 180px;
+    max-width: 100%;
+  }
+  .sys-ticket-subject {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--foreground);
+  }
+  .sys-ticket-preview {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin-top: 4px;
+  }
+
+  .tut-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+  .tut-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.15s, transform 0.1s;
+  }
+  .tut-card:hover {
+    box-shadow: var(--shadow-pop);
+    transform: translateY(-2px);
+  }
+  .tut-card-thumb {
+    position: relative;
+    min-height: 120px;
+    background: linear-gradient(135deg, var(--forest-800), var(--forest-600));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tut-card-emoji {
+    font-size: 48px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+  }
+  .tut-card-cat {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: color-mix(in oklab, white 20%, transparent);
+    color: #fff;
+  }
+  .tut-card-body {
+    padding: 1rem 1.125rem 1.125rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+  .tut-card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--foreground);
+  }
+  .tut-card-duration {
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+  .tut-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 8px;
+  }
+  .tut-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .tut-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .tut-btn--yt {
+    background: var(--rn-success);
+    color: #fff;
+    border-color: var(--rn-success-hover);
+  }
+  .tut-btn--here {
+    background: var(--forest-900);
+    color: #fff;
+  }
+  .tut-btn--here:hover:not(:disabled) {
+    background: var(--forest-800);
+  }
+  .tut-player-wrap {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #000;
+  }
+  .tut-player-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .tut-player-placeholder {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--muted-foreground);
+  }
+  .tut-player-placeholder p { margin: 8px 0; }
+  .tut-external-link {
+    display: inline-flex;
+    margin-top: 12px;
+    text-decoration: none;
+  }
+  @media (max-width: 720px) {
+    .sys-summary-grid--3 { grid-template-columns: 1fr; }
+    .sys-hero--toolbar { flex-direction: column; }
+    .sys-hero-actions { width: 100%; }
+    .sys-btn { flex: 1; justify-content: center; }
+    .tut-grid { grid-template-columns: 1fr; }
+  }
+
   /* ─── Etapa 4 + 4.1 — Dashboard Premium ──────────────────────────────────── */
 
   /* KPIs compactos refinados (Etapa 4.1) */

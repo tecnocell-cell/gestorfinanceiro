@@ -69,6 +69,12 @@ import {
   Heart,
   Smile,
   Info,
+  Ticket,
+  RefreshCw,
+  GraduationCap,
+  ExternalLink,
+  Video,
+  MessageSquare,
 } from "lucide-react";
 
 /** Ícones de navegação (Lucide) — chave = id da rota em constants.js */
@@ -96,6 +102,8 @@ export const NAV_ICON_MAP = {
   balancete: Scale,
   fechamento: Lock,
   empresa: Building2,
+  tutoriais: GraduationCap,
+  suporte: Ticket,
 };
 
 export function NavIcon({ name, size = 16, strokeWidth = 2, className = "" }) {
@@ -142,6 +150,7 @@ export {
   Pause,
   Play,
   CircleCheck,
+  MessageCircle,
   ArrowUpRight,
   ArrowDownRight,
   ArrowDownLeft,
@@ -169,4 +178,10 @@ export {
   Smile,
   Info,
   BarChart3,
+  Ticket,
+  RefreshCw,
+  GraduationCap,
+  ExternalLink,
+  Video,
+  MessageSquare,
 };
