@@ -216,6 +216,23 @@ export const integracaoPfPjApi = {
       method: "POST",
       body: vinculoId ? { vinculoId } : {},
     }),
+
+  previewProLabore: (valor, data, observacao) =>
+    request("/integracao-pf-pj/pro-labore/preview", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  confirmarProLabore: (valor, data, observacao) =>
+    request("/integracao-pf-pj/pro-labore", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  listOperacoes: () => request("/integracao-pf-pj/operacoes"),
+
+  rollbackOperacao: (id) =>
+    request(`/integracao-pf-pj/operacoes/${id}/rollback`, { method: "POST" }),
 };
 
 

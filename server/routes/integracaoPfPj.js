@@ -11,8 +11,14 @@
  */
 
 import { Router } from 'express';
-import { query } from '../db.js';
+import { query, pool } from '../db.js';
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
+import {
+  previewProLabore,
+  confirmProLabore,
+  rollbackOperacao,
+  mapOperacao,
+} from '../integracaoPfPj/proLaboreWriter.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -63,6 +69,49 @@ async function findVinculoAtivoPj(usuarioPjId) {
     [usuarioPjId]
   );
   return rows[0] || null;
+}
+
+async function findVinculoAtivoConfirmado(usuarioPjId, dbQuery = query) {
+  const { rows } = await dbQuery(
+    `SELECT ${VINCULO_COLS}
+     FROM integracao_pf_pj_vinculo
+     WHERE usuario_pj_id = $1 AND status = 'ativo'
+     LIMIT 1`,
+    [usuarioPjId]
+  );
+  return rows[0] || null;
+}
+
+async function loadEstadosForPreview(usuarioPjId, usuarioPfId) {
+  const [{ rows: pjRows }, { rows: pfRows }, uPj] = await Promise.all([
+    query('SELECT dados FROM estados WHERE usuario_id = $1', [usuarioPjId]),
+    query('SELECT dados FROM estados WHERE usuario_id = $1', [usuarioPfId]),
+    getTipoPerfil(usuarioPjId),
+  ]);
+  if (!pjRows.length || !pfRows.length) {
+    const err = new Error('Estado PJ ou PF não encontrado.');
+    err.status = 422;
+    throw err;
+  }
+  return { dadosPj: pjRows[0].dados, dadosPf: pfRows[0].dados, nomePj: uPj?.nome_perfil || uPj?.nome };
+}
+
+async function lockEstadosOrdenados(client, usuarioA, usuarioB) {
+  const sorted = [usuarioA, usuarioB].sort();
+  const out = {};
+  for (const uid of sorted) {
+    const { rows } = await client.query(
+      'SELECT usuario_id, dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+      [uid]
+    );
+    if (!rows.length) {
+      const err = new Error(`Estado não encontrado para usuário ${uid}.`);
+      err.status = 422;
+      throw err;
+    }
+    out[uid] = rows[0].dados;
+  }
+  return out;
 }
 
 async function findPfByEmail(email) {
@@ -315,6 +364,147 @@ router.post('/recusar', async (req, res) => {
   } catch (err) {
     console.error('integracao-pf-pj POST /recusar:', err.message);
     res.status(500).json({ error: 'Erro ao recusar vínculo.' });
+  }
+});
+
+// ─── POST /pro-labore/preview ─────────────────────────────────────────────────
+
+router.post('/pro-labore/preview', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const vinculo = await findVinculoAtivoConfirmado(req.user.id);
+    if (!vinculo) {
+      return res.status(422).json({ error: 'Vínculo PF ativo necessário para lançar pró-labore.' });
+    }
+
+    const { valor, data, observacao } = req.body || {};
+    const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
+      req.user.id,
+      vinculo.usuario_pf_id
+    );
+
+    const preview = previewProLabore({
+      dadosPj,
+      dadosPf,
+      vinculo,
+      nomePj,
+      valor,
+      data,
+      observacao,
+    });
+
+    return res.json(preview);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /pro-labore/preview:', err.message);
+    res.status(500).json({ error: 'Erro ao gerar preview.' });
+  }
+});
+
+// ─── POST /pro-labore ─────────────────────────────────────────────────────────
+
+router.post('/pro-labore', async (req, res) => {
+  if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+  const client = await pool.connect();
+  try {
+    const { valor, data, observacao } = req.body || {};
+
+    await client.query('BEGIN');
+
+    const { rows: vincRows } = await client.query(
+      `SELECT ${VINCULO_COLS}
+       FROM integracao_pf_pj_vinculo
+       WHERE usuario_pj_id = $1 AND status = 'ativo'
+       FOR UPDATE`,
+      [req.user.id]
+    );
+
+    if (!vincRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Vínculo PF ativo necessário para lançar pró-labore.' });
+    }
+
+    const vinculo = vincRows[0];
+    const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
+    const uPj = await getTipoPerfil(req.user.id);
+
+    const result = await confirmProLabore(client, {
+      usuarioPjId: req.user.id,
+      vinculo,
+      nomePj: uPj?.nome_perfil || uPj?.nome,
+      dadosPj: estados[req.user.id],
+      dadosPf: estados[vinculo.usuario_pf_id],
+      valor,
+      data,
+      observacao,
+    });
+
+    await client.query('COMMIT');
+
+    return res.status(201).json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /pro-labore:', err.message);
+    res.status(500).json({ error: 'Erro ao registrar pró-labore.' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─── GET /operacoes ───────────────────────────────────────────────────────────
+
+router.get('/operacoes', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const { rows } = await query(
+      `SELECT o.id, o.vinculo_id, o.tipo_operacao, o.valor_centavos, o.data, o.historico,
+              o.lancamento_pj_id, o.lancamento_pf_id, o.status, o.created_at
+       FROM integracao_pf_pj_operacoes o
+       JOIN integracao_pf_pj_vinculo v ON v.id = o.vinculo_id
+       WHERE v.usuario_pj_id = $1
+       ORDER BY o.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+
+    return res.json({
+      operacoes: rows.map(mapOperacao),
+      total: rows.length,
+    });
+  } catch (err) {
+    console.error('integracao-pf-pj GET /operacoes:', err.message);
+    res.status(500).json({ error: 'Erro ao listar operações.' });
+  }
+});
+
+// ─── POST /operacoes/:id/rollback ─────────────────────────────────────────────
+
+router.post('/operacoes/:id/rollback', async (req, res) => {
+  if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await rollbackOperacao(client, {
+      usuarioPjId: req.user.id,
+      operacaoId: req.params.id,
+    });
+
+    await client.query('COMMIT');
+
+    return res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /operacoes/:id/rollback:', err.message);
+    res.status(500).json({ error: 'Erro ao desfazer operação.' });
+  } finally {
+    client.release();
   }
 });
 
