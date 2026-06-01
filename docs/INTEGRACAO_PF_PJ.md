@@ -1,8 +1,22 @@
 # Integração PF/PJ — Plano técnico (Fluxiva)
 
-Documento de referência para implementação futura. **Status: planejado, não iniciado.**
+Documento de referência para implementação. **Etapa 5.0B implementada (vínculo único).**
 
 Repositório: https://github.com/tecnocell-cell/gestorfinanceiro
+
+---
+
+## Escopo 5.0 (revisado — Etapa 5.0A)
+
+**Mensagem comercial:** “Você possui uma conta PF conosco? Vincule aqui.”
+
+| Incluído (5.0B) | Fora de escopo (futuro) |
+|-----------------|-------------------------|
+| 1 PF por PJ (`UNIQUE` parcial SQL) | Múltiplas PFs por PJ |
+| Convite por e-mail + aceite/recusa PF | Pró-labore, salário, repasses |
+| Tabela `integracao_pf_pj_vinculo` | Lançamentos espelhados |
+| UI PJ + card em Perfil PF | Funcionário, prestador, sócio (papéis) |
+| Rotas `/api/integracao-pf-pj/*` | Rollback de repasses |
 
 ---
 

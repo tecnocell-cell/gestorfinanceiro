@@ -197,6 +197,28 @@ export const importacoesApi = {
 };
 
 
+// ─── Integração PF/PJ (vínculo único — Etapa 5.0B) ───────────────────────────
+export const integracaoPfPjApi = {
+  getVinculo: () => request("/integracao-pf-pj/vinculo"),
+  buscarPf: (email) =>
+    request(`/integracao-pf-pj/buscar-pf?email=${encodeURIComponent(email)}`),
+  criarVinculo: (email) =>
+    request("/integracao-pf-pj/vinculo", { method: "POST", body: { email } }),
+  revogarVinculo: () =>
+    request("/integracao-pf-pj/vinculo", { method: "DELETE" }),
+  aceitar: (vinculoId) =>
+    request("/integracao-pf-pj/aceitar", {
+      method: "POST",
+      body: vinculoId ? { vinculoId } : {},
+    }),
+  recusar: (vinculoId) =>
+    request("/integracao-pf-pj/recusar", {
+      method: "POST",
+      body: vinculoId ? { vinculoId } : {},
+    }),
+};
+
+
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 export const tokenStorage = {
   get:     () => localStorage.getItem("gestor_token"),

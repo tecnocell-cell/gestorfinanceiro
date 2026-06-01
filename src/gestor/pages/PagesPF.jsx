@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -9,6 +9,7 @@ import { fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos } f
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
+import { integracaoPfPjApi } from "../api.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { ContasPage } from "./Pages.jsx";
 import { getDueDate, getLancamentoSituacao } from "../pfDueDates.js";
@@ -872,6 +873,119 @@ export function RelatoriosPFPage() {
 
 // ─── Perfil PF ────────────────────────────────────────────────────────────────
 
+function PfPjVinculoCard() {
+  const { viewOnly } = useGestor();
+  const [pendentes, setPendentes] = useState([]);
+  const [ativos, setAtivos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [acao, setAcao] = useState(null);
+  const [erro, setErro] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const data = await integracaoPfPjApi.getVinculo();
+      setPendentes(data.pendentes || []);
+      setAtivos(data.ativos || []);
+    } catch (err) {
+      setErro(err.message || "Erro ao carregar convites.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAceitar = async (id) => {
+    setAcao(id);
+    setErro(null);
+    setMsg(null);
+    try {
+      await integracaoPfPjApi.aceitar(id);
+      setMsg("Vínculo aceito com sucesso.");
+      await load();
+    } catch (err) {
+      setErro(err.message || "Erro ao aceitar.");
+    } finally {
+      setAcao(null);
+    }
+  };
+
+  const handleRecusar = async (id) => {
+    if (!window.confirm("Recusar este convite de vínculo?")) return;
+    setAcao(id);
+    setErro(null);
+    setMsg(null);
+    try {
+      await integracaoPfPjApi.recusar(id);
+      setMsg("Convite recusado.");
+      await load();
+    } catch (err) {
+      setErro(err.message || "Erro ao recusar.");
+    } finally {
+      setAcao(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">Integração com PJ</div>
+        <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!pendentes.length && !ativos.length) return null;
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-title">Integração com PJ</div>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 14px" }}>
+        Empresas PJ podem vincular sua conta PF para repasses futuros. Aceite apenas convites de empresas que você reconhece.
+      </p>
+
+      {ativos.map((v) => (
+        <div key={v.id} className="alert alert-info" style={{ marginBottom: 10 }}>
+          <strong>Vinculada a {v.nomePj || "Empresa PJ"}</strong>
+          <span className="badge badge-cp-pago" style={{ marginLeft: 8, fontSize: 10 }}>Ativo</span>
+        </div>
+      ))}
+
+      {pendentes.map((v) => (
+        <div key={v.id} style={{
+          border: "1px solid var(--border)", borderRadius: "var(--radius-lg)",
+          padding: "12px 14px", marginBottom: 10,
+        }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{v.nomePj || "Empresa PJ"}</div>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>
+            Convite para vincular sua conta PF
+          </div>
+          {!viewOnly && (
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button type="button" className="btn btn-primary btn-sm"
+                disabled={acao === v.id}
+                onClick={() => handleAceitar(v.id)}>
+                {acao === v.id ? "..." : "Aceitar"}
+              </button>
+              <button type="button" className="btn btn-secondary btn-sm"
+                disabled={acao === v.id}
+                onClick={() => handleRecusar(v.id)}>
+                Recusar
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {erro && <div className="alert alert-warn" style={{ marginTop: 8 }}>{erro}</div>}
+      {msg && <div className="alert alert-info" style={{ marginTop: 8 }}>{msg}</div>}
+    </div>
+  );
+}
+
 export function PerfilPFPage() {
   const { pessoa, patchEmpresa } = useGestor();
   const [form, setForm] = useState({ nome: "", cpf: "", email: "", telefone: "", dataNascimento: "", profissao: "", ...(pessoa || {}) });
@@ -887,6 +1001,7 @@ export function PerfilPFPage() {
 
   return (
     <div>
+      <PfPjVinculoCard />
       <div className="card">
         <div className="card-title">Dados Pessoais</div>
         <div className="form-grid">

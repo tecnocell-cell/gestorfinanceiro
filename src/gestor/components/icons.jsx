@@ -93,6 +93,7 @@ export const NAV_ICON_MAP = {
   contas: Wallet,
   relatorios: ClipboardList,
   whatsapp: MessageCircle,
+  "integracao-pf-pj": Users,
   "open-finance": Link2,
   perfil: User,
   dre: BarChart3,
