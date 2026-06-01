@@ -1,52 +1,25 @@
 /**
- * Importações — Etapa 4.6A (preview apenas)
+ * Importações — Etapa 4.6A/4.6B
  *
  * Rotas:
- *   POST /api/importacoes/ofx-preview — parse + deduplicação, SEM gravar lançamentos
- *   GET  /api/importacoes             — histórico (vazio até Etapa 4.6B)
- *
- * Não altera tabela estados (JSONB), não grava fingerprints nesta etapa.
+ *   POST /api/importacoes/ofx-preview   — parse + deduplicação, sem gravar
+ *   POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
+ *   GET  /api/importacoes               — histórico
  */
 
 import { Router } from 'express';
-import { query } from '../db.js';
+import { pool, query } from '../db.js';
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
-import { parseOfxFile } from '../utils/parseOfx.js';
 import { gerarFingerprint } from '../utils/fingerprint.js';
+import {
+  classificarTransacoes,
+  loadExistingFingerprints,
+  parseOfxForImport,
+  confirmOfxImport,
+} from '../utils/ofxImport.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
-
-function classificarTransacoes(usuarioId, txs, existingSet) {
-  const seenInFile = new Set();
-  const transacoes = [];
-  let novas = 0;
-  let duplicadas = 0;
-
-  for (const tx of txs) {
-    const fp = gerarFingerprint(usuarioId, tx);
-    let status = 'nova';
-
-    if (existingSet.has(fp) || seenInFile.has(fp)) {
-      status = 'duplicada';
-      duplicadas += 1;
-    } else {
-      novas += 1;
-      seenInFile.add(fp);
-    }
-
-    transacoes.push({
-      data: tx.data,
-      valor: tx.valor,
-      tipo: tx.tipo,
-      historico: tx.historico,
-      fitid: tx.fitid || null,
-      status,
-    });
-  }
-
-  return { transacoes, novas, duplicadas };
-}
 
 // ─── POST /api/importacoes/ofx-preview ────────────────────────────────────────
 
@@ -54,48 +27,80 @@ router.post('/ofx-preview', async (req, res) => {
   const { contaId, planoId, fileName, fileContent } = req.body || {};
   const usuarioId = req.user.id;
 
-  if (!fileContent || typeof fileContent !== 'string') {
-    return res.status(400).json({ error: 'Campo fileContent obrigatório.' });
-  }
-
-  let parsed;
   try {
-    parsed = parseOfxFile(fileContent);
-  } catch (err) {
-    console.error('importacoes/ofx-preview parse:', err.message);
-    return res.status(422).json({
-      error: 'Não foi possível interpretar o arquivo. Verifique se é um OFX ou QIF válido.',
+    const { txs, bancoSlug } = parseOfxForImport(fileContent);
+
+    const fingerprints = txs.map((tx) => gerarFingerprint(usuarioId, tx));
+    const existingSet = await loadExistingFingerprints(query, usuarioId, fingerprints);
+    const { transacoes, novas, duplicadas } = classificarTransacoes(usuarioId, txs, existingSet);
+
+    return res.json({
+      banco: bancoSlug,
+      total: txs.length,
+      novas,
+      duplicadas,
+      transacoes: transacoes.map(({ fingerprint, _raw, ...t }) => t),
+      meta: { contaId: contaId || null, planoId: planoId || null, fileName: fileName || null },
     });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    console.error('importacoes/ofx-preview:', err.message);
+    return res.status(500).json({ error: 'Erro ao analisar o arquivo.' });
   }
+});
 
-  const { txs, bancoSlug } = parsed;
+// ─── POST /api/importacoes/ofx-confirmar ──────────────────────────────────────
 
-  if (!txs.length) {
-    return res.status(422).json({ error: 'Nenhuma transação encontrada no arquivo.' });
-  }
+router.post('/ofx-confirmar', async (req, res) => {
+  const { contaId, planoId, fileName, fileContent } = req.body || {};
+  const usuarioId = req.user.id;
 
-  const fingerprints = txs.map((tx) => gerarFingerprint(usuarioId, tx));
-  const uniqueFps = [...new Set(fingerprints)];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  let existingSet = new Set();
-  if (uniqueFps.length > 0) {
-    const { rows: existing } = await query(
-      `SELECT fingerprint FROM importacoes_fingerprints
-       WHERE usuario_id = $1 AND fingerprint = ANY($2)`,
-      [usuarioId, uniqueFps]
+    const { rows } = await client.query(
+      'SELECT dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+      [usuarioId]
     );
-    existingSet = new Set(existing.map((r) => r.fingerprint));
+
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Estado do usuário não encontrado.' });
+    }
+
+    const result = await confirmOfxImport(client, {
+      usuarioId,
+      contaId,
+      planoId: planoId || null,
+      fileName,
+      fileContent,
+      dados: rows[0].dados,
+    });
+
+    await client.query('COMMIT');
+
+    return res.json({
+      importados: result.importados,
+      duplicados: result.duplicados,
+      erros: result.erros,
+      importacaoId: result.importacaoId,
+      loteId: result.loteId,
+      status: result.status,
+      total: result.total,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    console.error('importacoes/ofx-confirmar:', err.message);
+    return res.status(500).json({ error: 'Erro ao confirmar importação.' });
+  } finally {
+    client.release();
   }
-
-  const { transacoes, novas, duplicadas } = classificarTransacoes(usuarioId, txs, existingSet);
-
-  return res.json({
-    banco: bancoSlug,
-    total: txs.length,
-    novas,
-    duplicadas,
-    transacoes,
-  });
 });
 
 // ─── GET /api/importacoes ─────────────────────────────────────────────────────

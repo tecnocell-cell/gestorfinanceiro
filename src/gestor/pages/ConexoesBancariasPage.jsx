@@ -1,8 +1,9 @@
 /**
  * ConexoesBancariasPage — Open Finance / Conexões Bancárias
  *
- * Etapa 4.6A — Preview OFX (sem gravar lançamentos):
- * - POST /api/importacoes/ofx-preview — parse + deduplicação
+ * Etapa 4.6B — Preview + confirmação OFX:
+ * - POST /api/importacoes/ofx-preview   — parse + deduplicação
+ * - POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
  * - Wizard: conta+plano → upload → preview com tabela
  * - Histórico GET (vazio até Etapa 4.6B)
  * - "Avise-me" + roadmap mantidos
@@ -28,7 +29,7 @@ const BANCOS = [
 ];
 
 const ROADMAP = [
-  { fase: "Disponível", data: "Agora",     titulo: "Preview OFX / QIF",         descricao: "Análise de extrato com deduplicação — gravação na Etapa 4.6B", done: true  },
+  { fase: "Disponível", data: "Agora",     titulo: "Importação OFX / QIF",         descricao: "Preview, deduplicação e gravação com histórico", done: true  },
   { fase: "Em breve",   data: "2025-2026", titulo: "Importação CSV multi-banco", descricao: "Nubank, Inter, Mercado Pago — com mapeamento de colunas",   done: false },
   { fase: "Planejado",  data: "2026",      titulo: "Conector Open Finance",      descricao: "Integração com APIs reguladas pelo Banco Central",          done: false },
   { fase: "Futuro",     data: "2026+",     titulo: "Sincronização Automática",   descricao: "Extratos direto da conta, sem upload manual",               done: false },
@@ -84,13 +85,16 @@ function RoadmapItem({ item, isLast }) {
   );
 }
 
-function OFXWizard({ contas, planoContas, onClose }) {
+function OFXWizard({ contas, planoContas, onClose, onSuccess }) {
   const [step, setStep]           = useState(1);
   const [contaId, setContaId]     = useState(contas[0]?.id || "");
   const [planoId, setPlanoId]     = useState("");
   const [file, setFile]           = useState(null);
+  const [fileContent, setFileContent] = useState("");
   const [loading, setLoading]     = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [confirmacao, setConfirmacao] = useState(null);
   const [erro, setErro]           = useState(null);
   const fileRef                   = useRef();
 
@@ -108,9 +112,11 @@ function OFXWizard({ contas, planoContas, onClose }) {
     if (!contaId) { setErro("Selecione a conta bancaria."); return; }
     setLoading(true);
     setErro(null);
+    setConfirmacao(null);
     try {
-      const fileContent = await file.text();
-      const res = await importacoesApi.previewOFX(contaId, planoId || null, file.name, fileContent);
+      const content = await file.text();
+      setFileContent(content);
+      const res = await importacoesApi.previewOFX(contaId, planoId || null, file.name, content);
       setResultado(res);
       setStep(3);
     } catch (err) {
@@ -120,16 +126,38 @@ function OFXWizard({ contas, planoContas, onClose }) {
     }
   };
 
-  const stepTitle = step === 1 ? "Preview OFX — Configuracao"
-                  : step === 2 ? "Preview OFX — Upload"
-                  : "Preview OFX — Resultado";
+  const handleConfirmar = async () => {
+    if (!fileContent || !contaId) return;
+    setConfirmando(true);
+    setErro(null);
+    try {
+      const res = await importacoesApi.confirmarOFX(
+        contaId,
+        planoId || null,
+        file?.name || "extrato.ofx",
+        fileContent
+      );
+      setConfirmacao(res);
+      setStep(4);
+      onSuccess?.();
+    } catch (err) {
+      setErro(err.message || "Erro ao confirmar importacao. Tente novamente.");
+    } finally {
+      setConfirmando(false);
+    }
+  };
+
+  const stepTitle = step === 1 ? "Importar OFX — Configuracao"
+                  : step === 2 ? "Importar OFX — Upload"
+                  : step === 3 ? "Importar OFX — Preview"
+                  : "Importacao concluida";
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: step === 3 ? 720 : 520 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: step >= 3 ? 720 : 520 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {step > 1 && step < 3 && (
+            {step > 1 && step < 4 && (
               <button type="button" className="btn btn-secondary btn-sm btn-icon"
                 onClick={() => setStep((s) => s - 1)} title="Voltar">
                 <ChevronLeft size={15} strokeWidth={2} />
@@ -196,7 +224,7 @@ function OFXWizard({ contas, planoContas, onClose }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>
                 Selecione o arquivo <strong>.ofx</strong> ou <strong>.qif</strong> exportado pelo banco.
-                O servidor analisa e detecta duplicatas — <strong>nenhum lancamento sera gravado</strong> nesta etapa.
+                Voce vera o preview antes de confirmar a importacao.
               </p>
               <div className="import-box" style={{ cursor: "pointer", textAlign: "center" }}
                 onClick={() => fileRef.current?.click()}>
@@ -230,10 +258,15 @@ function OFXWizard({ contas, planoContas, onClose }) {
 
           {step === 3 && resultado && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div className="alert alert-info" style={{ margin: 0, fontSize: 12 }}>
-                <strong>Modo preview (Etapa 4.6A):</strong> nenhum lancamento foi gravado.
-                A confirmacao e gravacao real virao na Etapa 4.6B.
-              </div>
+              {resultado.novas > 0 ? (
+                <div className="alert alert-info" style={{ margin: 0, fontSize: 12 }}>
+                  Revise as transacoes abaixo. Somente as <strong>novas</strong> serao gravadas ao confirmar.
+                </div>
+              ) : (
+                <div className="alert alert-warn" style={{ margin: 0, fontSize: 12 }}>
+                  Todas as transacoes deste extrato ja foram importadas. Nada sera gravado.
+                </div>
+              )}
               {resultado.banco && (
                 <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
                   Banco detectado:{" "}
@@ -282,7 +315,7 @@ function OFXWizard({ contas, planoContas, onClose }) {
                           </td>
                           <td className="td-mono" style={{
                             textAlign: "right",
-                            color: tx.tipo === "receita" ? "var(--success-fg)" : "var(--danger-fg)",
+                            color: tx.tipo === "Entrada" ? "var(--success-fg)" : "var(--danger-fg)",
                           }}>
                             {fmtBRL(tx.valor)}
                           </td>
@@ -296,6 +329,53 @@ function OFXWizard({ contas, planoContas, onClose }) {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {erro && <div className="alert alert-warn" style={{ margin: 0 }}>{erro}</div>}
+            </div>
+          )}
+
+          {step === 4 && confirmacao && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
+                {confirmacao.importados > 0
+                  ? <CheckCircle size={40} strokeWidth={1.5} style={{ color: "var(--success-fg)", flexShrink: 0 }} />
+                  : <Clock size={40} strokeWidth={1.5} style={{ color: "var(--warning-fg)", flexShrink: 0 }} />
+                }
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>
+                    {confirmacao.importados > 0 ? "Importacao concluida" : "Nenhuma transacao nova importada"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>
+                    {confirmacao.importados > 0
+                      ? "Dashboard e Lancamentos ja refletem os novos registros."
+                      : "Todas as transacoes deste extrato ja constavam no sistema."}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                <div style={{ background: "var(--success-soft)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--success-fg)" }}>
+                    {confirmacao.importados}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--success-fg)", fontWeight: 600, marginTop: 2 }}>Importados</div>
+                </div>
+                <div style={{ background: "var(--warning-soft)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--warning-fg)" }}>
+                    {confirmacao.duplicados}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--warning-fg)", fontWeight: 600, marginTop: 2 }}>Duplicados</div>
+                </div>
+                <div style={{ background: "var(--rn-page-canvas)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--font-mono)", color: confirmacao.erros > 0 ? "var(--danger-fg)" : "var(--muted-foreground)" }}>
+                    {confirmacao.erros}
+                  </div>
+                  <div style={{ fontSize: 11, color: confirmacao.erros > 0 ? "var(--danger-fg)" : "var(--muted-foreground)", fontWeight: 600, marginTop: 2 }}>Erros</div>
+                </div>
+              </div>
+              {confirmacao.loteId && (
+                <div style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
+                  Lote: {confirmacao.loteId}
                 </div>
               )}
             </div>
@@ -319,6 +399,15 @@ function OFXWizard({ contas, planoContas, onClose }) {
                 </button>
               )}
             </>
+          ) : step === 3 ? (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose} disabled={confirmando}>Cancelar</button>
+              <button type="button" className="btn btn-primary"
+                disabled={confirmando || !resultado?.novas}
+                onClick={handleConfirmar}>
+                {confirmando ? "Importando..." : "Confirmar importacao"}
+              </button>
+            </>
           ) : (
             <button type="button" className="btn btn-primary" onClick={onClose}>Fechar</button>
           )}
@@ -335,8 +424,7 @@ function HistoricoImportacoes({ importacoes, loading, erro }) {
   if (erro) return <div className="alert alert-warn">{erro}</div>;
   if (!importacoes.length) return (
     <div style={{ padding: "20px 0", color: "var(--muted-foreground)", fontSize: 13 }}>
-      Nenhuma importacao confirmada ainda. O preview (Etapa 4.6A) nao grava historico —
-      use &quot;Importar OFX&quot; acima para validar parser e deduplicacao.
+      Nenhuma importacao confirmada ainda. Use &quot;Importar OFX&quot; acima para importar seu primeiro extrato.
     </div>
   );
   const statusIcon = (s) => {
@@ -385,7 +473,7 @@ function HistoricoImportacoes({ importacoes, loading, erro }) {
 }
 
 export default function ConexoesBancariasPage({ onNavigate }) {
-  const { tipo, viewOnly, contas, planoContas } = useGestor();
+  const { tipo, viewOnly, contas, planoContas, reloadAppState } = useGestor();
   const isPF = tipo === "fisica";
 
   const [avisados, setAvisados]               = useState(new Set());
@@ -427,6 +515,11 @@ export default function ConexoesBancariasPage({ onNavigate }) {
     finally { setSavingSlug(null); }
   };
 
+  const handleImportSuccess = useCallback(() => {
+    loadHistorico();
+    if (reloadAppState) reloadAppState();
+  }, [loadHistorico, reloadAppState]);
+
   const totalAvisados = avisados.size;
 
   return (
@@ -436,8 +529,8 @@ export default function ConexoesBancariasPage({ onNavigate }) {
         <AlertCircle size={18} strokeWidth={2} aria-hidden />
         <div>
           <strong>Conexao automatica ainda nao disponivel.</strong>
-          {" "}Preview OFX com deduplicacao esta disponivel (sem gravar lancamentos).
-          Confirmacao na Etapa 4.6B; Open Finance no roadmap.
+          {" "}Importacao OFX com deduplicacao e historico esta disponivel.
+          Open Finance no roadmap.
         </div>
       </div>
 
@@ -449,12 +542,12 @@ export default function ConexoesBancariasPage({ onNavigate }) {
           </div>
           <h2 className="of-hero-title">Conexoes Bancarias</h2>
           <p className="of-hero-sub">
-            Analise extratos OFX com deduplicacao antes de gravar lancamentos.
+            Importe extratos OFX com preview, deduplicacao e historico de importacoes.
             A integracao com Open Finance Brasil esta planejada para 2026.
           </p>
           <div className="of-hero-chips">
             <span className="of-chip">Deduplicacao por FITID</span>
-            <span className="of-chip">Preview sem gravacao</span>
+            <span className="of-chip">Historico de importacoes</span>
             <span className="of-chip">Sem armazenar senhas</span>
             <span className="of-chip">Open Finance (futuro)</span>
           </div>
@@ -464,9 +557,9 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       <div className="of-section">
         <div className="of-section-header">
           <div>
-            <div className="of-section-title">Preview de extrato OFX / QIF</div>
+            <div className="of-section-title">Importacao de extrato OFX / QIF</div>
             <div className="of-section-sub">
-              Envie o arquivo para ver transacoes, novas e duplicadas — sem alterar Lancamentos.
+              Envie o arquivo, revise o preview e confirme para gravar somente transacoes novas.
             </div>
           </div>
           {!viewOnly && (
@@ -538,7 +631,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       <div className="of-section">
         <div className="of-section-title">Historico de importacoes</div>
         <div className="of-section-sub" style={{ marginBottom: 16 }}>
-          Importacoes confirmadas (Etapa 4.6B). O preview atual nao preenche esta lista.
+          Registro das ultimas importacoes confirmadas. Transacoes duplicadas sao ignoradas automaticamente.
         </div>
         <HistoricoImportacoes importacoes={importacoes} loading={loadingHist} erro={histErro} />
       </div>
@@ -570,7 +663,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       <div className="of-section of-section-alt">
         <div className="of-section-title">Roadmap de integracao</div>
         <div className="of-section-sub" style={{ marginBottom: 24 }}>
-          Preview OFX disponivel; gravacao confirmada na proxima etapa.
+          Importacao OFX operacional com preview e confirmacao.
         </div>
         <div className="of-roadmap">
           {ROADMAP.map((item, i) => (
@@ -589,7 +682,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
 
       {wizardOpen && (
         <OFXWizard contas={contas || []} planoContas={planoContas || []}
-          onClose={() => setWizardOpen(false)} />
+          onClose={() => setWizardOpen(false)} onSuccess={handleImportSuccess} />
       )}
     </div>
   );

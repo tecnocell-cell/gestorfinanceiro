@@ -147,6 +147,13 @@ export const importacoesApi = {
       body: { contaId, planoId, fileName, fileContent },
     }),
 
+  /** Confirma importação OFX — grava novas transações no JSONB (Etapa 4.6B) */
+  confirmarOFX: (contaId, planoId, fileName, fileContent) =>
+    request("/importacoes/ofx-confirmar", {
+      method: "POST",
+      body: { contaId, planoId, fileName, fileContent },
+    }),
+
   /** Lista histórico de importações confirmadas (últimas 50) */
   list: () => request("/importacoes"),
 };
