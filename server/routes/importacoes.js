@@ -6,6 +6,7 @@
  *   POST /api/importacoes/ofx-confirmar — grava novas transações no JSONB
  *   GET  /api/importacoes               — histórico paginado
  *   GET  /api/importacoes/:id           — detalhe + lançamentos do lote (somente leitura)
+ *   POST /api/importacoes/:id/rollback  — desfaz importação por lote (Etapa 4.6D)
  */
 
 import { Router } from 'express';
@@ -18,6 +19,7 @@ import {
   parseOfxForImport,
   confirmOfxImport,
   findLancamentosImportados,
+  rollbackOfxImport,
 } from '../utils/ofxImport.js';
 
 const router = Router();
@@ -145,6 +147,36 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('importacoes GET:', err.message);
     res.status(500).json({ error: 'Erro ao carregar histórico.' });
+  }
+});
+
+// ─── POST /api/importacoes/:id/rollback ───────────────────────────────────────
+
+router.post('/:id/rollback', async (req, res) => {
+  const usuarioId = req.user.id;
+  const { id } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await rollbackOfxImport(client, {
+      usuarioId,
+      importacaoId: id,
+    });
+
+    await client.query('COMMIT');
+
+    return res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    console.error('importacoes POST/:id/rollback:', err.message);
+    return res.status(500).json({ error: 'Erro ao desfazer importação.' });
+  } finally {
+    client.release();
   }
 });
 

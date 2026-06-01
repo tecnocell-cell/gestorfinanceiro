@@ -313,3 +313,107 @@ export function findLancamentosImportados(dados, loteId) {
 
   return found.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
 }
+
+/**
+ * Remove lançamentos OFX de um lote específico do JSONB (Etapa 4.6D).
+ * Retorna novos dados e quantidade removida.
+ */
+export function removeLancamentosOfxLote(dados, loteId) {
+  if (!loteId || !dados) {
+    return { novosDados: dados, removidos: 0 };
+  }
+
+  const empresas = Array.isArray(dados.empresas) ? dados.empresas : [];
+  let removidos = 0;
+
+  const novasEmpresas = empresas.map((emp) => {
+    const lancamentos = Array.isArray(emp.lancamentos) ? emp.lancamentos : [];
+    const filtrados = lancamentos.filter((l) => {
+      const deveRemover =
+        String(l.source || '') === 'ofx' &&
+        String(l.lote || '') === String(loteId);
+      if (deveRemover) removidos += 1;
+      return !deveRemover;
+    });
+
+    if (filtrados.length === lancamentos.length) return emp;
+    return { ...emp, lancamentos: filtrados };
+  });
+
+  return {
+    novosDados: { ...dados, empresas: novasEmpresas },
+    removidos,
+  };
+}
+
+/**
+ * Desfaz importação OFX: remove lançamentos do lote, fingerprints e marca status rollback.
+ * Requer transação SQL ativa (client em BEGIN).
+ */
+export async function rollbackOfxImport(client, { usuarioId, importacaoId }) {
+  const { rows: impRows } = await client.query(
+    `SELECT id, lote_id, status
+     FROM importacoes
+     WHERE id = $1 AND usuario_id = $2
+     FOR UPDATE`,
+    [importacaoId, usuarioId]
+  );
+
+  if (!impRows.length) {
+    const err = new Error('Importação não encontrada.');
+    err.status = 404;
+    throw err;
+  }
+
+  const importacao = impRows[0];
+
+  if (importacao.status === 'rollback') {
+    const err = new Error('Esta importação já foi desfeita.');
+    err.status = 409;
+    throw err;
+  }
+
+  if (!importacao.lote_id) {
+    const err = new Error('Importação sem lote associado — rollback indisponível.');
+    err.status = 422;
+    throw err;
+  }
+
+  const { rows: estadoRows } = await client.query(
+    'SELECT dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+    [usuarioId]
+  );
+
+  if (!estadoRows.length) {
+    const err = new Error('Estado do usuário não encontrado.');
+    err.status = 422;
+    throw err;
+  }
+
+  const { novosDados, removidos } = removeLancamentosOfxLote(
+    estadoRows[0].dados,
+    importacao.lote_id
+  );
+
+  await client.query(
+    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+    [JSON.stringify(novosDados), usuarioId]
+  );
+
+  await client.query(
+    'DELETE FROM importacoes_fingerprints WHERE importacao_id = $1 AND usuario_id = $2',
+    [importacaoId, usuarioId]
+  );
+
+  await client.query(
+    `UPDATE importacoes SET status = 'rollback' WHERE id = $1 AND usuario_id = $2`,
+    [importacaoId, usuarioId]
+  );
+
+  return {
+    ok: true,
+    removidos,
+    importacaoId: importacao.id,
+    loteId: importacao.lote_id,
+  };
+}

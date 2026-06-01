@@ -1,7 +1,7 @@
 /**
  * ConexoesBancariasPage — Open Finance / Conexões Bancárias
  *
- * Etapa 4.6C — Histórico profissional de importações (somente leitura)
+ * Etapa 4.6D — Rollback seguro de importação OFX por lote
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGestor }      from "../GestorContext.jsx";
@@ -415,6 +415,7 @@ function OFXWizard({ contas, planoContas, onClose, onSuccess }) {
 function statusBadgeClass(s) {
   if (s === "sucesso") return "badge-cp-pago";
   if (s === "parcial") return "badge-cp-pendente";
+  if (s === "rollback") return "badge-cp-atrasado";
   return "badge-cp-atrasado";
 }
 
@@ -581,7 +582,10 @@ function ImportacaoDetalheModal({ importacaoId, onClose, onNavigate }) {
   );
 }
 
-function HistoricoImportacoes({ importacoes, total, loading, erro, onVerDetalhes, onVerLancamentos }) {
+function HistoricoImportacoes({
+  importacoes, total, loading, erro, viewOnly,
+  onVerDetalhes, onVerLancamentos, onDesfazer, desfazendoId,
+}) {
   if (loading) return (
     <div style={{ padding: "20px 0", color: "var(--muted-foreground)", fontSize: 13 }}>Carregando historico...</div>
   );
@@ -594,6 +598,7 @@ function HistoricoImportacoes({ importacoes, total, loading, erro, onVerDetalhes
   const statusIcon = (s) => {
     if (s === "sucesso") return <CheckCircle size={14} strokeWidth={2} style={{ color: "var(--success-fg)" }} />;
     if (s === "parcial") return <Clock size={14} strokeWidth={2} style={{ color: "var(--warning-fg)" }} />;
+    if (s === "rollback") return <Clock size={14} strokeWidth={2} style={{ color: "var(--muted-foreground)" }} />;
     return <XCircle size={14} strokeWidth={2} style={{ color: "var(--danger-fg)" }} />;
   };
   return (
@@ -648,11 +653,18 @@ function HistoricoImportacoes({ importacoes, total, loading, erro, onVerDetalhes
                       <Eye size={13} strokeWidth={2} aria-hidden />
                       Detalhes
                     </button>
-                    {imp.lote_id && imp.importados > 0 && (
+                    {imp.lote_id && imp.importados > 0 && imp.status !== "rollback" && (
                       <button type="button" className="btn btn-secondary btn-sm"
                         onClick={() => onVerLancamentos(imp)} title="Ver lancamentos">
                         <ExternalLink size={13} strokeWidth={2} aria-hidden />
                         Lancamentos
+                      </button>
+                    )}
+                    {!viewOnly && imp.status !== "rollback" && (
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        disabled={desfazendoId === imp.id}
+                        onClick={() => onDesfazer(imp)} title="Desfazer importacao">
+                        {desfazendoId === imp.id ? "Desfazendo..." : "Desfazer"}
                       </button>
                     )}
                   </div>
@@ -680,6 +692,8 @@ export default function ConexoesBancariasPage({ onNavigate }) {
   const [loadingHist, setLoadingHist]         = useState(true);
   const [histErro, setHistErro]               = useState(null);
   const [detalheId, setDetalheId]             = useState(null);
+  const [desfazendoId, setDesfazendoId]       = useState(null);
+  const [rollbackResumo, setRollbackResumo]   = useState(null);
 
   const loadInteresses = useCallback(async () => {
     setLoadingInteresse(true); setInteresseError(null);
@@ -711,6 +725,29 @@ export default function ConexoesBancariasPage({ onNavigate }) {
     }
     onNavigate?.("lancamentos");
   }, [onNavigate]);
+
+  const handleDesfazer = useCallback(async (imp) => {
+    const ok = window.confirm(
+      "Tem certeza que deseja desfazer esta importacao?\n\n" +
+      "Todos os lancamentos do lote serao removidos."
+    );
+    if (!ok) return;
+
+    setDesfazendoId(imp.id);
+    setRollbackResumo(null);
+    setHistErro(null);
+    try {
+      const res = await importacoesApi.rollback(imp.id);
+      setRollbackResumo(res);
+      if (detalheId === imp.id) setDetalheId(null);
+      await loadHistorico();
+      if (reloadAppState) reloadAppState();
+    } catch (err) {
+      setHistErro(err.message || "Erro ao desfazer importacao.");
+    } finally {
+      setDesfazendoId(null);
+    }
+  }, [detalheId, loadHistorico, reloadAppState]);
 
   useEffect(() => { loadInteresses(); loadHistorico(); }, [loadInteresses, loadHistorico]);
 
@@ -842,13 +879,22 @@ export default function ConexoesBancariasPage({ onNavigate }) {
         <div className="of-section-sub" style={{ marginBottom: 16 }}>
           Registro das ultimas importacoes confirmadas. Transacoes duplicadas sao ignoradas automaticamente.
         </div>
+        {rollbackResumo && (
+          <div className="alert alert-info" style={{ marginBottom: 14 }}>
+            Importacao desfeita: <strong>{rollbackResumo.removidos}</strong> lancamento(s) removido(s)
+            do lote <span className="td-mono">{rollbackResumo.loteId}</span>.
+          </div>
+        )}
         <HistoricoImportacoes
           importacoes={importacoes}
           total={importacoesTotal}
           loading={loadingHist}
           erro={histErro}
+          viewOnly={viewOnly}
           onVerDetalhes={handleVerDetalhes}
           onVerLancamentos={handleVerLancamentos}
+          onDesfazer={handleDesfazer}
+          desfazendoId={desfazendoId}
         />
       </div>
 

@@ -165,6 +165,10 @@ export const importacoesApi = {
 
   /** Detalhe de uma importação + lançamentos do lote (somente leitura) */
   get: (id) => request(`/importacoes/${id}`),
+
+  /** Desfaz importação OFX pelo lote (Etapa 4.6D) */
+  rollback: (id) =>
+    request(`/importacoes/${id}/rollback`, { method: "POST" }),
 };
 
 
