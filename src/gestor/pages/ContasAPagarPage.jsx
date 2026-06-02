@@ -16,6 +16,7 @@ import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
 import { addMoney, fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
+import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import {
@@ -148,8 +149,15 @@ export default function ContasAPagarPage() {
   // ── Mutações ──────────────────────────────────────────────────────────────
   const marcarPago = useCallback((id) => {
     if (viewOnly) return;
-    lancCrud.update(id, { status: "pago" });
-  }, [lancCrud, viewOnly]);
+    const lanc = lancamentos.find((l) => l.id === id);
+    lancCrud.update(id, { status: "pago", pago: true });
+    if (lanc?.recorrenciaId) {
+      const dataVenc = lanc.vencimento || lanc.data;
+      recorrenciasApi
+        .gerar(lanc.recorrenciaId, { avancar: true, data_vencimento: dataVenc })
+        .catch((err) => console.warn("Recorrência: proxima_data não avançou:", err.message));
+    }
+  }, [lancCrud, viewOnly, lancamentos]);
 
   const marcarPendente = useCallback((id) => {
     if (viewOnly) return;

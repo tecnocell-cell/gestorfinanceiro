@@ -67,11 +67,44 @@ export function getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferenci
     };
   }
 
-  if (!recorrenciaVenceNoMes(rec, mesReferencia)) {
-    const mesProx = monthKeyFromDate(rec.proxima_data);
+  const lanc = findLancamentoRecorrenciaMes(lancamentos, rec.id, mesReferencia);
+  if (lanc) {
+    const st = getStatusLancamento(lanc);
+    if (st === "pago") {
+      return {
+        code: "gerada_paga",
+        label: "Lançada · Paga",
+        badge: "green",
+        canGerar: false,
+        jaGerada: true,
+        lancamento: lanc,
+      };
+    }
+    if (st === "atrasado") {
+      return {
+        code: "gerada_atrasada",
+        label: "Lançada · Atrasada",
+        badge: "red",
+        canGerar: false,
+        jaGerada: true,
+        lancamento: lanc,
+      };
+    }
+    return {
+      code: "gerada_aberta",
+      label: "Lançada · Em aberto",
+      badge: "blue",
+      canGerar: false,
+      jaGerada: true,
+      lancamento: lanc,
+    };
+  }
+
+  const mesProx = monthKeyFromDate(rec.proxima_data);
+  if (mesProx && mesProx < mesReferencia) {
     return {
       code: "fora_mes",
-      label: mesProx ? `Vence em ${formatMesReferencia(mesProx)}` : "Outro mês",
+      label: mesProx ? `Aguardando ${formatMesReferencia(mesProx)}` : "Outro mês",
       badge: "muted",
       hint: `Mês ref.: ${formatMesReferencia(mesReferencia)}`,
       canGerar: false,
@@ -79,45 +112,35 @@ export function getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferenci
     };
   }
 
-  const lanc = findLancamentoRecorrenciaMes(lancamentos, rec.id, mesReferencia);
-  if (!lanc) {
+  if (!rec.conta_id) {
+    return {
+      code: "sem_conta",
+      label: "Sem conta",
+      badge: "muted",
+      canGerar: false,
+      jaGerada: false,
+    };
+  }
+
+  if (podeGerarRecorrenciaNoMes(rec, lancamentos, mesReferencia)) {
+    const venc = vencimentoNoMesReferencia(rec, mesReferencia);
     return {
       code: "pendente_gerar",
       label: "Falta gerar",
       badge: "amber",
       canGerar: true,
       jaGerada: false,
+      hint: venc ? `Venc. ${venc.split("-").reverse().join("/")}` : undefined,
     };
   }
 
-  const st = getStatusLancamento(lanc);
-  if (st === "pago") {
-    return {
-      code: "gerada_paga",
-      label: "Lançada · Paga",
-      badge: "green",
-      canGerar: false,
-      jaGerada: true,
-      lancamento: lanc,
-    };
-  }
-  if (st === "atrasado") {
-    return {
-      code: "gerada_atrasada",
-      label: "Lançada · Atrasada",
-      badge: "red",
-      canGerar: false,
-      jaGerada: true,
-      lancamento: lanc,
-    };
-  }
   return {
-    code: "gerada_aberta",
-    label: "Lançada · Em aberto",
-    badge: "blue",
+    code: "fora_mes",
+    label: mesProx ? `Próximo: ${formatMesReferencia(mesProx)}` : "Outro mês",
+    badge: "muted",
+    hint: `Mês ref.: ${formatMesReferencia(mesReferencia)}`,
     canGerar: false,
-    jaGerada: true,
-    lancamento: lanc,
+    jaGerada: false,
   };
 }
 
@@ -140,6 +163,35 @@ export function recorrenciaVenceNoMes(recorrencia, monthKey) {
   return mes === monthKey;
 }
 
+/** Vencimento no mês de referência (mesmo dia da proxima_data, ex.: 06). */
+export function vencimentoNoMesReferencia(recorrencia, mesReferencia) {
+  const prox = toDateKey(recorrencia?.proxima_data);
+  if (!prox || !mesReferencia) return prox;
+  const mesProx = monthKeyFromDate(prox);
+  if (mesProx === mesReferencia) return prox;
+
+  const day = parseInt(prox.slice(8, 10), 10);
+  if (!Number.isFinite(day) || day < 1) return prox;
+
+  const [y, m] = mesReferencia.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const d = Math.min(day, lastDay);
+  return `${mesReferencia}-${String(d).padStart(2, "0")}`;
+}
+
+/** Pode gerar lançamento do mês ref. (ainda não gerado; ciclo não “futuro” demais). */
+export function podeGerarRecorrenciaNoMes(recorrencia, lancamentos, mesReferencia) {
+  if (recorrencia?.status !== "ativa") return false;
+  if (!recorrencia.conta_id) return false;
+  if (!mesReferencia) return false;
+  if (isRecorrenciaGeradaNoMes(lancamentos, recorrencia.id, mesReferencia)) return false;
+
+  const mesProx = monthKeyFromDate(recorrencia.proxima_data);
+  if (!mesProx) return false;
+  // proxima em maio, ref junho → ainda não; proxima em julho, ref junho → pode gerar junho
+  return mesProx >= mesReferencia;
+}
+
 /**
  * Classifica recorrências ativas para geração em lote do mês.
  */
@@ -151,19 +203,29 @@ export function classificarRecorrenciasParaMes(recorrencias, lancamentos, monthK
 
   for (const rec of recorrencias || []) {
     if (rec.status !== "ativa") continue;
-    if (!recorrenciaVenceNoMes(rec, monthKey)) {
-      foraDoMes.push(rec);
-      continue;
-    }
+
     if (isRecorrenciaGeradaNoMes(lancamentos, rec.id, monthKey)) {
       jaGeradas.push(rec);
       continue;
     }
+
+    const mesProx = monthKeyFromDate(rec.proxima_data);
+    if (mesProx && mesProx < monthKey) {
+      foraDoMes.push(rec);
+      continue;
+    }
+
     if (!rec.conta_id) {
       semConta.push(rec);
       continue;
     }
-    elegiveis.push(rec);
+
+    if (podeGerarRecorrenciaNoMes(rec, lancamentos, monthKey)) {
+      elegiveis.push(rec);
+      continue;
+    }
+
+    foraDoMes.push(rec);
   }
 
   return { elegiveis, jaGeradas, semConta, foraDoMes };

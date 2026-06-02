@@ -9,21 +9,28 @@ export const INTEGRACAO_TIPO_OPERACAO_LABELS = {
   transferencia_pj_pf: "Transferência PJ → PF",
 };
 
-export function getIntegracaoOperacaoLabel(lanc) {
+/** Rótulo curto para badges em tabelas estreitas. */
+export const INTEGRACAO_TIPO_OPERACAO_LABELS_SHORT = {
+  pro_labore: "Pró-labore",
+  distribuicao_lucros: "Lucros",
+  salario: "Salário",
+  transferencia_pj_pf: "Transf. PJ→PF",
+};
+
+export function getIntegracaoOperacaoLabel(lanc, { short = false } = {}) {
   if (String(lanc?.source || "") !== SOURCE_INTEGRACAO_PF_PJ) return "";
 
+  const labels = short ? INTEGRACAO_TIPO_OPERACAO_LABELS_SHORT : INTEGRACAO_TIPO_OPERACAO_LABELS;
   const tipo = lanc.tipoOperacao || lanc.integracaoPfPj?.tipoOperacao;
-  if (tipo && INTEGRACAO_TIPO_OPERACAO_LABELS[tipo]) {
-    return INTEGRACAO_TIPO_OPERACAO_LABELS[tipo];
-  }
+  if (tipo && labels[tipo]) return labels[tipo];
 
   const h = String(lanc.historico || lanc.descricao || "").toLowerCase();
-  if (/pr[oó][\s-]?labore/.test(h)) return INTEGRACAO_TIPO_OPERACAO_LABELS.pro_labore;
-  if (/sal[aá]rio/.test(h)) return INTEGRACAO_TIPO_OPERACAO_LABELS.salario;
-  if (/lucro|distribui/.test(h)) return INTEGRACAO_TIPO_OPERACAO_LABELS.distribuicao_lucros;
-  if (/transfer/.test(h)) return INTEGRACAO_TIPO_OPERACAO_LABELS.transferencia_pj_pf;
+  if (/pr[oó][\s-]?labore/.test(h)) return labels.pro_labore;
+  if (/sal[aá]rio/.test(h)) return labels.salario;
+  if (/lucro|distribui/.test(h)) return labels.distribuicao_lucros;
+  if (/transfer/.test(h)) return labels.transferencia_pj_pf;
 
-  return "Integração PJ → PF";
+  return short ? "Integração" : "Integração PJ → PF";
 }
 
 export function isLancamentoIntegracaoPfPj(lanc) {

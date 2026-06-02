@@ -326,7 +326,7 @@ export function LancamentosPage() {
         ) : (
           <>
             <div className="lanc-table-wrap">
-              <table className="lanc-table">
+              <table className="lanc-table lanc-table-pj">
                 <thead>
                   <tr>
                     <th>Cód.</th>
@@ -351,6 +351,7 @@ export function LancamentosPage() {
                     const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
                     const planoLabel = getPlanoLabelLancamento(l, planoContas);
                     const opIntegracao = getIntegracaoOperacaoLabel(l);
+                    const opIntegracaoShort = getIntegracaoOperacaoLabel(l, { short: true });
                     const cli = clientes.find((c) => c.id === l.clienteId);
                     const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
@@ -376,29 +377,22 @@ export function LancamentosPage() {
                         <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
                         <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "—"}</td>
                         <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
-                        <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
-                        {(showSaldoCol || contaFilter) && <td className="lanc-th-num td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
-                        <td className="lanc-cell-clip" title={planoLabel || undefined}>
+                        <td className={`lanc-th-num lanc-td-val lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
+                        {(showSaldoCol || contaFilter) && <td className="lanc-th-num lanc-td-saldo td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
+                        <td className="lanc-cell-clip lanc-td-cat" title={planoLabel || undefined}>
                           {planoLabel || "—"}
                         </td>
-                        <td className="lanc-cell-clip">
+                        <td className="lanc-cell-clip lanc-td-op">
                           {opIntegracao ? (
-                            <span className="lanc-badge lanc-badge-integracao" title="Integração PF/PJ">
-                              {opIntegracao}
+                            <span className="lanc-badge lanc-badge-integracao" title={opIntegracao}>
+                              {opIntegracaoShort}
                             </span>
                           ) : (
                             "—"
                           )}
                         </td>
-                        <td title={[opIntegracao, l.historico, planoLabel, cli?.nome].filter(Boolean).join(" · ") || undefined}>
-                          <span className="lanc-cell-hist">
-                            {l.historico}
-                            {(planoLabel || cli) && (
-                              <span className="lanc-cell-meta">
-                                {planoLabel ? ` · ${planoLabel}` : ""}{cli ? ` · ${cli.nome}` : ""}
-                              </span>
-                            )}
-                          </span>
+                        <td className="lanc-td-hist" title={[opIntegracao, l.historico, planoLabel, cli?.nome].filter(Boolean).join(" · ") || undefined}>
+                          <span className="lanc-cell-hist">{l.historico || "—"}</span>
                         </td>
                         <td>
                           {l.exportado
@@ -428,6 +422,7 @@ export function LancamentosPage() {
                 const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
                 const planoLabel = getPlanoLabelLancamento(l, planoContas);
                 const opIntegracao = getIntegracaoOperacaoLabel(l);
+                const opIntegracaoShort = getIntegracaoOperacaoLabel(l, { short: true });
                 const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                 const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
@@ -436,7 +431,7 @@ export function LancamentosPage() {
                     <div className="lanc-mobile-body">
                       <div className="lanc-mobile-top">
                         <span className="lanc-mobile-hist">
-                          {opIntegracao ? <><span className="lanc-mobile-op">{opIntegracao}</span> · </> : null}
+                          {opIntegracao ? <><span className="lanc-mobile-op" title={opIntegracao}>{opIntegracaoShort}</span> · </> : null}
                           {l.historico || "—"}
                         </span>
                         <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>

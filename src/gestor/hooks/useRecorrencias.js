@@ -60,12 +60,14 @@ export function useRecorrencias() {
    * Avança proxima_data no backend e retorna a nova data.
    * O lançamento real deve ser criado pelo chamador via lancCrud.add().
    */
-  const gerar = useCallback(async (id) => {
+  const gerar = useCallback(async (id, opts = {}) => {
     if (viewOnly) throw new Error("Modo visualização: não é possível gerar lançamentos.");
-    const result = await recorrenciasApi.gerar(id);
-    setRecorrencias((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, proxima_data: result.proxima_data } : r))
-    );
+    const result = await recorrenciasApi.gerar(id, opts);
+    if (result.avancou !== false) {
+      setRecorrencias((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, proxima_data: result.proxima_data } : r))
+      );
+    }
     return result;
   }, [viewOnly]);
 

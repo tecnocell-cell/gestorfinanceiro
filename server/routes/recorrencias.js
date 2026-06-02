@@ -218,6 +218,7 @@ router.delete("/:id", async (req, res) => {
  */
 router.post("/:id/gerar", async (req, res) => {
   const { id } = req.params;
+  const { avancar = true, data_vencimento } = req.body || {};
   try {
     const { rows } = await query(
       "SELECT * FROM recorrencias WHERE id = $1 AND usuario_id = $2",
@@ -238,7 +239,12 @@ router.post("/:id/gerar", async (req, res) => {
     // calcProximaData retorna null se proxima_data for inválida.
     // Logar os detalhes da recorrência problemática e retornar 422
     // sem derrubar o servidor e sem remover nada do banco.
-    const novaData = calcProximaData(rec.periodicidade, rec.proxima_data);
+    if (!avancar) {
+      return res.json({ ok: true, proxima_data: rec.proxima_data, avancou: false });
+    }
+
+    const baseData = toDateStr(data_vencimento) || toDateStr(rec.proxima_data);
+    const novaData = calcProximaData(rec.periodicidade, baseData);
 
     if (!novaData) {
       console.error(
@@ -265,7 +271,7 @@ router.post("/:id/gerar", async (req, res) => {
       [novaData, id]
     );
 
-    res.json({ ok: true, proxima_data: novaData });
+    res.json({ ok: true, proxima_data: novaData, avancou: true });
   } catch (err) {
     console.error("recorrencias/gerar:", err.message);
     res.status(500).json({ error: "Erro ao gerar lançamento." });

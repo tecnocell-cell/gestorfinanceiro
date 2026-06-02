@@ -5490,8 +5490,48 @@ export const css = `
   .lanc-saldo-anterior strong { font-family: var(--font-mono); color: var(--text); }
 
   .lanc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  .lanc-table-wrap { overflow-x: hidden; max-width: 100%; }
+  .lanc-table-wrap {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
   .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .lanc-table-pj {
+    min-width: 1180px;
+  }
+  .lanc-table-pj .lanc-td-val {
+    width: 100px;
+    min-width: 100px;
+    max-width: 110px;
+  }
+  .lanc-table-pj .lanc-td-saldo {
+    width: 96px;
+    min-width: 96px;
+  }
+  .lanc-table-pj .lanc-td-cat {
+    width: 11%;
+    min-width: 100px;
+    max-width: 140px;
+  }
+  .lanc-table-pj .lanc-td-op {
+    width: 10%;
+    min-width: 96px;
+    max-width: 128px;
+  }
+  .lanc-table-pj .lanc-td-hist {
+    min-width: 140px;
+    white-space: normal;
+    overflow: visible;
+  }
+  .lanc-table-pj tbody td {
+    overflow: hidden;
+  }
+  .lanc-table-pj .lanc-td-hist {
+    overflow: visible;
+  }
+  .lanc-table-pj .lanc-td-hist .lanc-cell-hist {
+    -webkit-line-clamp: 2;
+  }
   .lanc-table thead th {
     text-align: left; padding: 10px 12px;
     font-size: 10.5px; font-weight: 600; text-transform: uppercase;
@@ -5549,7 +5589,11 @@ export const css = `
     background: color-mix(in oklab, var(--warning) 14%, var(--bg2)) !important;
   }
   .lanc-table-pf .lanc-col-date  { width: 14%; }
-  .lanc-table-pf .lanc-col-status { width: 10%; }
+  .lanc-table-pf .lanc-col-status { width: 14%; min-width: 108px; }
+  .lanc-table-pf td.lanc-cell-status {
+    overflow: hidden;
+    vertical-align: middle;
+  }
   .lanc-table-pf .lanc-col-cat   { width: 13%; }
   .lanc-table-pf .lanc-col-conta { width: 10%; }
   .lanc-table-pf .lanc-col-val   { width: 11%; }
@@ -5605,10 +5649,14 @@ export const css = `
   }
   .lanc-badge-blue { background: color-mix(in oklab, #3b82f6 14%, var(--bg)); color: #1d4ed8; border-color: color-mix(in oklab, #3b82f6 28%, transparent); }
   .lanc-badge-integracao {
-    background: color-mix(in oklab, var(--accent) 12%, var(--bg));
-    color: var(--accent);
-    border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+    background: color-mix(in oklab, #6366f1 16%, var(--bg2));
+    color: #3730a3;
+    border: 1px solid color-mix(in oklab, #6366f1 32%, transparent);
     font-weight: 600;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.25;
     white-space: nowrap;
     max-width: 100%;
     overflow: hidden;
@@ -5616,7 +5664,7 @@ export const css = `
     display: inline-block;
     vertical-align: middle;
   }
-  .lanc-mobile-op { font-weight: 600; color: var(--accent); }
+  .lanc-mobile-op { font-weight: 600; color: #4338ca; }
   .lanc-badge-green { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; border-color: color-mix(in oklab, #10b981 28%, transparent); }
   .lanc-badge-red { background: color-mix(in oklab, #ef4444 12%, var(--bg)); color: #b91c1c; border-color: color-mix(in oklab, #ef4444 26%, transparent); }
   .lanc-badge-amber { background: color-mix(in oklab, #f59e0b 14%, var(--bg)); color: #b45309; border-color: color-mix(in oklab, #f59e0b 28%, transparent); }

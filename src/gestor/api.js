@@ -108,7 +108,7 @@ export const recorrenciasApi = {
   create: (data)     => request("/recorrencias", { method: "POST", body: data }),
   update: (id, data) => request(`/recorrencias/${id}`, { method: "PATCH", body: data }),
   remove: (id)       => request(`/recorrencias/${id}`, { method: "DELETE" }),
-  gerar:  (id)       => request(`/recorrencias/${id}/gerar`, { method: "POST" }),
+  gerar:  (id, body = {}) => request(`/recorrencias/${id}/gerar`, { method: "POST", body }),
 };
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────

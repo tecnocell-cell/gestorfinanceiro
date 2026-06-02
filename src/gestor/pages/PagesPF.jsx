@@ -292,6 +292,7 @@ export function LancamentosPFPage() {
                     const situacao = getLancamentoSituacao(l);
                     const info = statusInfo[situacao];
                     const opIntegracao = getIntegracaoOperacaoLabel(l);
+                    const opIntegracaoShort = getIntegracaoOperacaoLabel(l, { short: true });
                     const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                     return (
@@ -315,10 +316,10 @@ export function LancamentosPFPage() {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td className="lanc-cell-status">
                           {opIntegracao ? (
-                            <span className="lanc-badge lanc-badge-integracao" title="Integração PF/PJ">
-                              {opIntegracao}
+                            <span className="lanc-badge lanc-badge-integracao" title={opIntegracao}>
+                              {opIntegracaoShort}
                             </span>
                           ) : l.tipo === "Saida" && info ? (
                             <span className={`lanc-badge lanc-badge-${info.badge.replace("badge-", "")}`}>{info.label}</span>
@@ -360,6 +361,7 @@ export function LancamentosPFPage() {
                 const situacao = getLancamentoSituacao(l);
                 const info = statusInfo[situacao];
                 const opIntegracao = getIntegracaoOperacaoLabel(l);
+                const opIntegracaoShort = getIntegracaoOperacaoLabel(l, { short: true });
                 const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                 const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
@@ -368,7 +370,7 @@ export function LancamentosPFPage() {
                     <div className="lanc-mobile-body">
                       <div className="lanc-mobile-top">
                         <span className="lanc-mobile-hist">
-                          {opIntegracao ? <><span className="lanc-mobile-op">{opIntegracao}</span> · </> : null}
+                          {opIntegracao ? <><span className="lanc-mobile-op" title={opIntegracao}>{opIntegracaoShort}</span> · </> : null}
                           {l.historico || catMap[l.planoId] || "—"}
                         </span>
                         <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>
