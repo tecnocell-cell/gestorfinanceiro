@@ -12,6 +12,10 @@ import { query } from "./db.js";
 import { authMiddleware, adminMiddleware, activeMiddleware, signToken } from "./middleware/auth.js";
 import { findUsuario, rejectProtectedAdmin } from "./adminGuard.js";
 import { createInitialState, normalizeStateForUser } from "./initialState.js";
+import {
+  fetchRollbackIntegracaoLancamentoIds,
+  stripLancamentosIntegracaoRollback,
+} from "./integracaoPfPj/estadoMerge.js";
 import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
@@ -183,8 +187,16 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
     }
 
     const { profile } = await loadProfile();
-    const normalized = normalizeStateForUser(dados, profile);
-    if (JSON.stringify(normalized) !== JSON.stringify(dados)) {
+    let normalized = normalizeStateForUser(dados, profile);
+    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, req.user.id);
+    const stripped = stripLancamentosIntegracaoRollback(normalized, rollbackIds);
+    if (stripped !== normalized) {
+      normalized = normalizeStateForUser(stripped, profile);
+      await query(
+        `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
+        [req.user.id, JSON.stringify(normalized)]
+      );
+    } else if (JSON.stringify(normalized) !== JSON.stringify(dados)) {
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
         [req.user.id, JSON.stringify(normalized)]
@@ -214,7 +226,12 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       nome: u?.nome,
     };
     const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
-    const toSave = isValid(dados) ? normalizeStateForUser(dados, profile) : dados;
+    let toSave = isValid(dados) ? normalizeStateForUser(dados, profile) : dados;
+    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, req.user.id);
+    toSave = stripLancamentosIntegracaoRollback(toSave, rollbackIds);
+    if (isValid(toSave)) {
+      toSave = normalizeStateForUser(toSave, profile);
+    }
 
     await query(
       `INSERT INTO estados (usuario_id, dados)

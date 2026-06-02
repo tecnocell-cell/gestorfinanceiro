@@ -591,8 +591,16 @@ export default function IntegracaoPfPjPage() {
     setDesfazendoId(op.id);
     setErro(null);
     try {
-      await integracaoPfPjApi.rollbackOperacao(op.id);
-      setMsg("Operação desfeita nos dois lados (PJ e PF).");
+      const res = await integracaoPfPjApi.rollbackOperacao(op.id);
+      const remPj = res?.removidosPj ?? 0;
+      const remPf = res?.removidosPf ?? 0;
+      if (remPf === 0) {
+        setMsg(
+          "Saída removida na PJ. Se a entrada ainda aparecer na PF, abra a conta PF e recarregue a página (F5)."
+        );
+      } else {
+        setMsg(`Operação desfeita: ${remPj} lançamento(s) na PJ e ${remPf} na PF vinculada.`);
+      }
       if (reloadAppState) reloadAppState({ skipFlush: true });
       loadOperacoes();
     } catch (err) {

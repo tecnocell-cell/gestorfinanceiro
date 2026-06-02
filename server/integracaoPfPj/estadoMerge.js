@@ -89,9 +89,6 @@ export function appendLancamentoToEstado(dados, lancamento, userProfile) {
 function shouldRemoveIntegracaoLancamento(l, lancamentoId, operacaoId) {
   if (String(l.id) !== String(lancamentoId)) return false;
   if (String(l.source || '') !== SOURCE_INTEGRACAO) return false;
-  if (operacaoId && l.integracaoPfPj?.operacaoId) {
-    return String(l.integracaoPfPj.operacaoId) === String(operacaoId);
-  }
   return true;
 }
 
@@ -111,4 +108,84 @@ export function removeIntegracaoLancamento(dados, { lancamentoId, operacaoId }, 
   });
 
   return { novosDados: { ...prepared, empresas }, removidos };
+}
+
+/**
+ * Remove lançamentos da integração PJ↔PF (rollback bilateral).
+ * Por ID oficial da operação e/ou por integracaoPfPj.operacaoId em todas as empresas.
+ */
+export function removeIntegracaoOperacaoFromEstado(dados, {
+  operacaoId,
+  lancamentoPjId,
+  lancamentoPfId,
+}) {
+  const parsed = parseEstadoDados(dados);
+  if (!parsed?.empresas?.length) {
+    return { novosDados: dados, removidos: 0 };
+  }
+
+  const ids = new Set(
+    [lancamentoPjId, lancamentoPfId].filter(Boolean).map((id) => String(id))
+  );
+  const opId = operacaoId ? String(operacaoId) : null;
+  let removidos = 0;
+
+  const empresas = parsed.empresas.map((emp) => {
+    const lancamentos = Array.isArray(emp.lancamentos) ? emp.lancamentos : [];
+    const filtrados = lancamentos.filter((l) => {
+      if (String(l.source || '') !== SOURCE_INTEGRACAO) return true;
+      const byId = ids.has(String(l.id));
+      const byOp = opId && String(l.integracaoPfPj?.operacaoId || '') === opId;
+      const remove = byId || byOp;
+      if (remove) removidos += 1;
+      return !remove;
+    });
+    if (filtrados.length === lancamentos.length) return emp;
+    return { ...emp, lancamentos: filtrados };
+  });
+
+  return { novosDados: { ...parsed, empresas }, removidos };
+}
+
+export function removeIntegracaoOperacaoPrepared(dados, opts, userProfile) {
+  const { novosDados, removidos } = removeIntegracaoOperacaoFromEstado(dados, opts);
+  return {
+    novosDados: prepareEstadoForWrite(novosDados, userProfile),
+    removidos,
+  };
+}
+
+/** IDs de lançamentos cuja operação já foi desfeita (rollback) — não podem voltar via PUT do cliente. */
+export async function fetchRollbackIntegracaoLancamentoIds(dbQuery, usuarioId) {
+  const { rows } = await dbQuery(
+    `SELECT o.lancamento_pj_id, o.lancamento_pf_id
+     FROM integracao_pf_pj_operacoes o
+     JOIN integracao_pf_pj_vinculo v ON v.id = o.vinculo_id
+     WHERE o.status = 'rollback'
+       AND (v.usuario_pj_id = $1 OR v.usuario_pf_id = $1)`,
+    [usuarioId]
+  );
+  const ids = new Set();
+  for (const r of rows) {
+    if (r.lancamento_pj_id) ids.add(String(r.lancamento_pj_id));
+    if (r.lancamento_pf_id) ids.add(String(r.lancamento_pf_id));
+  }
+  return ids;
+}
+
+/** Remove do estado lançamentos de operações já desfeitas (evita auto-save PF ressuscitar entrada). */
+export function stripLancamentosIntegracaoRollback(dados, rollbackIds) {
+  if (!rollbackIds?.size) return dados;
+  const parsed = parseEstadoDados(dados);
+  if (!parsed?.empresas?.length) return dados;
+
+  const empresas = parsed.empresas.map((emp) => {
+    const lancamentos = (emp.lancamentos || []).filter(
+      (l) => !rollbackIds.has(String(l.id))
+    );
+    if (lancamentos.length === (emp.lancamentos || []).length) return emp;
+    return { ...emp, lancamentos };
+  });
+
+  return { ...parsed, empresas };
 }

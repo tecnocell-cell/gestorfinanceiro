@@ -10,7 +10,7 @@ import {
   prepareEstadoForWrite,
   profileForPf,
   profileForPj,
-  removeIntegracaoLancamento,
+  removeIntegracaoOperacaoPrepared,
   resolveEmpresaAtiva,
   toUserProfile,
 } from './estadoMerge.js';
@@ -376,14 +376,6 @@ export async function confirmOperacao(client, tipoOperacao, {
   };
 }
 
-function removeLancamentoById(dados, lancamentoId, userProfile, operacaoId) {
-  return removeIntegracaoLancamento(
-    dados,
-    { lancamentoId, operacaoId },
-    userProfile
-  );
-}
-
 async function loadUserProfile(client, usuarioId) {
   const { rows } = await client.query(
     'SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1',
@@ -445,18 +437,28 @@ export async function rollbackOperacao(client, {
     else dadosPfRaw = rows[0].dados;
   }
 
-  const { novosDados: dadosPj, removidos: remPj } = removeLancamentoById(
+  const rollbackOpts = {
+    operacaoId: op.id,
+    lancamentoPjId: op.lancamento_pj_id,
+    lancamentoPfId: op.lancamento_pf_id,
+  };
+
+  const { novosDados: dadosPj, removidos: remPj } = removeIntegracaoOperacaoPrepared(
     dadosPjRaw,
-    op.lancamento_pj_id,
-    pjWrite,
-    op.id
+    rollbackOpts,
+    pjWrite
   );
-  const { novosDados: dadosPf, removidos: remPf } = removeLancamentoById(
+  const { novosDados: dadosPf, removidos: remPf } = removeIntegracaoOperacaoPrepared(
     dadosPfRaw,
-    op.lancamento_pf_id,
-    pfWrite,
-    op.id
+    rollbackOpts,
+    pfWrite
   );
+
+  if (remPj === 0 || remPf === 0) {
+    console.warn(
+      `rollback ${op.id}: removidos PJ=${remPj} PF=${remPf} (pj=${op.lancamento_pj_id}, pf=${op.lancamento_pf_id})`
+    );
+  }
 
   await client.query(
     'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
