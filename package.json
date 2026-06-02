@@ -20,6 +20,8 @@
     "migrate": "node server/migrate.js",
     "seed:centertech": "node server/seed-centertech.js",
     "repair:tenants": "node server/repairTenants.js",
+    "diagnostico:pf": "node server/diagnosticoPfEstado.js",
+    "repair:pf": "node server/repairPfLegacyState.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
