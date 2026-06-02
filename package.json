@@ -16,6 +16,7 @@
     "test:51": "node server/test51.js",
     "test:52": "node server/test52.js",
     "test:53": "node server/test53.js",
+    "test:54": "node server/test54.js",
     "test:money": "node server/testFinanceMoney.js",
     "migrate": "node server/migrate.js",
     "seed:centertech": "node server/seed-centertech.js",

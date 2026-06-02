@@ -14,6 +14,11 @@ import {
   resolveEmpresaAtiva,
   toUserProfile,
 } from './estadoMerge.js';
+import {
+  pickPlanoDespesaPj,
+  pickPlanoReceitaPf,
+  validateLancamentoPfIntegracao,
+} from './lancamentoPfPj.js';
 
 const SOURCE = SOURCE_INTEGRACAO;
 
@@ -35,7 +40,7 @@ export const TIPOS_OPERACAO = {
       const sufixo = obs ? ` — ${obs}` : '';
       return {
         pj: `Distribuição de lucros — ${nomePf}${sufixo}`,
-        pf: `Lucros recebidos — ${nomePj}${sufixo}`,
+        pf: `Distribuição de Lucros recebida — ${nomePj}${sufixo}`,
         resumo: `Distribuição de lucros — ${nomePf}${sufixo}`,
       };
     },
@@ -91,24 +96,6 @@ function resolveEmpresaForPreview(dadosPj, dadosPf) {
 function pickConta(empresa) {
   const contas = Array.isArray(empresa.contas) ? empresa.contas : [];
   return contas.find((c) => !c.inativo) || contas[0] || null;
-}
-
-function pickPlanoDespesa(empresa) {
-  const planos = Array.isArray(empresa.planoContas) ? empresa.planoContas : [];
-  return (
-    planos.find((p) => !p.inativo && (p.tipo === 'Despesa' || p.tipo === 'Custo'))
-    || planos.find((p) => !p.inativo)
-    || null
-  );
-}
-
-function pickPlanoReceita(empresa) {
-  const planos = Array.isArray(empresa.planoContas) ? empresa.planoContas : [];
-  return (
-    planos.find((p) => !p.inativo && p.tipo === 'Receita')
-    || planos.find((p) => !p.inativo)
-    || null
-  );
 }
 
 function parseValor(valor) {
@@ -205,8 +192,8 @@ export function previewOperacao(tipoOperacao, {
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
-  const planoPj = pickPlanoDespesa(empPj);
-  const planoPf = pickPlanoReceita(empPf);
+  const planoPj = pickPlanoDespesaPj(empPj);
+  const planoPf = pickPlanoReceitaPf(empPf, tipoOperacao);
 
   if (!contaPj || !contaPf) {
     const err = new Error('Conta bancária ativa não encontrada em PJ ou PF.');
@@ -278,8 +265,8 @@ export async function confirmOperacao(client, tipoOperacao, {
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
-  const planoPj = pickPlanoDespesa(empPj);
-  const planoPf = pickPlanoReceita(empPf);
+  const planoPj = pickPlanoDespesaPj(empPj);
+  const planoPf = pickPlanoReceitaPf(empPf, tipoOperacao);
 
   if (!contaPj || !contaPf) {
     const err = new Error('Conta bancária ativa não encontrada em PJ ou PF.');
@@ -333,6 +320,13 @@ export async function confirmOperacao(client, tipoOperacao, {
     usuarioPjId,
     usuarioPfId: vinculo.usuario_pf_id,
   });
+
+  const errosPf = validateLancamentoPfIntegracao(lancPf, empPf);
+  if (errosPf.length) {
+    const err = new Error(`Lançamento PF inválido: ${errosPf.join('; ')}`);
+    err.status = 500;
+    throw err;
+  }
 
   const novosDadosPj = appendLancamentoToEstado(preparedPj, lancPj, pjProf);
   const novosDadosPf = appendLancamentoToEstado(preparedPf, lancPf, pfProf);

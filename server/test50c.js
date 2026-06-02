@@ -220,6 +220,8 @@ async function main() {
 
   assert(lPj?.tipo === 'Saida', 'PJ: tipo Saída');
   assert(lPf?.tipo === 'Entrada', 'PF: tipo Entrada');
+  assert(!lPf?.contaSaidaId, 'PF: sem contaSaidaId');
+  assert(!!lPf?.contaEntradaId, 'PF: com contaEntradaId');
   assert(lPj?.valor === 3000 && lPf?.valor === 3000, 'Valores iguais nos dois lados');
   assert(lPj?.data === '2026-06-15' && lPf?.data === '2026-06-15', 'Datas iguais');
   assert(lPj?.historico?.includes('Pró-labore'), 'PJ: histórico coerente');
