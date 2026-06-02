@@ -4,11 +4,19 @@
  * Funciona para PF e PJ (lê contas e planoContas do GestorContext).
  * Em modo viewOnly (admin impersonation): leitura apenas, sem criar/editar/excluir.
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
 import { addMoney, fmtBRL, fmtDate, generateId, toDateKey, safeNum } from "../finance.js";
-import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2 } from "../components/icons.jsx";
+import {
+  buildLancamentoFromRecorrencia,
+  classificarRecorrenciasParaMes,
+  formatMesReferencia,
+  getMesReferenciaAtual,
+  isRecorrenciaGeradaNoMes,
+  monthKeyFromDate,
+} from "../recorrenciasLancamentos.js";
+import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2, CalendarDays } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import {
@@ -284,9 +292,70 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
   );
 }
 
+// ─── Modal Gerar vencimentos do mês ───────────────────────────────────────────
+
+function ModalGerarMesVencimentos({
+  monthKey,
+  elegiveis,
+  jaGeradas,
+  semConta,
+  onClose,
+  onConfirm,
+  loading,
+}) {
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="Gerar vencimentos do mês"
+      subtitle={`Referência: ${formatMesReferencia(monthKey)}. Lançamentos entram em A Pagar/Receber como pendentes.`}
+      tone="violet"
+      size="md"
+      footer={
+        <ModalFooter
+          onClose={onClose}
+          onSave={onConfirm}
+          loading={loading}
+          disabled={elegiveis.length === 0}
+          saveLabel={loading ? "Gerando…" : `Gerar ${elegiveis.length} lançamento(s)`}
+        />
+      }
+    >
+      <ModalSection label="Resumo">
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
+          <li><strong>{elegiveis.length}</strong> serão gerados (com conta vinculada)</li>
+          <li><strong>{jaGeradas.length}</strong> já gerados neste mês — serão ignorados</li>
+          {semConta.length > 0 && (
+            <li style={{ color: "var(--warning)" }}>
+              <strong>{semConta.length}</strong> sem conta — edite a recorrência antes de gerar
+            </li>
+          )}
+        </ul>
+      </ModalSection>
+      {elegiveis.length > 0 && (
+        <ModalSection label="A gerar">
+          <div style={{ fontSize: 12, color: "var(--text2)", maxHeight: 120, overflowY: "auto" }}>
+            {elegiveis.map((r) => (
+              <div key={r.id}>• {r.descricao} — {fmtBRL(r.valor)}</div>
+            ))}
+          </div>
+        </ModalSection>
+      )}
+      {jaGeradas.length > 0 && (
+        <ModalSection label="Já gerados (não duplicar)">
+          <div style={{ fontSize: 12, color: "var(--text3)", maxHeight: 80, overflowY: "auto" }}>
+            {jaGeradas.map((r) => (
+              <div key={r.id}>• {r.descricao}</div>
+            ))}
+          </div>
+        </ModalSection>
+      )}
+    </ModalShell>
+  );
+}
+
 // ─── Modal Gerar Lançamento ───────────────────────────────────────────────────
 
-function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoContas }) {
+function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoContas, jaGeradaNoMes }) {
   const [valorLanc, setValorLanc] = useState(String(recorrencia.valor));
   const [contaId, setContaId]     = useState(recorrencia.conta_id || "");
   const [planoId, setPlanoId]     = useState(recorrencia.plano_id || "");
@@ -300,6 +369,9 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
   const handleConfirm = async () => {
     const valor = parseFloat(valorLanc);
     if (isNaN(valor) || valor <= 0) return setError("Valor inválido.");
+    if (jaGeradaNoMes) {
+      return setError("Esta recorrência já foi gerada para o mês do vencimento. Não é possível duplicar.");
+    }
 
     setLoading(true);
     setError(null);
@@ -345,6 +417,12 @@ function ModalGerarLancamento({ recorrencia, onClose, onConfirm, contas, planoCo
         />
       }
     >
+      {jaGeradaNoMes && (
+        <div className="modal-inline-error" role="alert">
+          Já existe lançamento desta recorrência no mês {formatMesReferencia(monthKeyFromDate(dataVenc))}.
+        </div>
+      )}
+
       <div className="modal-rec-preview">
         <div className="modal-rec-preview-title">{recorrencia.descricao}</div>
         <div className="modal-rec-preview-meta">
@@ -423,7 +501,7 @@ export default function RecorrenciasPage() {
   const {
     contas, planoContas, lancamentos,
     lancCrud, flushStateSave,
-    empresa, viewOnly,
+    empresa, viewOnly, filterPeriodo,
   } = useGestor();
 
   const { recorrencias, loading, error, load, create, update, remove, gerar } = useRecorrencias();
@@ -431,9 +509,22 @@ export default function RecorrenciasPage() {
   const [showNova,    setShowNova]    = useState(false);
   const [editTarget,  setEditTarget]  = useState(null);
   const [gerarTarget, setGerarTarget] = useState(null);
+  const [showGerarMes, setShowGerarMes] = useState(false);
+  const [gerarMesLoading, setGerarMesLoading] = useState(false);
   const [filtroTipo,  setFiltroTipo]  = useState("Todos");
   const [filtroStatus,setFiltroStatus]= useState("ativa");
   const [localError,  setLocalError]  = useState(null);
+  const [localSuccess, setLocalSuccess] = useState(null);
+
+  const mesReferencia = useMemo(
+    () => getMesReferenciaAtual(filterPeriodo),
+    [filterPeriodo]
+  );
+
+  const classificacaoMes = useMemo(
+    () => classificarRecorrenciasParaMes(recorrencias, lancamentos, mesReferencia),
+    [recorrencias, lancamentos, mesReferencia]
+  );
 
   // Filtra lista
   const lista = recorrencias.filter((r) => {
@@ -442,50 +533,82 @@ export default function RecorrenciasPage() {
     return true;
   });
 
-  // Gerar lançamento: adiciona ao JSONB via lancCrud (caminho seguro e testado)
-  const handleGerarConfirm = async ({ tipo, data, valor, contaId, planoId, historico, recorrenciaId }) => {
-    const conta     = contas.find((c) => c.id === contaId);
-    const plano     = planoContas.find((p) => p.id === planoId);
-
-    const nums = lancamentos.map((l) => Number(l.codigo)).filter((n) => !isNaN(n));
-    const nextCodigo = nums.length ? Math.max(...nums) + 1 : 1;
-
-    // Converte tipo da recorrência ("Receita"/"Despesa") para tipo do lançamento ("Entrada"/"Saida")
-    const tipoLanc = tipo === "Receita" ? "Entrada" : "Saida";
-
-    const lancamento = {
-      id:             generateId(),
-      codigo:         nextCodigo,
-      lote:           `REC-${recorrenciaId.slice(0, 6)}`,
-      data,
-      // vencimento = proxima_data da recorrência ANTES de avançar o ciclo
-      vencimento:     toDateKey(gerarTarget.proxima_data) || data,
-      tipo:           tipoLanc,
-      historico,
-      valor:          parseFloat(valor),
-      contaEntradaId: tipoLanc === "Entrada" ? contaId : null,
-      contaSaidaId:   tipoLanc === "Saida"   ? contaId : null,
-      codigoDestino:  tipoLanc === "Entrada" ? (conta?.codigo ?? null) : null,
-      codigoOrigem:   tipoLanc === "Saida"   ? (conta?.codigo ?? null) : null,
-      planoId:        planoId || null,
-      clienteId:      null,
-      fornecedorId:   null,
-      consiliado:     false,
-      tipoOrigem:     "",
-      tipoDestino:    "",
-      recorrenciaId,          // campo opcional — retrocompatível
-    };
-
-    // 1. Adiciona lançamento ao JSONB (operação principal — não pode falhar silenciosamente)
+  const criarLancamentoRecorrencia = (rec, opts = {}) => {
+    const dataVenc = toDateKey(rec.proxima_data);
+    const monthKey = monthKeyFromDate(dataVenc);
+    const baseLancs = opts.lancamentosBase ?? lancamentos;
+    if (isRecorrenciaGeradaNoMes(baseLancs, rec.id, monthKey)) {
+      throw new Error(
+        `"${rec.descricao}" já foi gerada em ${formatMesReferencia(monthKey)}.`
+      );
+    }
+    const lancamento = buildLancamentoFromRecorrencia({
+      recorrencia: { ...rec, conta_id: opts.contaId ?? rec.conta_id, plano_id: opts.planoId ?? rec.plano_id },
+      lancamentos: baseLancs,
+      contas,
+      generateId,
+      historico: opts.historico,
+      valorOverride: opts.valor,
+      vencimentoOverride: dataVenc,
+    });
     lancCrud.add(lancamento);
+    return lancamento;
+  };
 
-    // 3. Salva o estado JSONB imediatamente
+  const handleGerarConfirm = async ({ valor, contaId, planoId, historico }) => {
+    const rec = { ...gerarTarget, conta_id: contaId, plano_id: planoId };
+    criarLancamentoRecorrencia(rec, { historico, valor: parseFloat(valor) });
     setTimeout(() => flushStateSave().catch(() => {}), 50);
-
-    // 2. Avança proxima_data no backend (não-bloqueante: se falhar, lançamento já foi criado)
     gerar(gerarTarget.id).catch((err) => {
       console.warn("Não foi possível avançar proxima_data:", err.message);
     });
+  };
+
+  const handleGerarMesConfirm = async () => {
+    const { elegiveis, jaGeradas, semConta } = classificacaoMes;
+    if (!elegiveis.length) {
+      setLocalError("Nenhuma recorrência elegível para gerar neste mês.");
+      setShowGerarMes(false);
+      return;
+    }
+
+    setGerarMesLoading(true);
+    setLocalError(null);
+    setLocalSuccess(null);
+    const erros = [];
+    let ok = 0;
+    let acc = [...lancamentos];
+
+    for (const rec of elegiveis) {
+      try {
+        if (isRecorrenciaGeradaNoMes(acc, rec.id, mesReferencia)) continue;
+        const lanc = criarLancamentoRecorrencia(rec, { lancamentosBase: acc });
+        acc.push(lanc);
+        await gerar(rec.id).catch((err) => {
+          console.warn(`proxima_data não avançou (${rec.descricao}):`, err.message);
+        });
+        ok += 1;
+      } catch (err) {
+        erros.push(`${rec.descricao}: ${err.message}`);
+      }
+    }
+
+    setTimeout(() => flushStateSave().catch(() => {}), 50);
+    setGerarMesLoading(false);
+    setShowGerarMes(false);
+
+    if (ok > 0 && !erros.length) {
+      setLocalSuccess(
+        `${ok} lançamento(s) gerado(s) para ${formatMesReferencia(mesReferencia)}.` +
+        (jaGeradas.length ? ` ${jaGeradas.length} já existiam.` : "")
+      );
+    } else if (erros.length) {
+      setLocalError(
+        [ok > 0 ? `${ok} gerado(s).` : null, ...erros].filter(Boolean).join(" ")
+      );
+    } else {
+      setLocalError("Nenhum lançamento foi gerado.");
+    }
   };
 
   const handleToggleStatus = async (rec) => {
@@ -537,7 +660,17 @@ export default function RecorrenciasPage() {
           </span>
         </div>
         {!viewOnly && (
-          <div className="pp-page-actions">
+          <div className="pp-page-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="pp-btn-secondary"
+              title={`Gera lançamentos pendentes com vencimento em ${formatMesReferencia(mesReferencia)}`}
+              onClick={() => setShowGerarMes(true)}
+              disabled={classificacaoMes.elegiveis.length === 0}
+            >
+              <CalendarDays size={16} strokeWidth={2} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
+              Gerar vencimentos do mês
+            </button>
             <button type="button" className="pp-btn-primary" onClick={() => setShowNova(true)}>
               <span aria-hidden>＋</span> Nova recorrência
             </button>
@@ -596,7 +729,26 @@ export default function RecorrenciasPage() {
           </button>
         ))}
         <span className="pp-toolbar-spacer" />
+        <span className="pp-toolbar-meta" style={{ fontSize: 12, color: "var(--text3)" }}>
+          Mês ref.: {formatMesReferencia(mesReferencia)}
+          {classificacaoMes.elegiveis.length > 0 && (
+            <> · {classificacaoMes.elegiveis.length} pronta(s) para gerar</>
+          )}
+        </span>
       </div>
+
+      {localSuccess && (
+        <div className="alert alert-success" style={{ marginBottom: 12 }}>
+          ✓ {localSuccess}
+          <button
+            type="button"
+            onClick={() => setLocalSuccess(null)}
+            style={{ marginLeft: 10, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {localError && (
         <div className="alert alert-warn" style={{ marginBottom: 12 }}>
@@ -655,6 +807,11 @@ export default function RecorrenciasPage() {
                 {lista.map((r) => {
                   const tipoCls = r.tipo === "Receita" ? "in" : "out";
                   const proxCls = classProxima(r.proxima_data).replace("recorrencias-proxima-", "rec-prox-");
+                  const mesVenc = monthKeyFromDate(r.proxima_data);
+                  const jaGerada =
+                    r.status === "ativa" &&
+                    mesVenc === mesReferencia &&
+                    isRecorrenciaGeradaNoMes(lancamentos, r.id, mesReferencia);
                   return (
                     <tr key={r.id}>
                       <td>
@@ -675,7 +832,14 @@ export default function RecorrenciasPage() {
                       </td>
                       <td className={`pp-cell-value pp-cell-value-${tipoCls}`}>{fmtBRL(r.valor)}</td>
                       <td><span className="pp-badge pp-badge-violet">{PERIODO_LABEL[r.periodicidade]}</span></td>
-                      <td><span className={`rec-prox ${proxCls}`}>{labelProxima(r.proxima_data)}</span></td>
+                      <td>
+                        <span className={`rec-prox ${proxCls}`}>{labelProxima(r.proxima_data)}</span>
+                        {jaGerada && (
+                          <span className="pp-badge pp-badge-muted" style={{ marginLeft: 6, fontSize: 10 }}>
+                            Gerado
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {r.status === "ativa" ? (
                           <span className="pp-badge pp-badge-green">● Ativa</span>
@@ -691,7 +855,12 @@ export default function RecorrenciasPage() {
                             <button
                               type="button"
                               className="pp-icon-btn pp-icon-btn-success"
-                              title="Gerar lançamento agora"
+                              title={
+                                jaGerada
+                                  ? "Já gerada neste mês"
+                                  : "Gerar lançamento agora"
+                              }
+                              disabled={jaGerada}
                               onClick={() => setGerarTarget(r)}
                             >
                               <CircleCheck size={14} strokeWidth={2} aria-hidden />
@@ -749,11 +918,28 @@ export default function RecorrenciasPage() {
       )}
 
       {/* Modal: gerar lançamento */}
+      {showGerarMes && (
+        <ModalGerarMesVencimentos
+          monthKey={mesReferencia}
+          elegiveis={classificacaoMes.elegiveis}
+          jaGeradas={classificacaoMes.jaGeradas}
+          semConta={classificacaoMes.semConta}
+          onClose={() => setShowGerarMes(false)}
+          onConfirm={handleGerarMesConfirm}
+          loading={gerarMesLoading}
+        />
+      )}
+
       {gerarTarget && (
         <ModalGerarLancamento
           recorrencia={gerarTarget}
           contas={contas}
           planoContas={planoContas}
+          jaGeradaNoMes={isRecorrenciaGeradaNoMes(
+            lancamentos,
+            gerarTarget.id,
+            monthKeyFromDate(gerarTarget.proxima_data)
+          )}
           onClose={() => setGerarTarget(null)}
           onConfirm={handleGerarConfirm}
         />
