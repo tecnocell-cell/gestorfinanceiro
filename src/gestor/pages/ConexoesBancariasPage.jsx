@@ -743,7 +743,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       setRollbackResumo(res);
       if (detalheId === imp.id) setDetalheId(null);
       await loadHistorico();
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
     } catch (err) {
       setHistErro(err.message || "Erro ao desfazer importacao.");
     } finally {
@@ -765,7 +765,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
 
   const handleImportSuccess = useCallback(() => {
     loadHistorico();
-    if (reloadAppState) reloadAppState();
+    if (reloadAppState) reloadAppState({ skipFlush: true });
   }, [loadHistorico, reloadAppState]);
 
   const totalAvisados = avisados.size;

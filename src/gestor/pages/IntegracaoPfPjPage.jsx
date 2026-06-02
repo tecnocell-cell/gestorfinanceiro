@@ -270,7 +270,7 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
                     {b.label}
                   </span>
                 </td>
-                <td style={{ fontSize: 12, lineHeight: 1.45, maxWidth: 200 }}>
+                <td className="integracao-hist-lanc" style={{ fontSize: 12, lineHeight: 1.5, verticalAlign: "top" }}>
                   <span className="badge badge-cp-pendente" style={{ marginBottom: 4, display: "inline-block" }}>
                     PJ + PF
                   </span>
@@ -278,8 +278,7 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
                     Saída na PJ · Entrada na PF
                   </div>
                   {op.historico && (
-                    <div style={{ marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      title={op.historico}>
+                    <div className="integracao-hist-hist" style={{ color: "var(--text)" }} title={op.historico}>
                       {op.historico}
                     </div>
                   )}
@@ -486,7 +485,7 @@ export default function IntegracaoPfPjPage() {
       setLucrosValor("");
       setLucrosObs("");
       setMsg("Distribuição de Lucros registrada na PJ e na PF vinculada.");
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
     } catch (err) {
@@ -520,7 +519,7 @@ export default function IntegracaoPfPjPage() {
       setSalarioValor("");
       setSalarioObs("");
       setMsg("Salário registrado na PJ e na PF vinculada.");
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
     } catch (err) {
@@ -554,7 +553,7 @@ export default function IntegracaoPfPjPage() {
       setTransfValor("");
       setTransfObs("");
       setMsg("Transferência PJ → PF registrada na PJ e na PF vinculada.");
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
     } catch (err) {
@@ -574,7 +573,7 @@ export default function IntegracaoPfPjPage() {
       setValor("");
       setObservacao("");
       setMsg("Pró-labore registrado na PJ e na PF vinculada.");
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
     } catch (err) {
@@ -594,7 +593,7 @@ export default function IntegracaoPfPjPage() {
     try {
       await integracaoPfPjApi.rollbackOperacao(op.id);
       setMsg("Operação desfeita nos dois lados (PJ e PF).");
-      if (reloadAppState) reloadAppState();
+      if (reloadAppState) reloadAppState({ skipFlush: true });
       loadOperacoes();
     } catch (err) {
       setErro(err.message || "Erro ao desfazer.");

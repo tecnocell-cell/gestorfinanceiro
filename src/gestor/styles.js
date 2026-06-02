@@ -5495,9 +5495,20 @@ export const css = `
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
   }
+  .integracao-hist-lanc {
+    min-width: 160px;
+    max-width: 280px;
+    vertical-align: top !important;
+  }
+  .integracao-hist-lanc .integracao-hist-hist {
+    margin-top: 4px;
+    word-break: break-word;
+    white-space: normal;
+  }
   .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-  .lanc-table-pj {
-    min-width: 1180px;
+  .lanc-table.lanc-table-pj {
+    table-layout: auto;
+    min-width: 0;
   }
   .lanc-table-pj .lanc-td-val {
     width: 100px;
@@ -5524,10 +5535,17 @@ export const css = `
     overflow: visible;
   }
   .lanc-table-pj tbody td {
-    overflow: hidden;
+    overflow: visible;
+    vertical-align: top;
+  }
+  .lanc-table-pj .lanc-td-val,
+  .lanc-table-pj .lanc-date-cell,
+  .lanc-table-pj td.td-mono {
+    white-space: nowrap;
   }
   .lanc-table-pj .lanc-td-hist {
     overflow: visible;
+    white-space: normal;
   }
   .lanc-table-pj .lanc-td-hist .lanc-cell-hist {
     -webkit-line-clamp: 2;

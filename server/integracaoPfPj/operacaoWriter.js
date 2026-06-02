@@ -120,7 +120,7 @@ function parseData(raw) {
   return s;
 }
 
-function buildLancamento({
+export function buildIntegracaoLancamento({
   tipoOperacao,
   id,
   codigo,
@@ -288,7 +288,7 @@ export async function confirmOperacao(client, tipoOperacao, {
   const lancamentoPfId = randomUUID();
   const valorCentavos = Math.round(valorNum * 100);
 
-  const lancPj = buildLancamento({
+  const lancPj = buildIntegracaoLancamento({
     tipoOperacao,
     id: lancamentoPjId,
     codigo: nextCodigo(collectAllLancamentos(preparedPj)),
@@ -306,7 +306,7 @@ export async function confirmOperacao(client, tipoOperacao, {
     usuarioPfId: vinculo.usuario_pf_id,
   });
 
-  const lancPf = buildLancamento({
+  const lancPf = buildIntegracaoLancamento({
     tipoOperacao,
     id: lancamentoPfId,
     codigo: nextCodigo(collectAllLancamentos(preparedPf)),
@@ -480,6 +480,76 @@ export async function rollbackOperacao(client, {
     removidosPj: remPj,
     removidosPf: remPf,
   };
+}
+
+/** Reconstrói par PJ/PF a partir de operação confirmada (reparo quando o estado foi sobrescrito). */
+export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
+  vinculo,
+  nomePj,
+  usuarioPjId,
+}) {
+  assertTipoOperacao(op.tipo_operacao);
+  const config = TIPOS_OPERACAO[op.tipo_operacao];
+  const valorNum = Number(op.valor_centavos) / 100;
+  const dataStr = op.data instanceof Date
+    ? op.data.toISOString().slice(0, 10)
+    : String(op.data).slice(0, 10);
+
+  const contaPj = pickConta(empPj);
+  const contaPf = pickConta(empPf);
+  const planoPj = pickPlanoDespesaPj(empPj, op.tipo_operacao);
+  const planoPf = pickPlanoReceitaPf(empPf, op.tipo_operacao);
+  if (!contaPj || !contaPf) {
+    throw new Error(`Conta ativa ausente para operação ${op.id}`);
+  }
+
+  const historicos = config.buildHistoricos({
+    nomePf: vinculo.nome_pf,
+    nomePj: nomePj || 'Empresa PJ',
+    observacao: '',
+  });
+
+  const operacaoId = op.id;
+  const lancamentoPjId = op.lancamento_pj_id;
+  const lancamentoPfId = op.lancamento_pf_id;
+
+  const lancPj = buildIntegracaoLancamento({
+    tipoOperacao: op.tipo_operacao,
+    id: lancamentoPjId,
+    codigo: 0,
+    data: dataStr,
+    tipo: 'Saida',
+    valor: valorNum,
+    historico: historicos.pj,
+    conta: contaPj,
+    plano: planoPj,
+    operacaoId,
+    vinculoId: vinculo.id,
+    lancamentoParId: lancamentoPfId,
+    lado: 'pj',
+    usuarioPjId,
+    usuarioPfId: vinculo.usuario_pf_id,
+  });
+
+  const lancPf = buildIntegracaoLancamento({
+    tipoOperacao: op.tipo_operacao,
+    id: lancamentoPfId,
+    codigo: 0,
+    data: dataStr,
+    tipo: 'Entrada',
+    valor: valorNum,
+    historico: historicos.pf,
+    conta: contaPf,
+    plano: planoPf,
+    operacaoId,
+    vinculoId: vinculo.id,
+    lancamentoParId: lancamentoPjId,
+    lado: 'pf',
+    usuarioPjId,
+    usuarioPfId: vinculo.usuario_pf_id,
+  });
+
+  return { lancPj, lancPf };
 }
 
 export function mapOperacao(row) {

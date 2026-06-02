@@ -167,13 +167,14 @@ export function GestorProvider({ children }) {
   // Re-busca o estado do servidor em focus/visibilidade/intervalo leve.
   // Antes do fetch, faz flush de qualquer save pendente para preservar
   // alterações locais. Após setState, suprime o save effect via justReloaded.
-  const reloadAppState = useCallback(async () => {
+  const reloadAppState = useCallback(async (opts = {}) => {
     if (!token || viewOnly || !loadOk.current) return;
     if (isFirstLoad.current) return;
     if (syncing) return;
+    const skipFlush = opts?.skipFlush === true;
     setSyncing(true);
     try {
-      if (dirtyPending.current) {
+      if (!skipFlush && dirtyPending.current) {
         try { await flushStateSave(); } catch {}
       }
       const { dados, profile: serverProfile } = await stateApi.fetch();
