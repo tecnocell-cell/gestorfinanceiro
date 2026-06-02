@@ -172,6 +172,7 @@ export {
   ClipboardList,
   Receipt,
   Clock,
+  Lock,
   FolderTree,
   FileText,
   Table,

@@ -1,5 +1,6 @@
 /**
- * IntegracaoPfPjPage — Vínculo + Pró-labore + Lucros PJ ↔ PF (Etapas 5.0B–5.1)
+ * IntegracaoPfPjPage — Vínculo + repasses PJ → PF vinculada (Etapas 5.0B–5.5)
+ * Todas as operações financeiras são da PJ para a PF vinculada (não há PF → PJ no MVP).
  */
 import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
@@ -8,11 +9,14 @@ import { integracaoPfPjApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
-  CircleDollarSign, ArrowRight,
+  CircleDollarSign, ArrowRight, ArrowDownRight, Lock,
 } from "../components/icons.jsx";
 
+const TAB_VINCULO = "vinculo";
+const TABS_FINANCEIRAS = ["prolabore", "lucros", "salario", "transferencia", "historico"];
+
 const TABS = [
-  { id: "vinculo", label: "Vínculo" },
+  { id: TAB_VINCULO, label: "Vínculo" },
   { id: "prolabore", label: "Pró-labore" },
   { id: "lucros", label: "Distribuição de Lucros" },
   { id: "salario", label: "Salário" },
@@ -27,28 +31,63 @@ const TIPO_OP_LABEL = {
   transferencia_pj_pf: "Transferência PJ → PF",
 };
 
-function statusBadge(status) {
+const AVISO_CONFIRMACAO =
+  "Esta ação criará uma saída na PJ e uma entrada na PF vinculada.";
+
+function statusBadgeVinculo(status) {
   if (status === "ativo") return { label: "Ativo", cls: "badge-cp-pago", Icon: CheckCircle };
   if (status === "pendente") return { label: "Aguardando PF", cls: "badge-cp-pendente", Icon: Clock };
-  if (status === "ok") return { label: "OK", cls: "badge-cp-pago", Icon: CheckCircle };
+  return { label: status, cls: "badge-cp-atrasado", Icon: XCircle };
+}
+
+function statusBadgeOperacao(status) {
+  if (status === "ok") return { label: "Confirmado", cls: "badge-cp-pago", Icon: CheckCircle };
   if (status === "rollback") return { label: "Desfeito", cls: "badge-cp-atrasado", Icon: XCircle };
   return { label: status, cls: "badge-cp-atrasado", Icon: XCircle };
 }
 
-function TabBar({ tab, setTab, vinculoAtivo }) {
+function TabBar({ tab, setTab, vinculoAtivo, vinculoPendente }) {
   return (
-    <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-      {TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-secondary"}`}
-          disabled={t.id !== "vinculo" && !vinculoAtivo}
-          onClick={() => setTab(t.id)}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      {TABS.map((t) => {
+        const financeira = TABS_FINANCEIRAS.includes(t.id);
+        const disabled = financeira && !vinculoAtivo;
+        let title = "";
+        if (disabled && !vinculoPendente) title = "Vincule uma conta PF na aba Vínculo.";
+        if (disabled && vinculoPendente) title = "Aguarde a PF aceitar o vínculo em Perfil.";
+        return (
+          <button
+            key={t.id}
+            type="button"
+            className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-secondary"}`}
+            disabled={disabled}
+            title={title}
+            onClick={() => setTab(t.id)}
+          >
+            {disabled && <Lock size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />}
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AvisoVinculoInativo({ vinculo }) {
+  if (vinculo?.status === "pendente") {
+    return (
+      <div className="alert alert-info" style={{ marginBottom: 16 }}>
+        <strong>Vínculo aguardando aceite.</strong>{" "}
+        A PF precisa aceitar o convite em <strong>Perfil</strong> antes de você lançar pró-labore,
+        distribuição de lucros, salário ou transferência PJ → PF.
+      </div>
+    );
+  }
+  return (
+    <div className="alert alert-warn" style={{ marginBottom: 16 }}>
+      <strong>Vincule e aguarde aceite da PF antes de lançar.</strong>{" "}
+      Informe o e-mail da conta PF na aba <strong>Vínculo</strong>. Todas as operações desta tela
+      são repasses da <strong>PJ para a PF vinculada</strong> (saída na PJ + entrada na PF).
     </div>
   );
 }
@@ -75,17 +114,25 @@ function OperacaoForm({
   if (!vinculo) {
     return (
       <div className="alert alert-warn" style={{ margin: 0 }}>
-        Vínculo PF ativo necessário. Conclua o aceite na aba Vínculo.
+        Vínculo PF <strong>ativo</strong> necessário. Conclua o aceite na aba Vínculo.
       </div>
     );
   }
   if (viewOnly) {
-    return <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização.</div>;
+    return <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização — lançamentos indisponíveis.</div>;
   }
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 12px" }}>
         {description}
+      </p>
+      <p style={{
+        fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 0 16px",
+        padding: "10px 12px", background: "var(--rn-page-canvas)", borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--border)",
+      }}>
+        <ArrowDownRight size={14} strokeWidth={2} style={{ verticalAlign: -2, marginRight: 6 }} aria-hidden />
+        Repasse <strong>PJ → PF</strong>: não há lançamento da PF para a PJ nesta integração.
       </p>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <div className="form-group">
@@ -119,17 +166,23 @@ function OperacaoForm({
           background: "var(--card)",
           marginBottom: 8,
         }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
             Revise os lançamentos antes de confirmar
           </div>
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            Serão criados <strong>dois lançamentos vinculados</strong>: um na PJ e outro na PF.
+          </p>
           <div style={{ display: "grid", gap: 12 }}>
             <PreviewLancamento titulo="Saída na PJ" lado="Saída" lanc={preview.lancamentoPj} />
-            <PreviewLancamento titulo="Entrada na PF" lado="Entrada" lanc={preview.lancamentoPf} />
+            <PreviewLancamento titulo="Entrada na PF vinculada" lado="Entrada" lanc={preview.lancamentoPf} />
+          </div>
+          <div className="alert alert-info" style={{ marginTop: 16, marginBottom: 12, fontSize: 13 }}>
+            {AVISO_CONFIRMACAO}
           </div>
           <button
             type="button"
             className="btn btn-primary"
-            style={{ width: "100%", marginTop: 16, fontWeight: 700 }}
+            style={{ width: "100%", fontWeight: 700 }}
             disabled={confirmando}
             onClick={onConfirm}
           >
@@ -180,10 +233,87 @@ function PreviewLancamento({ titulo, lado, lanc }) {
   );
 }
 
+function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRollback }) {
+  if (loading) {
+    return (
+      <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>Carregando histórico...</div>
+    );
+  }
+  if (!operacoes.length) {
+    return (
+      <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.55 }}>
+        Nenhuma operação registrada. Após confirmar um repasse PJ → PF, ele aparecerá aqui com os dois lançamentos.
+      </div>
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Operação</th>
+            <th style={{ textAlign: "right" }}>Valor</th>
+            <th>Status</th>
+            <th>Lançamentos</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {operacoes.map((op) => {
+            const b = statusBadgeOperacao(op.status);
+            const tipoLabel = TIPO_OP_LABEL[op.tipoOperacao] || op.tipoOperacao;
+            return (
+              <tr key={op.id}>
+                <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(op.data)}</td>
+                <td style={{ fontSize: 13, fontWeight: 600 }}>{tipoLabel}</td>
+                <td className="td-mono" style={{ textAlign: "right", fontWeight: 600 }}>{fmtBRL(op.valor)}</td>
+                <td>
+                  <span className={`badge ${b.cls}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <b.Icon size={12} strokeWidth={2} aria-hidden />
+                    {b.label}
+                  </span>
+                </td>
+                <td style={{ fontSize: 12, lineHeight: 1.45, maxWidth: 200 }}>
+                  <span className="badge badge-cp-pendente" style={{ marginBottom: 4, display: "inline-block" }}>
+                    PJ + PF
+                  </span>
+                  <div style={{ color: "var(--muted-foreground)" }}>
+                    Saída na PJ · Entrada na PF
+                  </div>
+                  {op.historico && (
+                    <div style={{ marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={op.historico}>
+                      {op.historico}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {!viewOnly && op.status === "ok" && (
+                    <button type="button" className="btn btn-secondary btn-sm"
+                      disabled={desfazendoId === op.id}
+                      title="Remove o lançamento na PJ e na PF"
+                      onClick={() => onRollback(op)}>
+                      {desfazendoId === op.id ? "Desfazendo..." : "Desfazer"}
+                    </button>
+                  )}
+                  {op.status === "rollback" && (
+                    <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Lançamentos removidos</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function IntegracaoPfPjPage() {
   const { viewOnly, reloadAppState, tipo } = useGestor();
   const contaPJ = isPessoaJuridica(tipo);
-  const [tab, setTab] = useState("vinculo");
+  const [tab, setTab] = useState(TAB_VINCULO);
 
   const [email, setEmail] = useState("");
   const [vinculo, setVinculo] = useState(null);
@@ -227,7 +357,9 @@ export default function IntegracaoPfPjPage() {
   const [desfazendoId, setDesfazendoId] = useState(null);
 
   const vinculoAtivo = vinculo?.status === "ativo";
+  const vinculoPendente = vinculo?.status === "pendente";
   const temVinculo = vinculo && vinculo.status !== "revogado";
+  const abaFinanceira = TABS_FINANCEIRAS.includes(tab);
 
   const loadVinculo = useCallback(async () => {
     setLoading(true);
@@ -260,6 +392,12 @@ export default function IntegracaoPfPjPage() {
     if (tab === "historico" && vinculoAtivo) loadOperacoes();
   }, [tab, vinculoAtivo, loadOperacoes]);
 
+  useEffect(() => {
+    if (!vinculoAtivo && abaFinanceira && tab !== TAB_VINCULO) {
+      setTab(TAB_VINCULO);
+    }
+  }, [vinculoAtivo, abaFinanceira, tab]);
+
   const handleBuscar = async () => {
     const e = email.trim();
     if (!e) { setErro("Informe o e-mail da conta PF."); return; }
@@ -286,7 +424,7 @@ export default function IntegracaoPfPjPage() {
       const { vinculo: v } = await integracaoPfPjApi.criarVinculo(e);
       setVinculo(v);
       setPfPreview(null);
-      setMsg("Convite enviado. A pessoa física precisa aceitar em Perfil.");
+      setMsg("Convite enviado. A pessoa física precisa aceitar em Perfil antes dos repasses PJ → PF.");
     } catch (err) {
       setErro(err.message || "Erro ao vincular.");
     } finally {
@@ -295,7 +433,7 @@ export default function IntegracaoPfPjPage() {
   };
 
   const handleRevogar = async () => {
-    if (!window.confirm("Revogar o vínculo com esta conta PF?")) return;
+    if (!window.confirm("Revogar o vínculo com esta conta PF? Novos repasses PJ → PF ficarão bloqueados.")) return;
     setSalvando(true);
     setErro(null);
     setMsg(null);
@@ -305,7 +443,7 @@ export default function IntegracaoPfPjPage() {
       setPfPreview(null);
       setEmail("");
       setPreview(null);
-      setTab("vinculo");
+      setTab(TAB_VINCULO);
       setMsg("Vínculo revogado.");
     } catch (err) {
       setErro(err.message || "Erro ao revogar.");
@@ -351,7 +489,7 @@ export default function IntegracaoPfPjPage() {
       setLucrosPreview(null);
       setLucrosValor("");
       setLucrosObs("");
-      setMsg("Distribuição de Lucros registrada nos dois lados.");
+      setMsg("Distribuição de Lucros registrada na PJ e na PF vinculada.");
       if (reloadAppState) reloadAppState();
       setTab("historico");
       loadOperacoes();
@@ -385,7 +523,7 @@ export default function IntegracaoPfPjPage() {
       setSalarioPreview(null);
       setSalarioValor("");
       setSalarioObs("");
-      setMsg("Salário registrado nos dois lados.");
+      setMsg("Salário registrado na PJ e na PF vinculada.");
       if (reloadAppState) reloadAppState();
       setTab("historico");
       loadOperacoes();
@@ -419,7 +557,7 @@ export default function IntegracaoPfPjPage() {
       setTransfPreview(null);
       setTransfValor("");
       setTransfObs("");
-      setMsg("Transferência PJ → PF registrada nos dois lados.");
+      setMsg("Transferência PJ → PF registrada na PJ e na PF vinculada.");
       if (reloadAppState) reloadAppState();
       setTab("historico");
       loadOperacoes();
@@ -439,7 +577,7 @@ export default function IntegracaoPfPjPage() {
       setPreview(null);
       setValor("");
       setObservacao("");
-      setMsg("Pró-labore registrado nos dois lados.");
+      setMsg("Pró-labore registrado na PJ e na PF vinculada.");
       if (reloadAppState) reloadAppState();
       setTab("historico");
       loadOperacoes();
@@ -451,13 +589,15 @@ export default function IntegracaoPfPjPage() {
   };
 
   const handleRollback = async (op) => {
-    const tipo = TIPO_OP_LABEL[op.tipoOperacao] || "operação";
-    if (!window.confirm(`Desfazer esta ${tipo}? Os lançamentos PJ e PF serão removidos.`)) return;
+    const tipoOp = TIPO_OP_LABEL[op.tipoOperacao] || "operação";
+    if (!window.confirm(
+      `Desfazer ${tipoOp} de ${fmtBRL(op.valor)}? Os lançamentos de saída na PJ e entrada na PF serão removidos.`
+    )) return;
     setDesfazendoId(op.id);
     setErro(null);
     try {
       await integracaoPfPjApi.rollbackOperacao(op.id);
-      setMsg("Operação desfeita.");
+      setMsg("Operação desfeita nos dois lados (PJ e PF).");
       if (reloadAppState) reloadAppState();
       loadOperacoes();
     } catch (err) {
@@ -467,7 +607,29 @@ export default function IntegracaoPfPjPage() {
     }
   };
 
-  const badge = vinculo ? statusBadge(vinculo.status) : null;
+  const badge = vinculo ? statusBadgeVinculo(vinculo.status) : null;
+  const pfNome = vinculo?.nomePf || vinculo?.emailPf || "PF vinculada";
+
+  const descProLabore = (
+    <>
+      Pró-labore da PJ para <strong>{pfNome}</strong>: saída na empresa e entrada na conta PF vinculada.
+    </>
+  );
+  const descLucros = (
+    <>
+      Distribuição de Lucros da PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+    </>
+  );
+  const descSalario = (
+    <>
+      Salário pago pela PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+    </>
+  );
+  const descTransf = (
+    <>
+      Transferência de recursos da PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+    </>
+  );
 
   return (
     <div className="of-page">
@@ -477,10 +639,11 @@ export default function IntegracaoPfPjPage() {
             <Link2 size={13} strokeWidth={2} aria-hidden />
             Integração PF/PJ
           </div>
-          <h2 className="of-hero-title">Vincule sua conta PF</h2>
+          <h2 className="of-hero-title">Repasses da PJ para a PF vinculada</h2>
           <p className="of-hero-sub">
-            Vincule sua conta PF e lance pró-labore, lucros, salário ou transferências
-            com lançamentos automáticos nos dois lados.
+            Vincule uma conta Pessoa Física e registre pró-labore, distribuição de lucros, salário
+            ou transferência <strong>PJ → PF</strong>. Cada confirmação gera saída na PJ e entrada na PF
+            automaticamente. Não há repasse da PF para a PJ nesta versão.
           </p>
         </div>
       </div>
@@ -488,13 +651,15 @@ export default function IntegracaoPfPjPage() {
       <div className="of-section">
         {!contaPJ && (
           <div className="alert alert-warn" style={{ marginBottom: 16 }}>
-            Esta área é exclusiva para contas Pessoa Jurídica. O perfil exibido no menu usa o mesmo
-            critério do servidor; se o erro persistir, entre em contato com o suporte.
+            Esta área é exclusiva para contas Pessoa Jurídica.
           </div>
         )}
-        <TabBar tab={tab} setTab={setTab} vinculoAtivo={vinculoAtivo} />
 
-        {tab === "vinculo" && (
+        <TabBar tab={tab} setTab={setTab} vinculoAtivo={vinculoAtivo} vinculoPendente={vinculoPendente} />
+
+        {!vinculoAtivo && <AvisoVinculoInativo vinculo={vinculo} />}
+
+        {tab === TAB_VINCULO && (
           <>
             {loading && (
               <div style={{ padding: 20, color: "var(--muted-foreground)", fontSize: 13 }}>Carregando...</div>
@@ -504,11 +669,11 @@ export default function IntegracaoPfPjPage() {
               <div className="card" style={{ marginBottom: 16 }}>
                 <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <User size={18} strokeWidth={2} aria-hidden />
-                  Vínculo atual
+                  Vínculo com conta PF
                 </div>
                 <div style={{ display: "grid", gap: 12, fontSize: 13 }}>
                   <div>
-                    <span style={{ color: "var(--muted-foreground)", fontSize: 11 }}>Conta PF</span>
+                    <span style={{ color: "var(--muted-foreground)", fontSize: 11 }}>Destino dos repasses (PF)</span>
                     <div style={{ fontWeight: 600 }}>{vinculo.nomePf || vinculo.emailPf}</div>
                     <div style={{ color: "var(--muted-foreground)", fontSize: 12 }}>{vinculo.emailPf}</div>
                   </div>
@@ -524,7 +689,12 @@ export default function IntegracaoPfPjPage() {
                     </div>
                     {vinculo.status === "pendente" && (
                       <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-                        Aguardando aceite da PF em Perfil.
+                        Aguardando aceite da PF em <strong>Perfil</strong>. Repasses PJ → PF ficam bloqueados até a confirmação.
+                      </p>
+                    )}
+                    {vinculo.status === "ativo" && (
+                      <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                        Vínculo ativo. Use as abas de operação para lançar repasses da PJ para esta PF.
                       </p>
                     )}
                   </div>
@@ -540,9 +710,10 @@ export default function IntegracaoPfPjPage() {
 
             {!loading && !temVinculo && (
               <div className="card">
-                <div className="card-title">Vincular minha conta PF</div>
+                <div className="card-title">Vincular conta PF (destino dos repasses)</div>
                 <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
-                  Informe o e-mail da conta Pessoa Física já cadastrada no Fluxiva.
+                  Informe o e-mail da conta Pessoa Física no Fluxiva. Após o aceite, você poderá lançar
+                  operações <strong>da PJ para essa PF</strong> — sempre saída na empresa e entrada na pessoa física.
                 </p>
                 {viewOnly ? (
                   <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização.</div>
@@ -569,7 +740,7 @@ export default function IntegracaoPfPjPage() {
                     <div style={{ marginTop: 16 }}>
                       <button type="button" className="btn btn-primary" disabled={salvando || !pfPreview}
                         onClick={handleVincular}>
-                        {salvando ? "Vinculando..." : "Vincular minha conta PF"}
+                        {salvando ? "Vinculando..." : "Enviar convite de vínculo"}
                       </button>
                     </div>
                   </>
@@ -579,14 +750,14 @@ export default function IntegracaoPfPjPage() {
           </>
         )}
 
-        {tab === "prolabore" && (
+        {vinculoAtivo && tab === "prolabore" && (
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Banknote size={18} strokeWidth={2} aria-hidden />
-              Lançar Pró-labore
+              Pró-labore (PJ → PF)
             </div>
             <OperacaoForm
-              vinculo={vinculoAtivo ? vinculo : null}
+              vinculo={vinculo}
               viewOnly={viewOnly}
               valor={valor}
               setValor={setValor}
@@ -601,25 +772,20 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewProLabore}
               onConfirm={handleConfirmarProLabore}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar e lançar pró-labore"
-              description={
-                <>
-                  Gera automaticamente <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> vinculada
-                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
-                </>
-              }
+              confirmBtnLabel="Confirmar Pró-labore"
+              description={descProLabore}
             />
           </div>
         )}
 
-        {tab === "lucros" && (
+        {vinculoAtivo && tab === "lucros" && (
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <TrendingUp size={18} strokeWidth={2} aria-hidden />
-              Distribuição de Lucros
+              Distribuição de Lucros (PJ → PF)
             </div>
             <OperacaoForm
-              vinculo={vinculoAtivo ? vinculo : null}
+              vinculo={vinculo}
               viewOnly={viewOnly}
               valor={lucrosValor}
               setValor={setLucrosValor}
@@ -634,25 +800,20 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewLucros}
               onConfirm={handleConfirmarLucros}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar e lançar Distribuição de Lucros"
-              description={
-                <>
-                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por Distribuição de Lucros
-                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
-                </>
-              }
+              confirmBtnLabel="Confirmar Distribuição de Lucros"
+              description={descLucros}
             />
           </div>
         )}
 
-        {tab === "salario" && (
+        {vinculoAtivo && tab === "salario" && (
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <CircleDollarSign size={18} strokeWidth={2} aria-hidden />
-              Salário
+              Salário (PJ → PF)
             </div>
             <OperacaoForm
-              vinculo={vinculoAtivo ? vinculo : null}
+              vinculo={vinculo}
               viewOnly={viewOnly}
               valor={salarioValor}
               setValor={setSalarioValor}
@@ -667,25 +828,20 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewSalario}
               onConfirm={handleConfirmarSalario}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar e lançar Salário"
-              description={
-                <>
-                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por salário
-                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
-                </>
-              }
+              confirmBtnLabel="Confirmar Salário"
+              description={descSalario}
             />
           </div>
         )}
 
-        {tab === "transferencia" && (
+        {vinculoAtivo && tab === "transferencia" && (
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ArrowRight size={18} strokeWidth={2} aria-hidden />
               Transferência PJ → PF
             </div>
             <OperacaoForm
-              vinculo={vinculoAtivo ? vinculo : null}
+              vinculo={vinculo}
               viewOnly={viewOnly}
               valor={transfValor}
               setValor={setTransfValor}
@@ -700,70 +856,26 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewTransferencia}
               onConfirm={handleConfirmarTransferencia}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar e lançar Transferência PJ → PF"
-              description={
-                <>
-                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por transferência
-                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
-                </>
-              }
+              confirmBtnLabel="Confirmar Transferência PJ → PF"
+              description={descTransf}
             />
           </div>
         )}
 
-        {tab === "historico" && (
+        {vinculoAtivo && tab === "historico" && (
           <div className="card">
-            <div className="card-title">Histórico de operações</div>
-            {loadingOps && (
-              <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>Carregando...</div>
-            )}
-            {!loadingOps && !operacoes.length && (
-              <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>
-                Nenhuma operação registrada.
-              </div>
-            )}
-            {!loadingOps && operacoes.length > 0 && (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Tipo</th>
-                      <th>Histórico</th>
-                      <th style={{ textAlign: "right" }}>Valor</th>
-                      <th>Status</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {operacoes.map((op) => {
-                      const b = statusBadge(op.status);
-                      return (
-                        <tr key={op.id}>
-                          <td className="td-mono" style={{ fontSize: 12 }}>{fmtDate(op.data)}</td>
-                          <td style={{ fontSize: 12 }}>{TIPO_OP_LABEL[op.tipoOperacao] || op.tipoOperacao}</td>
-                          <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                              title={op.historico}>{op.historico}</td>
-                          <td className="td-mono" style={{ textAlign: "right" }}>{fmtBRL(op.valor)}</td>
-                          <td>
-                            <span className={`badge ${b.cls}`}>{b.label}</span>
-                          </td>
-                          <td>
-                            {!viewOnly && op.status === "ok" && (
-                              <button type="button" className="btn btn-secondary btn-sm"
-                                disabled={desfazendoId === op.id}
-                                onClick={() => handleRollback(op)}>
-                                {desfazendoId === op.id ? "..." : "Desfazer"}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div className="card-title">Histórico de repasses PJ → PF</div>
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
+              Cada linha é uma operação confirmada com lançamentos nos <strong>dois lados</strong>.
+              Use <strong>Desfazer</strong> para remover saída na PJ e entrada na PF (rollback).
+            </p>
+            <HistoricoOperacoes
+              operacoes={operacoes}
+              loading={loadingOps}
+              viewOnly={viewOnly}
+              desfazendoId={desfazendoId}
+              onRollback={handleRollback}
+            />
           </div>
         )}
 
