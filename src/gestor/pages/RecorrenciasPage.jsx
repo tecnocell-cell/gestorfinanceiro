@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
-import { fmtBRL, fmtDate, generateId, toDateKey } from "../finance.js";
+import { fmtBRL, fmtDate, generateId, toDateKey, safeNum } from "../finance.js";
 import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2 } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
@@ -511,10 +511,10 @@ export default function RecorrenciasPage() {
     const ativas = recorrencias.filter((r) => r.status === "ativa");
     const totalMensalDespesas = ativas
       .filter((r) => r.tipo === "Despesa" && r.periodicidade === "mensal")
-      .reduce((s, r) => s + (r.valor || 0), 0);
+      .reduce((s, r) => s + safeNum(r.valor), 0);
     const totalMensalReceitas = ativas
       .filter((r) => r.tipo === "Receita" && r.periodicidade === "mensal")
-      .reduce((s, r) => s + (r.valor || 0), 0);
+      .reduce((s, r) => s + safeNum(r.valor), 0);
     const vencendo7 = ativas.filter((r) => {
       const d = diasAteVencimento(r.proxima_data);
       return !Number.isNaN(d) && d >= 0 && d <= 7;

@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { fmtBRL, fmtPct }   from "../finance.js";
+import { fmtBRL, fmtPct, safeNum } from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -47,15 +47,18 @@ const em7Str    = () => new Date(Date.now() +  7 * 86_400_000).toISOString().sli
 const em30Str   = () => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
 
 const fmtK = (v) => {
-  const n = Math.abs(v);
-  if (n >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(v / 1_000).toFixed(0)}k`;
-  return String(Math.round(v));
+  const val = safeNum(v);
+  const n = Math.abs(val);
+  if (n >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(val / 1_000).toFixed(0)}k`;
+  return String(Math.round(val));
 };
 
 const safePct = (cur, prev) => {
-  if (!Number.isFinite(prev) || prev === 0) return null;
-  return (cur - prev) / Math.abs(prev);
+  const p = safeNum(prev);
+  if (p === 0) return null;
+  const c = safeNum(cur);
+  return (c - p) / Math.abs(p);
 };
 
 const PIE_COLORS = [
@@ -91,8 +94,9 @@ export default function DashboardV2Page() {
   const { recorrencias, loading: recLoading } = useRecorrencias();
 
   const saldoTotal  = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
-  const lucroLiq    = dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido;
-  const margem      = dreAtual.receitas > 0 ? (lucroLiq / dreAtual.receitas) : 0;
+  const lucroLiq    = safeNum(dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido);
+  const receitasDre = safeNum(dreAtual.receitas);
+  const margem      = receitasDre > 0 ? lucroLiq / receitasDre : 0;
 
   const recProximas = useMemo(() => {
     if (!recorrencias.length) return [];
@@ -107,7 +111,7 @@ export default function DashboardV2Page() {
     return recorrencias
       .filter((r) => r.status === "ativa" && r.proxima_data >= hoje && r.proxima_data <= limite)
       .reduce(
-        (acc, r) => acc + (r.tipo === "Receita" ? parseFloat(r.valor) : -parseFloat(r.valor)),
+        (acc, r) => acc + (r.tipo === "Receita" ? safeNum(r.valor) : -safeNum(r.valor)),
         0
       );
   }, [recorrencias]);
@@ -115,8 +119,8 @@ export default function DashboardV2Page() {
   const hero12m = useMemo(
     () => mensal.map((m) => ({
       name: m.name,
-      Receitas: m.Receita || 0,
-      Despesas: (m.Custo || 0) + (m.Despesas || 0),
+      Receitas: safeNum(m.Receita),
+      Despesas: safeNum(m.Custo) + safeNum(m.Despesas),
     })),
     [mensal]
   );
@@ -150,21 +154,21 @@ export default function DashboardV2Page() {
       const plano = planoContas.find((p) => p.id === l.planoId);
       if (!plano || plano.tipo === "Receita") continue;
       const nome = plano.descricao;
-      h[nome] = (h[nome] || 0) + l.valor;
+      h[nome] = (h[nome] || 0) + safeNum(l.valor);
       if (!meta[nome]) meta[nome] = { fill: plano.cor, icone: plano.icone };
     }
     return Object.entries(h)
-      .map(([name, value]) => ({ name, value, ...meta[name] }))
+      .map(([name, value]) => ({ name, value: safeNum(value), ...meta[name] }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
 
-  const sparkReceitas = useMemo(() => mensal.map((m) => m.Receita || 0), [mensal]);
+  const sparkReceitas = useMemo(() => mensal.map((m) => safeNum(m.Receita)), [mensal]);
   const sparkDespesas = useMemo(
-    () => mensal.map((m) => (m.Custo || 0) + (m.Despesas || 0)),
+    () => mensal.map((m) => safeNum(m.Custo) + safeNum(m.Despesas)),
     [mensal]
   );
-  const sparkLucro = useMemo(() => mensal.map((m) => m["Lucro Líquido"] || 0), [mensal]);
+  const sparkLucro = useMemo(() => mensal.map((m) => safeNum(m["Lucro Líquido"])), [mensal]);
 
   const insight = useMemo(() => {
     if (dreAtual.receitas === 0 && dreAtual.custos === 0 && dreAtual.despesas === 0) {
@@ -199,9 +203,9 @@ export default function DashboardV2Page() {
       });
     }
     if (categoriasData.length > 0) {
-      const totalDesp = categoriasData.reduce((s, c) => s + c.value, 0);
+      const totalDesp = categoriasData.reduce((s, c) => s + safeNum(c.value), 0);
       const top = categoriasData[0];
-      const pct = totalDesp > 0 ? (top.value / totalDesp) * 100 : 0;
+      const pct = totalDesp > 0 ? (safeNum(top.value) / totalDesp) * 100 : 0;
       items.push({
         tone: pct > 40 ? "warning" : "info",
         icon: "money",
@@ -450,7 +454,8 @@ export default function DashboardV2Page() {
                       position="center"
                       content={({ viewBox }) => {
                         const { cx, cy } = viewBox || {};
-                        const total = categoriasData.reduce((s, x) => s + x.value, 0);
+                        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+                        const total = categoriasData.reduce((s, x) => s + safeNum(x.value), 0);
                         return (
                           <g>
                             <text x={cx} y={cy - 6} textAnchor="middle" className="pie-center-label">Total</text>

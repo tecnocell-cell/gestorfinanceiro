@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { fmtBRL }           from "../finance.js";
+import { fmtBRL, safeNum }  from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -47,15 +47,18 @@ const em7Str  = () => new Date(Date.now() +  7 * 86_400_000).toISOString().slice
 const em30Str = () => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
 
 const fmtK = (v) => {
-  const n = Math.abs(v);
-  if (n >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(v / 1_000).toFixed(0)}k`;
-  return String(Math.round(v));
+  const val = safeNum(v);
+  const n = Math.abs(val);
+  if (n >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(val / 1_000).toFixed(0)}k`;
+  return String(Math.round(val));
 };
 
 const safePct = (cur, prev) => {
-  if (!Number.isFinite(prev) || prev === 0) return null;
-  return (cur - prev) / Math.abs(prev);
+  const p = safeNum(prev);
+  if (p === 0) return null;
+  const c = safeNum(cur);
+  return (c - p) / Math.abs(p);
 };
 
 const PIE_COLORS = [
@@ -97,8 +100,8 @@ export default function DashboardPFV2Page() {
       if (!l.data) continue;
       if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
       if (filterPeriodo.mes && l.data.slice(5, 7) !== filterPeriodo.mes) continue;
-      if (l.tipo === "Entrada") receitas += Number(l.valor) || 0;
-      else if (l.tipo === "Saida") despesas += Number(l.valor) || 0;
+      if (l.tipo === "Entrada") receitas += safeNum(l.valor);
+      else if (l.tipo === "Saida") despesas += safeNum(l.valor);
     }
     return { receitas, despesas };
   }, [lancamentos, filterPeriodo]);
@@ -128,7 +131,7 @@ export default function DashboardPFV2Page() {
     return recAtivas
       .filter((r) => toKey(r.proxima_data) <= limite)
       .reduce(
-        (acc, r) => acc + (r.tipo === "Receita" ? parseFloat(r.valor) : -parseFloat(r.valor)),
+        (acc, r) => acc + (r.tipo === "Receita" ? safeNum(r.valor) : -safeNum(r.valor)),
         0
       );
   }, [recAtivas]);
@@ -140,10 +143,14 @@ export default function DashboardPFV2Page() {
       if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
       const mesIdx = parseInt(l.data.slice(5, 7), 10) - 1;
       if (mesIdx < 0 || mesIdx > 11) continue;
-      if (l.tipo === "Entrada") totais[mesIdx].rec  += Number(l.valor) || 0;
-      else if (l.tipo === "Saida") totais[mesIdx].desp += Number(l.valor) || 0;
+      if (l.tipo === "Entrada") totais[mesIdx].rec  += safeNum(l.valor);
+      else if (l.tipo === "Saida") totais[mesIdx].desp += safeNum(l.valor);
     }
-    return MESES.map((name, i) => ({ name, Receitas: totais[i].rec, Despesas: totais[i].desp }));
+    return MESES.map((name, i) => ({
+      name,
+      Receitas: safeNum(totais[i].rec),
+      Despesas: safeNum(totais[i].desp),
+    }));
   }, [lancamentos, filterPeriodo.ano]);
 
   const mensalData    = pfMensal;
@@ -178,11 +185,11 @@ export default function DashboardPFV2Page() {
       const plano = planoContas.find((p) => p.id === l.planoId);
       if (!plano || plano.tipo === "Receita") continue;
 
-      h[plano.descricao] = (h[plano.descricao] || 0) + l.valor;
+      h[plano.descricao] = (h[plano.descricao] || 0) + safeNum(l.valor);
       if (!meta[plano.descricao]) meta[plano.descricao] = { fill: plano.cor, icone: plano.icone };
     }
     return Object.entries(h)
-      .map(([name, value]) => ({ name, value, ...meta[name] }))
+      .map(([name, value]) => ({ name, value: safeNum(value), ...meta[name] }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [lancamentos, planoContas, filterPeriodo]);
@@ -226,9 +233,9 @@ export default function DashboardPFV2Page() {
       });
     }
     if (categoriasData.length > 0) {
-      const totalDesp = categoriasData.reduce((s, c) => s + c.value, 0);
+      const totalDesp = categoriasData.reduce((s, c) => s + safeNum(c.value), 0);
       const top = categoriasData[0];
-      const pct = totalDesp > 0 ? (top.value / totalDesp) * 100 : 0;
+      const pct = totalDesp > 0 ? (safeNum(top.value) / totalDesp) * 100 : 0;
       items.push({
         tone: pct > 40 ? "warning" : "info",
         icon: "money",
@@ -466,7 +473,8 @@ export default function DashboardPFV2Page() {
                       position="center"
                       content={({ viewBox }) => {
                         const { cx, cy } = viewBox || {};
-                        const total = categoriasData.reduce((s, x) => s + x.value, 0);
+                        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+                        const total = categoriasData.reduce((s, x) => s + safeNum(x.value), 0);
                         return (
                           <g>
                             <text x={cx} y={cy - 6} textAnchor="middle" className="pie-center-label">Total</text>

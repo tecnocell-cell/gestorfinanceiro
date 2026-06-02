@@ -4,20 +4,21 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { CHART, MESES } from "../../constants.js";
-import { fmtBRL } from "../../finance.js";
+import { fmtBRL, safeNum } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
 import { Star, Circle, LineChart } from "../icons.jsx";
 
 const fmtK = (v) => {
-  const n = Math.abs(v);
-  if (n >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(v / 1_000).toFixed(0)}k`;
-  return String(Math.round(v));
+  const val = safeNum(v);
+  const n = Math.abs(val);
+  if (n >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(val / 1_000).toFixed(0)}k`;
+  return String(Math.round(val));
 };
 
 function HeroTooltip({ active, payload, label, currentMonthName, bestMonthName }) {
   if (!active || !payload?.length) return null;
-  const get = (k) => payload.find((p) => p.dataKey === k)?.value ?? 0;
+  const get = (k) => safeNum(payload.find((p) => p.dataKey === k)?.value);
   const rec = get("Receitas");
   const desp = get("Despesas");
   const saldo = rec - desp;
@@ -61,13 +62,17 @@ function HeroTooltip({ active, payload, label, currentMonthName, bestMonthName }
  */
 function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitle }) {
   const enriched = useMemo(
-    () => (data || []).map((d) => ({ ...d, Saldo: (d.Receitas || 0) - (d.Despesas || 0) })),
+    () => (data || []).map((d) => {
+      const Receitas = safeNum(d.Receitas);
+      const Despesas = safeNum(d.Despesas);
+      return { ...d, name: d.name, Receitas, Despesas, Saldo: Receitas - Despesas };
+    }),
     [data]
   );
 
   const totals = useMemo(() => {
     let r = 0, d = 0;
-    for (const x of enriched) { r += x.Receitas || 0; d += x.Despesas || 0; }
+    for (const x of enriched) { r += safeNum(x.Receitas); d += safeNum(x.Despesas); }
     return { rec: r, desp: d, saldo: r - d };
   }, [enriched]);
 
@@ -77,14 +82,16 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
     if (!enriched.length) return null;
     let best = null;
     for (const x of enriched) {
-      if (((x.Receitas || 0) + (x.Despesas || 0)) === 0) continue;
-      if (!best || x.Saldo > best.Saldo) best = x;
+      if (safeNum(x.Receitas) + safeNum(x.Despesas) === 0) continue;
+      if (!best || safeNum(x.Saldo) > safeNum(best.Saldo)) best = x;
     }
     return best;
   }, [enriched]);
 
   const hasData = totals.rec + totals.desp > 0;
-  const hasCurrent = enriched.some((d) => d.name === currentMonthName && ((d.Receitas || 0) + (d.Despesas || 0)) > 0);
+  const hasCurrent = enriched.some(
+    (d) => d.name === currentMonthName && safeNum(d.Receitas) + safeNum(d.Despesas) > 0
+  );
 
   return (
     <div className="dash-hero-chart">
@@ -126,7 +133,7 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
             hint="Dica: cadastre recorrências para automatizar a entrada de dados."
           />
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
             <ComposedChart data={enriched} margin={{ top: 14, right: 14, left: 0, bottom: 4 }}>
               <defs>
                 <linearGradient id="heroRecGrad" x1="0" y1="0" x2="0" y2="1">

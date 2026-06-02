@@ -2,10 +2,17 @@ import { MESES } from "./constants.js";
 
 export const generateId = () => Math.random().toString(36).slice(2, 11);
 
-export const fmtBRL = (v) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+/** Valor numérico seguro para cálculos e gráficos (NaN/inválido → fallback). */
+export const safeNum = (v, fallback = 0) => {
+  if (v == null || v === "") return fallback;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+};
 
-export const fmtPct = (v) => `${((v || 0) * 100).toFixed(1)}%`;
+export const fmtBRL = (v) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(safeNum(v));
+
+export const fmtPct = (v) => `${(safeNum(v) * 100).toFixed(1)}%`;
 
 /** Normaliza DATE do Postgres (string ISO, Date ou YYYY-MM-DD). */
 export const toDateKey = (d) => {
@@ -45,11 +52,11 @@ export const getSaldoConta = (contaId, contas, lancamentos) => {
   if (!conta) return 0;
   const entradas = lancamentos
     .filter((l) => l.contaEntradaId === contaId)
-    .reduce((s, l) => s + l.valor, 0);
+    .reduce((s, l) => s + safeNum(l.valor), 0);
   const saidas = lancamentos
     .filter((l) => l.contaSaidaId === contaId)
-    .reduce((s, l) => s + l.valor, 0);
-  return (conta.saldoInicial || 0) + entradas - saidas;
+    .reduce((s, l) => s + safeNum(l.valor), 0);
+  return safeNum(conta.saldoInicial) + entradas - saidas;
 };
 
 export const getSaldoTotal = (contas, lancamentos) =>
@@ -140,8 +147,8 @@ const movPlano = (lancamentos, planoId, opts = {}) => {
     })
     .reduce(
       (acc, l) => {
-        if (l.tipo === "Entrada") acc.entradas += l.valor;
-        if (l.tipo === "Saida" || l.tipo === "Transferencia") acc.saidas += l.valor;
+        if (l.tipo === "Entrada") acc.entradas += safeNum(l.valor);
+        if (l.tipo === "Saida" || l.tipo === "Transferencia") acc.saidas += safeNum(l.valor);
         return acc;
       },
       { entradas: 0, saidas: 0 }
@@ -331,7 +338,7 @@ export const getFluxoCaixa = (lancamentos, ano, mes) => {
   let saldo = 0;
   return filtered.map((l) => {
     if (l.tipo !== "Transferencia") {
-      saldo += l.tipo === "Entrada" ? l.valor : -l.valor;
+      saldo += l.tipo === "Entrada" ? safeNum(l.valor) : -safeNum(l.valor);
     }
     return { ...l, saldoAcumulado: saldo };
   });
@@ -344,10 +351,10 @@ export const lancamentosComSaldoConta = (lancamentos, contas, contaId) => {
   // em ordem cronológica (ASC), então invertemos, acumulamos e voltamos a DESC.
   const sortedDesc = filterLancamentos(lancamentos, { contaId });
   const sortedAsc = [...sortedDesc].reverse();
-  let saldo = conta.saldoInicial || 0;
+  let saldo = safeNum(conta.saldoInicial);
   const withSaldoAsc = sortedAsc.map((l) => {
-    if (l.contaEntradaId === contaId) saldo += l.valor;
-    if (l.contaSaidaId === contaId) saldo -= l.valor;
+    if (l.contaEntradaId === contaId) saldo += safeNum(l.valor);
+    if (l.contaSaidaId === contaId) saldo -= safeNum(l.valor);
     return { ...l, saldoConta: saldo };
   });
   return withSaldoAsc.reverse();

@@ -98,24 +98,37 @@ function OperacaoForm({
             value={observacao} onChange={(e) => { setObservacao(e.target.value); clearPreview(); }} />
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: preview ? 16 : 0 }}>
+      <div style={{ marginBottom: preview ? 16 : 0 }}>
         <button type="button" className="btn btn-secondary"
           disabled={previewLoading || !valor || !data}
           onClick={onPreview}>
           {previewLoading ? "Gerando..." : previewBtnLabel}
         </button>
-        {preview && (
-          <button type="button" className="btn btn-primary"
-            disabled={confirmando}
-            onClick={onConfirm}>
-            {confirmando ? "Confirmando..." : confirmBtnLabel}
-          </button>
-        )}
       </div>
       {preview && (
-        <div style={{ display: "grid", gap: 12, marginTop: 4 }}>
-          <PreviewLancamento titulo="Lançamento PJ" lado="Saída" lanc={preview.lancamentoPj} />
-          <PreviewLancamento titulo="Lançamento PF" lado="Entrada" lanc={preview.lancamentoPf} />
+        <div style={{
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "16px",
+          background: "var(--card)",
+          marginBottom: 8,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+            Revise os lançamentos antes de confirmar
+          </div>
+          <div style={{ display: "grid", gap: 12 }}>
+            <PreviewLancamento titulo="Saída na PJ" lado="Saída" lanc={preview.lancamentoPj} />
+            <PreviewLancamento titulo="Entrada na PF" lado="Entrada" lanc={preview.lancamentoPf} />
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: "100%", marginTop: 16, fontWeight: 700 }}
+            disabled={confirmando}
+            onClick={onConfirm}
+          >
+            {confirmando ? "Confirmando..." : confirmBtnLabel}
+          </button>
         </div>
       )}
     </>
@@ -493,7 +506,7 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewProLabore}
               onConfirm={handleConfirmarProLabore}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar pró-labore"
+              confirmBtnLabel="Confirmar e lançar pró-labore"
               description={
                 <>
                   Gera automaticamente <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> vinculada
@@ -526,7 +539,7 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewLucros}
               onConfirm={handleConfirmarLucros}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar distribuição"
+              confirmBtnLabel="Confirmar e lançar distribuição de lucros"
               description={
                 <>
                   Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por distribuição de lucros
