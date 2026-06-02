@@ -18,7 +18,7 @@ const TABS = [
 
 const TIPO_OP_LABEL = {
   pro_labore: "Pró-labore",
-  distribuicao_lucros: "Distribuição de lucros",
+  distribuicao_lucros: "Distribuição de Lucros",
 };
 
 function statusBadge(status) {
@@ -330,12 +330,12 @@ export default function IntegracaoPfPjPage() {
       setLucrosPreview(null);
       setLucrosValor("");
       setLucrosObs("");
-      setMsg("Distribuição de lucros registrada nos dois lados.");
+      setMsg("Distribuição de Lucros registrada nos dois lados.");
       if (reloadAppState) reloadAppState();
       setTab("historico");
       loadOperacoes();
     } catch (err) {
-      setErro(err.message || "Erro ao confirmar distribuição de lucros.");
+      setErro(err.message || "Erro ao confirmar Distribuição de Lucros.");
     } finally {
       setLucrosConfirmando(false);
     }
@@ -390,7 +390,7 @@ export default function IntegracaoPfPjPage() {
           </div>
           <h2 className="of-hero-title">Vincule sua conta PF</h2>
           <p className="of-hero-sub">
-            Vincule sua conta PF e lance pró-labore ou distribuição de lucros
+            Vincule sua conta PF e lance pró-labore ou Distribuição de Lucros
             com lançamentos automáticos nos dois lados.
           </p>
         </div>
@@ -539,10 +539,10 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewLucros}
               onConfirm={handleConfirmarLucros}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar e lançar distribuição de lucros"
+              confirmBtnLabel="Confirmar e lançar Distribuição de Lucros"
               description={
                 <>
-                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por distribuição de lucros
+                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por Distribuição de Lucros
                   ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
                 </>
               }
