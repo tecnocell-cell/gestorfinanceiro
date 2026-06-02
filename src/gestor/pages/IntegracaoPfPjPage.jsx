@@ -7,18 +7,23 @@ import { integracaoPfPjApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
+  CircleDollarSign, ArrowRight,
 } from "../components/icons.jsx";
 
 const TABS = [
   { id: "vinculo", label: "Vínculo" },
   { id: "prolabore", label: "Pró-labore" },
   { id: "lucros", label: "Distribuição de Lucros" },
+  { id: "salario", label: "Salário" },
+  { id: "transferencia", label: "Transferência PJ → PF" },
   { id: "historico", label: "Histórico" },
 ];
 
 const TIPO_OP_LABEL = {
   pro_labore: "Pró-labore",
   distribuicao_lucros: "Distribuição de Lucros",
+  salario: "Salário",
+  transferencia_pj_pf: "Transferência PJ → PF",
 };
 
 function statusBadge(status) {
@@ -201,6 +206,20 @@ export default function IntegracaoPfPjPage() {
   const [lucrosPreviewLoading, setLucrosPreviewLoading] = useState(false);
   const [lucrosConfirmando, setLucrosConfirmando] = useState(false);
 
+  const [salarioValor, setSalarioValor] = useState("");
+  const [salarioData, setSalarioData] = useState(new Date().toISOString().slice(0, 10));
+  const [salarioObs, setSalarioObs] = useState("");
+  const [salarioPreview, setSalarioPreview] = useState(null);
+  const [salarioPreviewLoading, setSalarioPreviewLoading] = useState(false);
+  const [salarioConfirmando, setSalarioConfirmando] = useState(false);
+
+  const [transfValor, setTransfValor] = useState("");
+  const [transfData, setTransfData] = useState(new Date().toISOString().slice(0, 10));
+  const [transfObs, setTransfObs] = useState("");
+  const [transfPreview, setTransfPreview] = useState(null);
+  const [transfPreviewLoading, setTransfPreviewLoading] = useState(false);
+  const [transfConfirmando, setTransfConfirmando] = useState(false);
+
   const [operacoes, setOperacoes] = useState([]);
   const [loadingOps, setLoadingOps] = useState(false);
   const [desfazendoId, setDesfazendoId] = useState(null);
@@ -341,6 +360,74 @@ export default function IntegracaoPfPjPage() {
     }
   };
 
+  const handlePreviewSalario = async () => {
+    setSalarioPreviewLoading(true);
+    setErro(null);
+    setSalarioPreview(null);
+    try {
+      const res = await integracaoPfPjApi.previewSalario(salarioValor, salarioData, salarioObs);
+      setSalarioPreview(res);
+    } catch (err) {
+      setErro(err.message || "Erro ao gerar preview.");
+    } finally {
+      setSalarioPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmarSalario = async () => {
+    setSalarioConfirmando(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      await integracaoPfPjApi.confirmarSalario(salarioValor, salarioData, salarioObs);
+      setSalarioPreview(null);
+      setSalarioValor("");
+      setSalarioObs("");
+      setMsg("Salário registrado nos dois lados.");
+      if (reloadAppState) reloadAppState();
+      setTab("historico");
+      loadOperacoes();
+    } catch (err) {
+      setErro(err.message || "Erro ao confirmar Salário.");
+    } finally {
+      setSalarioConfirmando(false);
+    }
+  };
+
+  const handlePreviewTransferencia = async () => {
+    setTransfPreviewLoading(true);
+    setErro(null);
+    setTransfPreview(null);
+    try {
+      const res = await integracaoPfPjApi.previewTransferencia(transfValor, transfData, transfObs);
+      setTransfPreview(res);
+    } catch (err) {
+      setErro(err.message || "Erro ao gerar preview.");
+    } finally {
+      setTransfPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmarTransferencia = async () => {
+    setTransfConfirmando(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      await integracaoPfPjApi.confirmarTransferencia(transfValor, transfData, transfObs);
+      setTransfPreview(null);
+      setTransfValor("");
+      setTransfObs("");
+      setMsg("Transferência PJ → PF registrada nos dois lados.");
+      if (reloadAppState) reloadAppState();
+      setTab("historico");
+      loadOperacoes();
+    } catch (err) {
+      setErro(err.message || "Erro ao confirmar Transferência PJ → PF.");
+    } finally {
+      setTransfConfirmando(false);
+    }
+  };
+
   const handleConfirmarProLabore = async () => {
     setConfirmando(true);
     setErro(null);
@@ -390,7 +477,7 @@ export default function IntegracaoPfPjPage() {
           </div>
           <h2 className="of-hero-title">Vincule sua conta PF</h2>
           <p className="of-hero-sub">
-            Vincule sua conta PF e lance pró-labore ou Distribuição de Lucros
+            Vincule sua conta PF e lance pró-labore, lucros, salário ou transferências
             com lançamentos automáticos nos dois lados.
           </p>
         </div>
@@ -543,6 +630,72 @@ export default function IntegracaoPfPjPage() {
               description={
                 <>
                   Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por Distribuição de Lucros
+                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
+                </>
+              }
+            />
+          </div>
+        )}
+
+        {tab === "salario" && (
+          <div className="card">
+            <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CircleDollarSign size={18} strokeWidth={2} aria-hidden />
+              Salário
+            </div>
+            <OperacaoForm
+              vinculo={vinculoAtivo ? vinculo : null}
+              viewOnly={viewOnly}
+              valor={salarioValor}
+              setValor={setSalarioValor}
+              data={salarioData}
+              setData={setSalarioData}
+              observacao={salarioObs}
+              setObservacao={setSalarioObs}
+              preview={salarioPreview}
+              clearPreview={() => setSalarioPreview(null)}
+              previewLoading={salarioPreviewLoading}
+              confirmando={salarioConfirmando}
+              onPreview={handlePreviewSalario}
+              onConfirm={handleConfirmarSalario}
+              previewBtnLabel="Ver preview"
+              confirmBtnLabel="Confirmar e lançar Salário"
+              description={
+                <>
+                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por salário
+                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
+                </>
+              }
+            />
+          </div>
+        )}
+
+        {tab === "transferencia" && (
+          <div className="card">
+            <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ArrowRight size={18} strokeWidth={2} aria-hidden />
+              Transferência PJ → PF
+            </div>
+            <OperacaoForm
+              vinculo={vinculoAtivo ? vinculo : null}
+              viewOnly={viewOnly}
+              valor={transfValor}
+              setValor={setTransfValor}
+              data={transfData}
+              setData={setTransfData}
+              observacao={transfObs}
+              setObservacao={setTransfObs}
+              preview={transfPreview}
+              clearPreview={() => setTransfPreview(null)}
+              previewLoading={transfPreviewLoading}
+              confirmando={transfConfirmando}
+              onPreview={handlePreviewTransferencia}
+              onConfirm={handleConfirmarTransferencia}
+              previewBtnLabel="Ver preview"
+              confirmBtnLabel="Confirmar e lançar Transferência PJ → PF"
+              description={
+                <>
+                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por transferência
                   ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
                 </>
               }

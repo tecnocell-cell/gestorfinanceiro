@@ -10,6 +10,8 @@
  *   POST   /api/integracao-pf-pj/recusar
  *   POST   /api/integracao-pf-pj/pro-labore/preview | /pro-labore
  *   POST   /api/integracao-pf-pj/lucros/preview | /lucros
+ *   POST   /api/integracao-pf-pj/salario/preview | /salario
+ *   POST   /api/integracao-pf-pj/transferencia/preview | /transferencia
  *   GET    /api/integracao-pf-pj/operacoes
  *   POST   /api/integracao-pf-pj/operacoes/:id/rollback
  */
@@ -106,6 +108,98 @@ async function loadEstadosForPreview(usuarioPjId, usuarioPfId) {
 
 const MSG_VINCULO_PRO_LABORE = 'Vínculo PF ativo necessário para lançar pró-labore.';
 const MSG_VINCULO_LUCROS = 'Vínculo PF ativo necessário para distribuir lucros.';
+const MSG_VINCULO_SALARIO = 'Vínculo PF ativo necessário para lançar salário.';
+const MSG_VINCULO_TRANSFERENCIA = 'Vínculo PF ativo necessário para transferência PJ→PF.';
+
+function registerOperacaoPjPfRoutes(router, {
+  path,
+  tipoOperacao,
+  msgVinculo,
+  erroConfirmar,
+}) {
+  router.post(`/${path}/preview`, async (req, res) => {
+    try {
+      if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+      const vinculo = await findVinculoAtivoConfirmado(req.user.id);
+      if (!vinculo) {
+        return res.status(422).json({ error: msgVinculo });
+      }
+
+      const { valor, data, observacao } = req.body || {};
+      const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
+        req.user.id,
+        vinculo.usuario_pf_id
+      );
+
+      const preview = previewOperacao(tipoOperacao, {
+        dadosPj,
+        dadosPf,
+        vinculo,
+        nomePj,
+        valor,
+        data,
+        observacao,
+      });
+
+      return res.json(preview);
+    } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      console.error(`integracao-pf-pj POST /${path}/preview:`, err.message);
+      res.status(500).json({ error: 'Erro ao gerar preview.' });
+    }
+  });
+
+  router.post(`/${path}`, async (req, res) => {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const client = await pool.connect();
+    try {
+      const { valor, data, observacao } = req.body || {};
+
+      await client.query('BEGIN');
+
+      const { rows: vincRows } = await client.query(
+        `SELECT ${VINCULO_COLS}
+         FROM integracao_pf_pj_vinculo
+         WHERE usuario_pj_id = $1 AND status = 'ativo'
+         FOR UPDATE`,
+        [req.user.id]
+      );
+
+      if (!vincRows.length) {
+        await client.query('ROLLBACK');
+        return res.status(422).json({ error: msgVinculo });
+      }
+
+      const vinculo = vincRows[0];
+      const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
+      const uPj = await getTipoPerfil(req.user.id);
+
+      const result = await confirmOperacao(client, tipoOperacao, {
+        usuarioPjId: req.user.id,
+        vinculo,
+        nomePj: uPj?.nome_perfil || uPj?.nome,
+        dadosPj: estados[req.user.id],
+        dadosPf: estados[vinculo.usuario_pf_id],
+        valor,
+        data,
+        observacao,
+      });
+
+      await client.query('COMMIT');
+
+      return res.status(201).json(result);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      console.error(`integracao-pf-pj POST /${path}:`, err.message);
+      res.status(500).json({ error: erroConfirmar });
+    } finally {
+      client.release();
+    }
+  });
+}
 
 async function lockEstadosOrdenados(client, usuarioA, usuarioB) {
   const sorted = [usuarioA, usuarioB].sort();
@@ -550,6 +644,20 @@ router.post('/lucros', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+registerOperacaoPjPfRoutes(router, {
+  path: 'salario',
+  tipoOperacao: 'salario',
+  msgVinculo: MSG_VINCULO_SALARIO,
+  erroConfirmar: 'Erro ao registrar salário.',
+});
+
+registerOperacaoPjPfRoutes(router, {
+  path: 'transferencia',
+  tipoOperacao: 'transferencia_pj_pf',
+  msgVinculo: MSG_VINCULO_TRANSFERENCIA,
+  erroConfirmar: 'Erro ao registrar transferência PJ→PF.',
 });
 
 // ─── GET /operacoes ───────────────────────────────────────────────────────────

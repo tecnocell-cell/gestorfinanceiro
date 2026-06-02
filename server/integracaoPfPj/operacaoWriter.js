@@ -29,6 +29,28 @@ export const TIPOS_OPERACAO = {
       };
     },
   },
+  salario: {
+    buildHistoricos({ nomePf, nomePj, observacao }) {
+      const obs = String(observacao || '').trim();
+      const sufixo = obs ? ` — ${obs}` : '';
+      return {
+        pj: `Salário — ${nomePf}${sufixo}`,
+        pf: `Salário recebido — ${nomePj}${sufixo}`,
+        resumo: `Salário — ${nomePf}${sufixo}`,
+      };
+    },
+  },
+  transferencia_pj_pf: {
+    buildHistoricos({ nomePf, nomePj, observacao }) {
+      const obs = String(observacao || '').trim();
+      const sufixo = obs ? ` — ${obs}` : '';
+      return {
+        pj: `Transferência PJ→PF — ${nomePf}${sufixo}`,
+        pf: `Transferência recebida — ${nomePj}${sufixo}`,
+        resumo: `Transferência PJ→PF — ${nomePf}${sufixo}`,
+      };
+    },
+  },
 };
 
 function assertTipoOperacao(tipoOperacao) {

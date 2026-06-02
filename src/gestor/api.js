@@ -241,6 +241,30 @@ export const integracaoPfPjApi = {
       body: { valor, data, observacao: observacao || "" },
     }),
 
+  previewSalario: (valor, data, observacao) =>
+    request("/integracao-pf-pj/salario/preview", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  confirmarSalario: (valor, data, observacao) =>
+    request("/integracao-pf-pj/salario", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  previewTransferencia: (valor, data, observacao) =>
+    request("/integracao-pf-pj/transferencia/preview", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  confirmarTransferencia: (valor, data, observacao) =>
+    request("/integracao-pf-pj/transferencia", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
   listOperacoes: () => request("/integracao-pf-pj/operacoes"),
 
   rollbackOperacao: (id) =>
