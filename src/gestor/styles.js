@@ -5490,6 +5490,9 @@ export const css = `
   .lanc-saldo-anterior strong { font-family: var(--font-mono); color: var(--text); }
 
   .lanc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .lanc-card:has(.lanc-table-wrap-pj) {
+    overflow: visible;
+  }
   .lanc-table-wrap {
     overflow-x: auto;
     max-width: 100%;
@@ -5506,7 +5509,9 @@ export const css = `
     white-space: normal;
   }
   .lanc-table-wrap-pj {
-    overflow-x: hidden;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-right: 4px;
   }
   .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   .lanc-table.lanc-table-pj {
@@ -5524,7 +5529,7 @@ export const css = `
   .lanc-table-pj .lanc-col-op { width: 9%; }
   .lanc-table-pj .lanc-col-hist { width: auto; }
   .lanc-table-pj .lanc-col-dom { width: 5%; }
-  .lanc-table-pj .lanc-col-act { width: 52px; }
+  .lanc-table-pj .lanc-col-act { width: 76px; min-width: 76px; }
   .lanc-table-pj thead th {
     font-size: 9px;
     padding: 6px 5px;
@@ -5718,6 +5723,33 @@ export const css = `
     min-width: 80px;
     padding-left: 8px;
     padding-right: 14px !important;
+  }
+  .lanc-table-pj tbody td.lanc-actions-cell {
+    width: 76px;
+    min-width: 76px;
+    padding-right: 12px !important;
+    overflow: visible;
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: var(--bg2);
+    box-shadow: -6px 0 8px -6px color-mix(in oklab, var(--text) 18%, transparent);
+  }
+  .lanc-table-pj tbody tr.lanc-row-in td.lanc-actions-cell {
+    background: color-mix(in oklab, var(--info) 7%, var(--bg2));
+  }
+  .lanc-table-pj tbody tr.lanc-row-out td.lanc-actions-cell {
+    background: color-mix(in oklab, var(--destructive) 6%, var(--bg2));
+  }
+  .lanc-table-pj tbody tr:hover td.lanc-actions-cell {
+    background: color-mix(in oklab, var(--primary) 5%, var(--bg2)) !important;
+  }
+  .lanc-table-pj thead th:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+    background: color-mix(in oklab, var(--bg) 60%, var(--bg2));
+    box-shadow: -6px 0 8px -6px color-mix(in oklab, var(--text) 12%, transparent);
   }
   .lanc-actions {
     display: inline-flex;

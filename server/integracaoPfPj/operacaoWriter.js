@@ -21,7 +21,7 @@ import {
   validateLancamentoPfIntegracao,
   validateLancamentoPjIntegracao,
 } from './lancamentoPfPj.js';
-import { parseValor, parseValorToCentavos, reaisFromCentavos } from '../utils/money.js';
+import { parseValor, parseValorToCentavos, reaisFromCentavos, resolveValorCentavos } from '../utils/money.js';
 
 const SOURCE = SOURCE_INTEGRACAO;
 
@@ -174,13 +174,14 @@ export function previewOperacao(tipoOperacao, {
   vinculo,
   nomePj,
   valor,
+  valorCentavos: valorCentavosIn,
   data,
   observacao,
 }) {
   assertTipoOperacao(tipoOperacao);
   const config = TIPOS_OPERACAO[tipoOperacao];
 
-  const valorNum = parseValor(valor);
+  const valorNum = reaisFromCentavos(resolveValorCentavos({ valor, valorCentavos: valorCentavosIn }));
   const dataStr = parseData(data);
   const { empPj, empPf } = resolveEmpresaForPreview(dadosPj, dadosPf);
 
@@ -242,6 +243,7 @@ export async function confirmOperacao(client, tipoOperacao, {
   pjProfile,
   pfProfile,
   valor,
+  valorCentavos: valorCentavosIn,
   data,
   observacao,
 }) {
@@ -250,7 +252,7 @@ export async function confirmOperacao(client, tipoOperacao, {
 
   let valorCentavos;
   try {
-    valorCentavos = parseValorToCentavos(valor);
+    valorCentavos = resolveValorCentavos({ valor, valorCentavos: valorCentavosIn });
   } catch (e) {
     if (e.status) throw e;
     const err = new Error('Valor deve ser maior que zero.');

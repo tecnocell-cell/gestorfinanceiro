@@ -26,6 +26,37 @@ export const subMoney = (a, b) => roundMoney(safeNum(a) - safeNum(b));
 export const fmtBRL = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(safeNum(v));
 
+/** Converte entrada do usuário (15000, "15.000,00", etc.) em centavos inteiros. */
+export function parseMoneyInputToCentavos(valor) {
+  if (valor == null || valor === "") return null;
+
+  let reais;
+  if (typeof valor === "number" && Number.isFinite(valor)) {
+    reais = Number(valor.toFixed(2));
+  } else {
+    let t = String(valor).trim().replace(/\s/g, "").replace(/^R\$/i, "");
+    if (!t) return null;
+    const lastComma = t.lastIndexOf(",");
+    const lastDot = t.lastIndexOf(".");
+    if (lastComma > -1 && lastDot > -1) {
+      t = lastComma > lastDot
+        ? t.replace(/\./g, "").replace(",", ".")
+        : t.replace(/,/g, "");
+    } else if (lastComma > -1) {
+      t = t.replace(",", ".");
+    } else if (lastDot > -1) {
+      const parts = t.split(".");
+      if (parts.length > 2) t = parts.join("");
+    }
+    const raw = parseFloat(t);
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    reais = Number(raw.toFixed(2));
+  }
+
+  const [intPart, decPart = "00"] = reais.toFixed(2).split(".");
+  return parseInt(intPart, 10) * 100 + parseInt(decPart.slice(0, 2).padEnd(2, "0"), 10);
+}
+
 export const fmtPct = (v) => `${(safeNum(v) * 100).toFixed(1)}%`;
 
 /** Normaliza DATE do Postgres (string ISO, Date ou YYYY-MM-DD). */

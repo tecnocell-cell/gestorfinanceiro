@@ -129,7 +129,7 @@ function registerOperacaoPjPfRoutes(router, {
         return res.status(422).json({ error: msgVinculo });
       }
 
-      const { valor, data, observacao } = req.body || {};
+      const { valor, valorCentavos, data, observacao } = req.body || {};
       const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
         req.user.id,
         vinculo.usuario_pf_id
@@ -141,6 +141,7 @@ function registerOperacaoPjPfRoutes(router, {
         vinculo,
         nomePj,
         valor,
+        valorCentavos,
         data,
         observacao,
       });
@@ -158,7 +159,7 @@ function registerOperacaoPjPfRoutes(router, {
 
     const client = await pool.connect();
     try {
-      const { valor, data, observacao } = req.body || {};
+      const { valor, valorCentavos, data, observacao } = req.body || {};
 
       await client.query('BEGIN');
 
@@ -189,6 +190,7 @@ function registerOperacaoPjPfRoutes(router, {
         pjProfile: uPj,
         pfProfile: uPf,
         valor,
+        valorCentavos,
         data,
         observacao,
       });
@@ -489,7 +491,7 @@ router.post('/pro-labore/preview', async (req, res) => {
       return res.status(422).json({ error: MSG_VINCULO_PRO_LABORE });
     }
 
-    const { valor, data, observacao } = req.body || {};
+    const { valor, valorCentavos, data, observacao } = req.body || {};
     const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
       req.user.id,
       vinculo.usuario_pf_id
@@ -501,6 +503,7 @@ router.post('/pro-labore/preview', async (req, res) => {
       vinculo,
       nomePj,
       valor,
+      valorCentavos,
       data,
       observacao,
     });
@@ -520,7 +523,7 @@ router.post('/pro-labore', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const { valor, data, observacao } = req.body || {};
+    const { valor, valorCentavos, data, observacao } = req.body || {};
 
     await client.query('BEGIN');
 
@@ -551,6 +554,7 @@ router.post('/pro-labore', async (req, res) => {
       pjProfile: uPj,
       pfProfile: uPf,
       valor,
+      valorCentavos,
       data,
       observacao,
     });
@@ -579,7 +583,7 @@ router.post('/lucros/preview', async (req, res) => {
       return res.status(422).json({ error: MSG_VINCULO_LUCROS });
     }
 
-    const { valor, data, observacao } = req.body || {};
+    const { valor, valorCentavos, data, observacao } = req.body || {};
     const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
       req.user.id,
       vinculo.usuario_pf_id
@@ -591,6 +595,7 @@ router.post('/lucros/preview', async (req, res) => {
       vinculo,
       nomePj,
       valor,
+      valorCentavos,
       data,
       observacao,
     });
@@ -610,7 +615,7 @@ router.post('/lucros', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const { valor, data, observacao } = req.body || {};
+    const { valor, valorCentavos, data, observacao } = req.body || {};
 
     await client.query('BEGIN');
 
@@ -641,6 +646,7 @@ router.post('/lucros', async (req, res) => {
       pjProfile: uPj,
       pfProfile: uPf,
       valor,
+      valorCentavos,
       data,
       observacao,
     });

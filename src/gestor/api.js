@@ -1,4 +1,18 @@
+import { parseMoneyInputToCentavos } from "./finance.js";
+
 const BASE = import.meta.env.VITE_API_URL ?? "/api";
+
+function integracaoValorBody(valor, data, observacao) {
+  const valorCentavos = parseMoneyInputToCentavos(valor);
+  if (!valorCentavos) {
+    throw new Error("Valor inválido. Informe um valor maior que zero.");
+  }
+  return {
+    valorCentavos,
+    data,
+    observacao: observacao || "",
+  };
+}
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("gestor_token");
@@ -220,49 +234,49 @@ export const integracaoPfPjApi = {
   previewProLabore: (valor, data, observacao) =>
     request("/integracao-pf-pj/pro-labore/preview", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   confirmarProLabore: (valor, data, observacao) =>
     request("/integracao-pf-pj/pro-labore", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   previewLucros: (valor, data, observacao) =>
     request("/integracao-pf-pj/lucros/preview", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   confirmarLucros: (valor, data, observacao) =>
     request("/integracao-pf-pj/lucros", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   previewSalario: (valor, data, observacao) =>
     request("/integracao-pf-pj/salario/preview", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   confirmarSalario: (valor, data, observacao) =>
     request("/integracao-pf-pj/salario", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   previewTransferencia: (valor, data, observacao) =>
     request("/integracao-pf-pj/transferencia/preview", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   confirmarTransferencia: (valor, data, observacao) =>
     request("/integracao-pf-pj/transferencia", {
       method: "POST",
-      body: { valor, data, observacao: observacao || "" },
+      body: integracaoValorBody(valor, data, observacao),
     }),
 
   listOperacoes: () => request("/integracao-pf-pj/operacoes"),
