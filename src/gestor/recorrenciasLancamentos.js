@@ -1,7 +1,7 @@
 /**
  * Geração segura de lançamentos a partir de recorrências.
  */
-import { toDateKey } from "./finance.js";
+import { getStatusLancamento, toDateKey } from "./finance.js";
 
 export const SOURCE_RECORRENCIA = "recorrencia";
 
@@ -36,13 +36,103 @@ export function lancamentoRecorrenciaMes(lanc) {
   return monthKeyFromDate(lanc.vencimento ?? lanc.data);
 }
 
+/** Lançamento gerado desta recorrência no mês (YYYY-MM), se existir. */
+export function findLancamentoRecorrenciaMes(lancamentos, recorrenciaId, monthKey) {
+  const id = String(recorrenciaId);
+  return (
+    (lancamentos || []).find((l) => {
+      if (String(l.recorrenciaId || "") !== id) return false;
+      return lancamentoRecorrenciaMes(l) === monthKey;
+    }) || null
+  );
+}
+
 /** Já existe lançamento desta recorrência no mês (YYYY-MM)? */
 export function isRecorrenciaGeradaNoMes(lancamentos, recorrenciaId, monthKey) {
-  const id = String(recorrenciaId);
-  return (lancamentos || []).some((l) => {
-    if (String(l.recorrenciaId || "") !== id) return false;
-    return lancamentoRecorrenciaMes(l) === monthKey;
-  });
+  return !!findLancamentoRecorrenciaMes(lancamentos, recorrenciaId, monthKey);
+}
+
+/**
+ * Situação da recorrência em relação ao mês de referência (tela / filtros).
+ * codes: pendente_gerar | gerada_aberta | gerada_paga | gerada_atrasada | fora_mes | inativa
+ */
+export function getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferencia) {
+  if (rec.status !== "ativa") {
+    return {
+      code: "inativa",
+      label: rec.status === "pausada" ? "Pausada" : "Encerrada",
+      badge: "muted",
+      canGerar: false,
+      jaGerada: false,
+    };
+  }
+
+  if (!recorrenciaVenceNoMes(rec, mesReferencia)) {
+    const mesProx = monthKeyFromDate(rec.proxima_data);
+    return {
+      code: "fora_mes",
+      label: mesProx ? `Vence em ${formatMesReferencia(mesProx)}` : "Outro mês",
+      badge: "muted",
+      hint: `Mês ref.: ${formatMesReferencia(mesReferencia)}`,
+      canGerar: false,
+      jaGerada: false,
+    };
+  }
+
+  const lanc = findLancamentoRecorrenciaMes(lancamentos, rec.id, mesReferencia);
+  if (!lanc) {
+    return {
+      code: "pendente_gerar",
+      label: "Falta gerar",
+      badge: "amber",
+      canGerar: true,
+      jaGerada: false,
+    };
+  }
+
+  const st = getStatusLancamento(lanc);
+  if (st === "pago") {
+    return {
+      code: "gerada_paga",
+      label: "Lançada · Paga",
+      badge: "green",
+      canGerar: false,
+      jaGerada: true,
+      lancamento: lanc,
+    };
+  }
+  if (st === "atrasado") {
+    return {
+      code: "gerada_atrasada",
+      label: "Lançada · Atrasada",
+      badge: "red",
+      canGerar: false,
+      jaGerada: true,
+      lancamento: lanc,
+    };
+  }
+  return {
+    code: "gerada_aberta",
+    label: "Lançada · Em aberto",
+    badge: "blue",
+    canGerar: false,
+    jaGerada: true,
+    lancamento: lanc,
+  };
+}
+
+export function resumoRecorrenciasMes(recorrencias, lancamentos, mesReferencia) {
+  const out = { faltaGerar: 0, emAberto: 0, pagas: 0, atrasadas: 0, foraMes: 0 };
+  for (const rec of recorrencias || []) {
+    if (rec.status !== "ativa") continue;
+    const s = getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferencia);
+    if (s.code === "pendente_gerar") out.faltaGerar += 1;
+    else if (s.code === "gerada_aberta") out.emAberto += 1;
+    else if (s.code === "gerada_paga") out.pagas += 1;
+    else if (s.code === "gerada_atrasada") out.atrasadas += 1;
+    else if (s.code === "fora_mes") out.foraMes += 1;
+  }
+  return out;
 }
 
 export function recorrenciaVenceNoMes(recorrencia, monthKey) {

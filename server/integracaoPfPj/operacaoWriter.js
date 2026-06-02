@@ -17,7 +17,9 @@ import {
 import {
   pickPlanoDespesaPj,
   pickPlanoReceitaPf,
+  snapshotPlanoCampos,
   validateLancamentoPfIntegracao,
+  validateLancamentoPjIntegracao,
 } from './lancamentoPfPj.js';
 
 const SOURCE = SOURCE_INTEGRACAO;
@@ -136,6 +138,7 @@ function buildLancamento({
   usuarioPfId,
 }) {
   const isEntrada = tipo === 'Entrada';
+  const planoSnap = snapshotPlanoCampos(plano, tipo);
   return {
     id,
     codigo,
@@ -144,7 +147,7 @@ function buildLancamento({
     valor: Math.abs(Number(valor)),
     historico,
     descricao: historico,
-    planoId: plano?.id || '',
+    ...planoSnap,
     contaEntradaId: isEntrada ? conta.id : null,
     contaSaidaId: !isEntrada ? conta.id : null,
     codigoDestino: isEntrada ? (conta.codigo ?? null) : null,
@@ -192,7 +195,7 @@ export function previewOperacao(tipoOperacao, {
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
-  const planoPj = pickPlanoDespesaPj(empPj);
+  const planoPj = pickPlanoDespesaPj(empPj, tipoOperacao);
   const planoPf = pickPlanoReceitaPf(empPf, tipoOperacao);
 
   if (!contaPj || !contaPf) {
@@ -265,7 +268,7 @@ export async function confirmOperacao(client, tipoOperacao, {
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
-  const planoPj = pickPlanoDespesaPj(empPj);
+  const planoPj = pickPlanoDespesaPj(empPj, tipoOperacao);
   const planoPf = pickPlanoReceitaPf(empPf, tipoOperacao);
 
   if (!contaPj || !contaPf) {
@@ -320,6 +323,13 @@ export async function confirmOperacao(client, tipoOperacao, {
     usuarioPjId,
     usuarioPfId: vinculo.usuario_pf_id,
   });
+
+  const errosPj = validateLancamentoPjIntegracao(lancPj, empPj);
+  if (errosPj.length) {
+    const err = new Error(`Lançamento PJ inválido: ${errosPj.join('; ')}`);
+    err.status = 500;
+    throw err;
+  }
 
   const errosPf = validateLancamentoPfIntegracao(lancPf, empPf);
   if (errosPf.length) {

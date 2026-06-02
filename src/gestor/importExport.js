@@ -162,13 +162,14 @@ export const exportDominio = (lancamentos, contas, planoContas, company) => {
   for (const l of pendentes) {
     const conta = contas.find((c) => c.id === (l.contaEntradaId || l.contaSaidaId));
     const plano = planoContas.find((p) => p.id === l.planoId);
+    const planoCodigo = plano?.codigo || l.planoCodigo || "";
     lines.push(
       [
         l.data,
         l.lote,
         l.tipo,
         conta?.contaContabil || conta?.codigo || "",
-        plano?.codigo || "",
+        planoCodigo,
         l.valor.toFixed(2),
         (l.historico || "").replace(/\|/g, "/"),
         "N",

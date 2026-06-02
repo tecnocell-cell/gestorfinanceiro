@@ -78,6 +78,17 @@ export const getSaldoTotal = (contas, lancamentos) =>
     .filter((c) => !c.inativo)
     .reduce((s, c) => addMoney(s, getSaldoConta(c.id, contas, lancamentos)), 0);
 
+/** Categoria/discriminação exibida — usa plano do cadastro ou snapshot no lançamento. */
+export const getPlanoLabelLancamento = (lanc, planoContas) => {
+  const plano = (planoContas || []).find((p) => p.id === lanc.planoId);
+  return plano?.descricao || lanc.planoDescricao || "";
+};
+
+export const getPlanoCodigoLancamento = (lanc, planoContas) => {
+  const plano = (planoContas || []).find((p) => p.id === lanc.planoId);
+  return plano?.codigo || lanc.planoCodigo || "";
+};
+
 export const filterLancamentos = (lancamentos, { ano, mes, tipo, search, contaId, consiliado }) => {
   return lancamentos
     .filter((l) => {

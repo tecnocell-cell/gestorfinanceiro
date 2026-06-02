@@ -12,7 +12,9 @@ import { collectAllLancamentos } from './integracaoPfPj/estadoMerge.js';
 import {
   isPlanoDespesaOuCusto,
   isPlanoReceita,
+  pickPlanoDespesaPj,
   pickPlanoReceitaPf,
+  snapshotPlanoCampos,
 } from './integracaoPfPj/lancamentoPfPj.js';
 import { getDRE, getSaldoTotal } from '../src/gestor/finance.js';
 
@@ -89,7 +91,7 @@ function metricasPj(dados) {
   const planos = emp.planoContas || [];
   const ano = new Date().getFullYear().toString();
   const dre = getDRE(lancs, planos, ano, '');
-  return { dre, lancs };
+  return { dre, lancs, planos };
 }
 
 async function cleanup(emails) {
@@ -105,8 +107,17 @@ async function cleanup(emails) {
   }
 }
 
+function testSnapshotPlanoUnit() {
+  const empPj = createInitialState('juridica', 'PJ').empresas[0];
+  const plano = pickPlanoDespesaPj(empPj, 'pro_labore');
+  const snap = snapshotPlanoCampos(plano, 'Saida');
+  assert(snap.planoId && snap.planoDescricao && snap.planoCodigo, 'snapshotPlanoCampos PJ completo');
+}
+
 async function main() {
-  console.log('=== Teste 54 — PF Entrada na integração PJ→PF ===\n');
+  console.log('=== Teste 54 — Integração PJ→PF (PF entrada + PJ discriminação) ===\n');
+
+  testSnapshotPlanoUnit();
 
   const emailPj = `test_pj_54_${TS}@test.local`;
   const emailPf = `test_pf_54_${TS}@test.local`;
@@ -124,6 +135,12 @@ async function main() {
   const planoTest = pickPlanoReceitaPf(empPfPolluted, 'pro_labore');
   assert(planoTest && isPlanoReceita(planoTest), 'pickPlanoReceitaPf ignora Custos Operacionais PJ');
   assert(!isPlanoDespesaOuCusto(planoTest), 'plano escolhido não é despesa/custo');
+
+  const empPjSeed = (await query('SELECT dados FROM estados WHERE usuario_id = $1', [pj.id])).rows[0]
+    .dados.empresas[0];
+  const planoPjTest = pickPlanoDespesaPj(empPjSeed, 'pro_labore');
+  assert(planoPjTest && isPlanoDespesaOuCusto(planoPjTest), 'pickPlanoDespesaPj escolhe despesa/custo');
+  assert(!isPlanoReceita(planoPjTest), 'plano PJ não é receita');
 
   const tokenPj = await login(emailPj, pass);
   const tokenPf = await login(emailPf, pass);
@@ -172,9 +189,25 @@ async function main() {
   assert(mPf.dre.custos === 0, `PF custos = 0 (got ${mPf.dre.custos})`);
   assert(mPf.saldo === 34000, `PF saldo = 34000 (got ${mPf.saldo})`);
 
-  const saidasPj = mPj.lancs
-    .filter((l) => l.source === 'integracao_pf_pj')
-    .reduce((s, l) => s + (l.tipo === 'Saida' ? l.valor : 0), 0);
+  const lancsPjIntegracao = mPj.lancs.filter((l) => l.source === 'integracao_pf_pj');
+  for (const l of lancsPjIntegracao) {
+    assert(l.tipo === 'Saida', `PJ integração tipo Saida (${l.historico})`);
+    assert(!l.contaEntradaId, `PJ sem contaEntradaId (${l.historico})`);
+    assert(!!l.contaSaidaId, `PJ com contaSaidaId (${l.historico})`);
+    assert(l.planoId || l.planoDescricao, `PJ com discriminação (${l.historico})`);
+    if (l.planoId) {
+      const plano = mPj.planos.find((p) => p.id === l.planoId);
+      if (plano) assert(isPlanoDespesaOuCusto(plano), `PJ plano despesa/custo (${plano?.descricao})`);
+    }
+    const labelPj =
+      l.planoDescricao || mPj.planos.find((p) => p.id === l.planoId)?.descricao;
+    assert(labelPj, `PJ discriminação visível (${l.historico})`);
+    if (!l.planoDescricao) {
+      console.log(`  ⚠ PJ sem snapshot planoDescricao (redeploy API): ${l.historico}`);
+    }
+  }
+
+  const saidasPj = lancsPjIntegracao.reduce((s, l) => s + (l.tipo === 'Saida' ? l.valor : 0), 0);
   assert(saidasPj === 34000, `PJ saídas integração = 34000 (got ${saidasPj})`);
   assert(mPj.dre.receitas === 0, `PJ receitas inalteradas (got ${mPj.dre.receitas})`);
 

@@ -13,8 +13,10 @@ import {
   classificarRecorrenciasParaMes,
   formatMesReferencia,
   getMesReferenciaAtual,
+  getRecorrenciaLancamentoMesStatus,
   isRecorrenciaGeradaNoMes,
   monthKeyFromDate,
+  resumoRecorrenciasMes,
 } from "../recorrenciasLancamentos.js";
 import { PenLine, Trash2, Pause, Play, CircleCheck, Repeat, ArrowDownLeft, ArrowUpRight, Clock, AlertTriangle, Loader2, CalendarDays } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
@@ -513,6 +515,7 @@ export default function RecorrenciasPage() {
   const [gerarMesLoading, setGerarMesLoading] = useState(false);
   const [filtroTipo,  setFiltroTipo]  = useState("Todos");
   const [filtroStatus,setFiltroStatus]= useState("ativa");
+  const [filtroLancMes, setFiltroLancMes] = useState("todos");
   const [localError,  setLocalError]  = useState(null);
   const [localSuccess, setLocalSuccess] = useState(null);
 
@@ -526,10 +529,29 @@ export default function RecorrenciasPage() {
     [recorrencias, lancamentos, mesReferencia]
   );
 
+  const resumoMes = useMemo(
+    () => resumoRecorrenciasMes(recorrencias, lancamentos, mesReferencia),
+    [recorrencias, lancamentos, mesReferencia]
+  );
+
+  const statusMesPorRec = useMemo(() => {
+    const map = new Map();
+    for (const r of recorrencias) {
+      map.set(r.id, getRecorrenciaLancamentoMesStatus(r, lancamentos, mesReferencia));
+    }
+    return map;
+  }, [recorrencias, lancamentos, mesReferencia]);
+
   // Filtra lista
   const lista = recorrencias.filter((r) => {
     if (filtroTipo !== "Todos" && r.tipo !== filtroTipo) return false;
     if (filtroStatus !== "Todos" && r.status !== filtroStatus) return false;
+    if (filtroLancMes !== "todos" && r.status === "ativa") {
+      const code = statusMesPorRec.get(r.id)?.code;
+      if (filtroLancMes === "falta" && code !== "pendente_gerar") return false;
+      if (filtroLancMes === "aberta" && code !== "gerada_aberta" && code !== "gerada_atrasada") return false;
+      if (filtroLancMes === "paga" && code !== "gerada_paga") return false;
+    }
     return true;
   });
 
@@ -731,10 +753,51 @@ export default function RecorrenciasPage() {
         <span className="pp-toolbar-spacer" />
         <span className="pp-toolbar-meta" style={{ fontSize: 12, color: "var(--text3)" }}>
           Mês ref.: {formatMesReferencia(mesReferencia)}
-          {classificacaoMes.elegiveis.length > 0 && (
-            <> · {classificacaoMes.elegiveis.length} pronta(s) para gerar</>
-          )}
         </span>
+      </div>
+
+      <div className="rec-mes-resumo" role="status" aria-label={`Resumo ${formatMesReferencia(mesReferencia)}`}>
+        <span className="rec-mes-resumo-label">No mês {formatMesReferencia(mesReferencia)}:</span>
+        {resumoMes.faltaGerar > 0 && (
+          <button
+            type="button"
+            className={`rec-mes-pill rec-mes-pill-amber${filtroLancMes === "falta" ? " is-active" : ""}`}
+            onClick={() => setFiltroLancMes((f) => (f === "falta" ? "todos" : "falta"))}
+          >
+            {resumoMes.faltaGerar} falta gerar
+          </button>
+        )}
+        {(resumoMes.emAberto + resumoMes.atrasadas) > 0 && (
+          <button
+            type="button"
+            className={`rec-mes-pill rec-mes-pill-blue${filtroLancMes === "aberta" ? " is-active" : ""}`}
+            onClick={() => setFiltroLancMes((f) => (f === "aberta" ? "todos" : "aberta"))}
+          >
+            {resumoMes.emAberto + resumoMes.atrasadas} lançada(s) em aberto
+          </button>
+        )}
+        {resumoMes.pagas > 0 && (
+          <button
+            type="button"
+            className={`rec-mes-pill rec-mes-pill-green${filtroLancMes === "paga" ? " is-active" : ""}`}
+            onClick={() => setFiltroLancMes((f) => (f === "paga" ? "todos" : "paga"))}
+          >
+            {resumoMes.pagas} lançada(s) · paga(s)
+          </button>
+        )}
+        {resumoMes.foraMes > 0 && (
+          <span className="rec-mes-pill rec-mes-pill-muted">
+            {resumoMes.foraMes} vence(m) em outro mês
+          </span>
+        )}
+        {resumoMes.faltaGerar === 0 && resumoMes.emAberto === 0 && resumoMes.atrasadas === 0 && resumoMes.pagas === 0 && resumoMes.foraMes === 0 && (
+          <span className="rec-mes-pill rec-mes-pill-muted">Nenhuma ativa neste mês</span>
+        )}
+        {filtroLancMes !== "todos" && (
+          <button type="button" className="rec-mes-clear" onClick={() => setFiltroLancMes("todos")}>
+            Limpar filtro
+          </button>
+        )}
       </div>
 
       {localSuccess && (
@@ -799,6 +862,7 @@ export default function RecorrenciasPage() {
                   <th className="pp-th-num">Valor</th>
                   <th>Periodicidade</th>
                   <th>Próxima data</th>
+                  <th>No mês ref.</th>
                   <th>Status</th>
                   <th style={{ textAlign: "right" }}>Ações</th>
                 </tr>
@@ -807,11 +871,8 @@ export default function RecorrenciasPage() {
                 {lista.map((r) => {
                   const tipoCls = r.tipo === "Receita" ? "in" : "out";
                   const proxCls = classProxima(r.proxima_data).replace("recorrencias-proxima-", "rec-prox-");
-                  const mesVenc = monthKeyFromDate(r.proxima_data);
-                  const jaGerada =
-                    r.status === "ativa" &&
-                    mesVenc === mesReferencia &&
-                    isRecorrenciaGeradaNoMes(lancamentos, r.id, mesReferencia);
+                  const mesStatus = statusMesPorRec.get(r.id) || getRecorrenciaLancamentoMesStatus(r, lancamentos, mesReferencia);
+                  const badgeCls = `pp-badge pp-badge-${mesStatus.badge || "muted"}`;
                   return (
                     <tr key={r.id}>
                       <td>
@@ -834,10 +895,18 @@ export default function RecorrenciasPage() {
                       <td><span className="pp-badge pp-badge-violet">{PERIODO_LABEL[r.periodicidade]}</span></td>
                       <td>
                         <span className={`rec-prox ${proxCls}`}>{labelProxima(r.proxima_data)}</span>
-                        {jaGerada && (
-                          <span className="pp-badge pp-badge-muted" style={{ marginLeft: 6, fontSize: 10 }}>
-                            Gerado
-                          </span>
+                      </td>
+                      <td>
+                        <span className={badgeCls} title={mesStatus.hint || mesStatus.label}>
+                          {mesStatus.label}
+                        </span>
+                        {mesStatus.lancamento && (
+                          <div className="rec-mes-lanc-meta">
+                            Venc. {fmtDate(mesStatus.lancamento.vencimento ?? mesStatus.lancamento.data)}
+                            {mesStatus.lancamento.codigo != null && (
+                              <> · Cód. {mesStatus.lancamento.codigo}</>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td>
@@ -856,11 +925,13 @@ export default function RecorrenciasPage() {
                               type="button"
                               className="pp-icon-btn pp-icon-btn-success"
                               title={
-                                jaGerada
-                                  ? "Já gerada neste mês"
-                                  : "Gerar lançamento agora"
+                                mesStatus.jaGerada
+                                  ? "Já lançada neste mês — use A Pagar/Receber para quitar"
+                                  : mesStatus.code === "fora_mes"
+                                    ? "Próxima data em outro mês — ajuste o mês ref. nos filtros ou gere individualmente"
+                                    : "Gerar lançamento agora"
                               }
-                              disabled={jaGerada}
+                              disabled={!mesStatus.canGerar}
                               onClick={() => setGerarTarget(r)}
                             >
                               <CircleCheck size={14} strokeWidth={2} aria-hidden />

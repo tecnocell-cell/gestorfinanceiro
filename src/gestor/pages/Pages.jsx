@@ -7,8 +7,9 @@ import {
 import { MESES, CHART } from "../constants.js";
 import {
   addMoney, fmtBRL, fmtPct, fmtDate, fmtDateTime, lancamentosComSaldoConta,
-  contaPorCodigo, generateId, safeNum, subMoney,
+  contaPorCodigo, generateId, getPlanoLabelLancamento, safeNum, subMoney,
 } from "../finance.js";
+import { getIntegracaoOperacaoLabel } from "../integracaoPfPjLabels.js";
 import { labelInstituicaoConta } from "../bancosBrasil.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
@@ -337,6 +338,8 @@ export function LancamentosPage() {
                     <th>Conta Entrada</th>
                     <th className="lanc-th-num">Valor</th>
                     {(showSaldoCol || contaFilter) && <th className="lanc-th-num">Saldo</th>}
+                    <th>Categoria</th>
+                    <th>Operação</th>
                     <th>Histórico</th>
                     <th>Domínio</th>
                     <th></th>
@@ -346,7 +349,8 @@ export function LancamentosPage() {
                   {rows.map((l) => {
                     const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
                     const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
-                    const plano = planoContas.find((p) => p.id === l.planoId);
+                    const planoLabel = getPlanoLabelLancamento(l, planoContas);
+                    const opIntegracao = getIntegracaoOperacaoLabel(l);
                     const cli = clientes.find((c) => c.id === l.clienteId);
                     const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
@@ -374,12 +378,24 @@ export function LancamentosPage() {
                         <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
                         <td className={`lanc-th-num lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
                         {(showSaldoCol || contaFilter) && <td className="lanc-th-num td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
-                        <td title={[l.historico, plano?.descricao, cli?.nome].filter(Boolean).join(" · ") || undefined}>
+                        <td className="lanc-cell-clip" title={planoLabel || undefined}>
+                          {planoLabel || "—"}
+                        </td>
+                        <td className="lanc-cell-clip">
+                          {opIntegracao ? (
+                            <span className="lanc-badge lanc-badge-integracao" title="Integração PF/PJ">
+                              {opIntegracao}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td title={[opIntegracao, l.historico, planoLabel, cli?.nome].filter(Boolean).join(" · ") || undefined}>
                           <span className="lanc-cell-hist">
                             {l.historico}
-                            {(plano || cli) && (
+                            {(planoLabel || cli) && (
                               <span className="lanc-cell-meta">
-                                {plano ? ` · ${plano.descricao}` : ""}{cli ? ` · ${cli.nome}` : ""}
+                                {planoLabel ? ` · ${planoLabel}` : ""}{cli ? ` · ${cli.nome}` : ""}
                               </span>
                             )}
                           </span>
@@ -410,7 +426,8 @@ export function LancamentosPage() {
               {rows.map((l) => {
                 const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
                 const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
-                const plano = planoContas.find((p) => p.id === l.planoId);
+                const planoLabel = getPlanoLabelLancamento(l, planoContas);
+                const opIntegracao = getIntegracaoOperacaoLabel(l);
                 const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                 const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
@@ -418,14 +435,17 @@ export function LancamentosPage() {
                     <div className={`lanc-mobile-icon lanc-type-${tipoCls}`} aria-hidden>{tipoIcon}</div>
                     <div className="lanc-mobile-body">
                       <div className="lanc-mobile-top">
-                        <span className="lanc-mobile-hist">{l.historico || "—"}</span>
+                        <span className="lanc-mobile-hist">
+                          {opIntegracao ? <><span className="lanc-mobile-op">{opIntegracao}</span> · </> : null}
+                          {l.historico || "—"}
+                        </span>
                         <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>
                       </div>
                       <div className="lanc-mobile-meta">
                         <span>{fmtDate(l.data)}</span>
                         <span>·</span>
                         <span>{cEnt?.nome || cSai?.nome || "—"}</span>
-                        {plano && (<><span>·</span><span>{plano.descricao}</span></>)}
+                        {planoLabel && (<><span>·</span><span>{planoLabel}</span></>)}
                       </div>
                     </div>
                     <div className="lanc-actions">
@@ -1217,10 +1237,11 @@ export function ImportacoesPage() {
     for (const l of filtered) {
       const conta = contas.find((c) => c.id === (l.contaEntradaId || l.contaSaidaId));
       const plano = planoContas.find((p) => p.id === l.planoId);
+      const planoCodigo = plano?.codigo || l.planoCodigo || "";
       lines.push([
         l.data, l.lote, l.tipo,
         conta?.contaContabil || conta?.codigo || "",
-        plano?.codigo || "",
+        planoCodigo,
         l.valor.toFixed(2),
         (l.historico || "").replace(/\|/g, "/"),
         "N",

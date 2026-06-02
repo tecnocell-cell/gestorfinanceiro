@@ -23,6 +23,7 @@
     "repair:tenants": "node server/repairTenants.js",
     "diagnostico:pf": "node server/diagnosticoPfEstado.js",
     "repair:pf": "node server/repairPfLegacyState.js",
+    "repair:pj-integracao": "node server/repairIntegracaoPfPjPjDiscriminacao.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

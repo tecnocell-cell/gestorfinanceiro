@@ -21,6 +21,7 @@ import {
   labelLancamentoTipo,
 } from "../profileLabels.js";
 import { DEFAULT_CATS_PF } from "../defaultCategories.js";
+import { getIntegracaoOperacaoLabel } from "../integracaoPfPjLabels.js";
 import { PF_PAGE_HINTS } from "../pfHints.js";
 import { PenLine, Trash2, ClipboardList, ArrowDownLeft, CircleCheck, AlertTriangle, Target } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
@@ -290,6 +291,7 @@ export function LancamentosPFPage() {
                     const venc = getDueDate(l);
                     const situacao = getLancamentoSituacao(l);
                     const info = statusInfo[situacao];
+                    const opIntegracao = getIntegracaoOperacaoLabel(l);
                     const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                     return (
@@ -314,7 +316,11 @@ export function LancamentosPFPage() {
                           </div>
                         </td>
                         <td>
-                          {l.tipo === "Saida" && info ? (
+                          {opIntegracao ? (
+                            <span className="lanc-badge lanc-badge-integracao" title="Integração PF/PJ">
+                              {opIntegracao}
+                            </span>
+                          ) : l.tipo === "Saida" && info ? (
                             <span className={`lanc-badge lanc-badge-${info.badge.replace("badge-", "")}`}>{info.label}</span>
                           ) : l.tipo === "Entrada" ? (
                             <span className="lanc-badge lanc-badge-blue">Receita</span>
@@ -353,6 +359,7 @@ export function LancamentosPFPage() {
               {lancsFiltrados.map((l) => {
                 const situacao = getLancamentoSituacao(l);
                 const info = statusInfo[situacao];
+                const opIntegracao = getIntegracaoOperacaoLabel(l);
                 const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                 const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
                 return (
@@ -360,7 +367,10 @@ export function LancamentosPFPage() {
                     <div className={`lanc-mobile-icon lanc-type-${tipoCls}`} aria-hidden>{tipoIcon}</div>
                     <div className="lanc-mobile-body">
                       <div className="lanc-mobile-top">
-                        <span className="lanc-mobile-hist">{l.historico || catMap[l.planoId] || "—"}</span>
+                        <span className="lanc-mobile-hist">
+                          {opIntegracao ? <><span className="lanc-mobile-op">{opIntegracao}</span> · </> : null}
+                          {l.historico || catMap[l.planoId] || "—"}
+                        </span>
                         <span className={`lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</span>
                       </div>
                       <div className="lanc-mobile-meta">

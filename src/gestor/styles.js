@@ -5604,6 +5604,19 @@ export const css = `
     border: 1px solid transparent; white-space: nowrap;
   }
   .lanc-badge-blue { background: color-mix(in oklab, #3b82f6 14%, var(--bg)); color: #1d4ed8; border-color: color-mix(in oklab, #3b82f6 28%, transparent); }
+  .lanc-badge-integracao {
+    background: color-mix(in oklab, var(--accent) 12%, var(--bg));
+    color: var(--accent);
+    border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .lanc-mobile-op { font-weight: 600; color: var(--accent); }
   .lanc-badge-green { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; border-color: color-mix(in oklab, #10b981 28%, transparent); }
   .lanc-badge-red { background: color-mix(in oklab, #ef4444 12%, var(--bg)); color: #b91c1c; border-color: color-mix(in oklab, #ef4444 26%, transparent); }
   .lanc-badge-amber { background: color-mix(in oklab, #f59e0b 14%, var(--bg)); color: #b45309; border-color: color-mix(in oklab, #f59e0b 28%, transparent); }
@@ -5959,6 +5972,60 @@ export const css = `
   .rec-prox-late { color: #b91c1c; font-weight: 600; }
   .rec-prox-soon { color: #b45309; font-weight: 600; }
   .rec-prox-ok   { color: var(--text2); }
+
+  .rec-mes-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--card) 92%, var(--accent) 8%);
+    border: 1px solid var(--border);
+  }
+  .rec-mes-resumo-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    margin-right: 4px;
+  }
+  .rec-mes-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    cursor: default;
+  }
+  button.rec-mes-pill {
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.rec-mes-pill.is-active {
+    outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent);
+    outline-offset: 1px;
+  }
+  .rec-mes-pill-amber { background: var(--warning-soft); color: var(--warning-fg); border-color: color-mix(in oklab, var(--warning) 35%, var(--border)); }
+  .rec-mes-pill-blue  { background: var(--info-soft); color: var(--info-fg); border-color: color-mix(in oklab, var(--info) 35%, var(--border)); }
+  .rec-mes-pill-green { background: var(--success-soft); color: var(--success-fg); border-color: color-mix(in oklab, var(--success) 35%, var(--border)); }
+  .rec-mes-pill-muted { background: var(--bg2); color: var(--text3); border-color: var(--border); }
+  .rec-mes-clear {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .rec-mes-clear:hover { text-decoration: underline; }
+  .rec-mes-lanc-meta {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+  }
 
   /* ─── Contas a Pagar — destaque visual de linhas vencidas / próximas ─── */
   .cp-row-late td { background: color-mix(in oklab, #ef4444 5%, transparent); }

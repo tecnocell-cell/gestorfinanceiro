@@ -1,8 +1,8 @@
 /**
- * Reparo de lançamentos PF da integração PJ→PF (Entrada + receita).
+ * Reparo de lançamentos PJ da integração PJ→PF (Saída + plano/discriminação).
  * Uso:
- *   node server/repairIntegracaoPfPjPfEntradas.js <email> --dry-run
- *   node server/repairIntegracaoPfPjPfEntradas.js <email>
+ *   node server/repairIntegracaoPfPjPjDiscriminacao.js <email-pj> --dry-run
+ *   node server/repairIntegracaoPfPjPjDiscriminacao.js <email-pj>
  */
 import { config } from 'dotenv';
 config();
@@ -12,12 +12,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { query, pool } from './db.js';
 import { normalizeTipoPerfil } from './profileTipo.js';
-import { prepareEstadoForWrite, profileForPf } from './integracaoPfPj/estadoMerge.js';
+import { prepareEstadoForWrite, profileForPj } from './integracaoPfPj/estadoMerge.js';
 import {
-  isLancamentoPfIntegracao,
-  isPlanoReceita,
-  repairLancamentoPfIntegracao,
-  validateLancamentoPfIntegracao,
+  isLancamentoPjIntegracao,
+  isPlanoDespesaOuCusto,
+  repairLancamentoPjIntegracao,
+  validateLancamentoPjIntegracao,
 } from './integracaoPfPj/lancamentoPfPj.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,7 @@ const dryRun = args.includes('--dry-run');
 const email = args.find((a) => !a.startsWith('--'))?.trim().toLowerCase();
 
 if (!email) {
-  console.error('Uso: node server/repairIntegracaoPfPjPfEntradas.js <email> [--dry-run]');
+  console.error('Uso: node server/repairIntegracaoPfPjPjDiscriminacao.js <email-pj> [--dry-run]');
   process.exit(1);
 }
 
@@ -37,7 +37,7 @@ function ensureBackupDir() {
 }
 
 function repairEstado(dados, userRow, tipoPorLancamentoId = {}) {
-  const profile = profileForPf(userRow);
+  const profile = profileForPj(userRow);
   const prepared = prepareEstadoForWrite(dados, profile);
   const emp = prepared.empresas[0];
   const contas = emp.contas || [];
@@ -47,29 +47,37 @@ function repairEstado(dados, userRow, tipoPorLancamentoId = {}) {
   const detalhes = [];
 
   const originais = emp.lancamentos || [];
-  const totalIntegracao = originais.filter(isLancamentoPfIntegracao).length;
+  const totalIntegracao = originais.filter(isLancamentoPjIntegracao).length;
 
   const lancamentos = originais.map((l) => {
-    if (!isLancamentoPfIntegracao(l)) return l;
+    if (!isLancamentoPjIntegracao(l)) return l;
 
-    const errosAntes = validateLancamentoPfIntegracao(l, emp);
+    const errosAntes = validateLancamentoPjIntegracao(l, emp);
+    const semDiscriminacao =
+      !l.planoId && !l.planoDescricao && errosAntes.some((e) => e.includes('discriminação'));
+    const planoInvalido =
+      l.planoId &&
+      emp.planoContas?.find((p) => p.id === l.planoId) &&
+      !isPlanoDespesaOuCusto(emp.planoContas.find((p) => p.id === l.planoId));
     const semTipoOp = !l.tipoOperacao && !l.integracaoPfPj?.tipoOperacao;
-    if (!errosAntes.length && !semTipoOp) {
+
+    if (!errosAntes.length && !semDiscriminacao && !planoInvalido && !semTipoOp) {
       jaOk += 1;
       return l;
     }
 
     const tipoOp = tipoPorLancamentoId[l.id] || null;
-    const fixed = repairLancamentoPfIntegracao(l, emp, contas, tipoOp);
-    const errosDepois = validateLancamentoPfIntegracao(fixed, emp);
+    const fixed = repairLancamentoPjIntegracao(l, emp, contas, tipoOp);
+    const errosDepois = validateLancamentoPjIntegracao(fixed, emp);
     corrigidos += 1;
     detalhes.push({
       id: l.id,
       antes: errosAntes,
       depois: errosDepois,
       historico: l.historico,
-      tipoAntes: l.tipo,
-      tipoDepois: fixed.tipo,
+      planoAntes: l.planoDescricao || l.planoId,
+      planoDepois: fixed.planoDescricao || fixed.planoId,
+      tipoOp: fixed.tipoOperacao,
     });
     return fixed;
   });
@@ -93,8 +101,8 @@ async function main() {
   }
 
   const user = users[0];
-  if (normalizeTipoPerfil(user.tipo_perfil) !== 'fisica') {
-    console.error('Script apenas para contas PF.');
+  if (normalizeTipoPerfil(user.tipo_perfil) !== 'juridica') {
+    console.error('Script apenas para contas PJ.');
     process.exit(1);
   }
 
@@ -108,12 +116,12 @@ async function main() {
   }
 
   const { rows: ops } = await query(
-    `SELECT lancamento_pf_id, tipo_operacao
+    `SELECT lancamento_pj_id, tipo_operacao
      FROM integracao_pf_pj_operacoes
-     WHERE status = 'ok' AND lancamento_pf_id IS NOT NULL`
+     WHERE status = 'ok' AND lancamento_pj_id IS NOT NULL`
   );
   const tipoPorLancamentoId = Object.fromEntries(
-    ops.map((o) => [o.lancamento_pf_id, o.tipo_operacao])
+    ops.map((o) => [o.lancamento_pj_id, o.tipo_operacao])
   );
 
   const before = est[0].dados;
@@ -123,15 +131,16 @@ async function main() {
     tipoPorLancamentoId
   );
 
-  console.log('=== Reparo integração PF (entradas) —', email, dryRun ? '(DRY-RUN)' : '', '===\n');
+  console.log('=== Reparo integração PJ (discriminação) —', email, dryRun ? '(DRY-RUN)' : '', '===\n');
   console.log('usuario_id:', user.id);
-  console.log('Lançamentos integração PF:', totalIntegracao);
+  console.log('Lançamentos integração PJ:', totalIntegracao);
   console.log('Já corretos:', jaOk);
   console.log('A corrigir:', corrigidos);
 
   for (const d of detalhes.slice(0, 20)) {
     console.log(`  - ${d.historico?.slice(0, 50)}`);
-    console.log(`    ${d.tipoAntes} → ${d.tipoDepois} | antes: ${d.antes.join(', ')}`);
+    console.log(`    plano: ${d.planoAntes || '—'} → ${d.planoDepois || '—'} | tipo: ${d.tipoOp || '—'}`);
+    if (d.antes.length) console.log(`    antes: ${d.antes.join(', ')}`);
     if (d.depois.length) console.log(`    ⚠ ainda inválido: ${d.depois.join(', ')}`);
   }
   if (detalhes.length > 20) console.log(`  ... +${detalhes.length - 20}`);
@@ -150,7 +159,7 @@ async function main() {
 
   ensureBackupDir();
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFile = path.join(BACKUP_DIR, `pf-integracao-entradas-${user.id}-${ts}.json`);
+  const backupFile = path.join(BACKUP_DIR, `pj-integracao-discriminacao-${user.id}-${ts}.json`);
   fs.writeFileSync(
     backupFile,
     JSON.stringify({ backed_at: new Date().toISOString(), usuario_id: user.id, email: user.email, dados: before }, null, 2),
@@ -162,7 +171,7 @@ async function main() {
     JSON.stringify(repaired),
     user.id,
   ]);
-  console.log(`✓ ${corrigidos} lançamento(s) PF corrigido(s).`);
+  console.log(`✓ ${corrigidos} lançamento(s) PJ corrigido(s).`);
   await pool.end();
 }
 

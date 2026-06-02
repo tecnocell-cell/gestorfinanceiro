@@ -7,6 +7,7 @@ import { useGestor } from "../GestorContext.jsx";
 import { isPessoaJuridica } from "../profileLabels.js";
 import { integracaoPfPjApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
+import { INTEGRACAO_TIPO_OPERACAO_LABELS } from "../integracaoPfPjLabels.js";
 import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
   CircleDollarSign, ArrowRight, ArrowDownRight, Lock,
@@ -24,12 +25,7 @@ const TABS = [
   { id: "historico", label: "Histórico" },
 ];
 
-const TIPO_OP_LABEL = {
-  pro_labore: "Pró-labore",
-  distribuicao_lucros: "Distribuição de Lucros",
-  salario: "Salário",
-  transferencia_pj_pf: "Transferência PJ → PF",
-};
+const TIPO_OP_LABEL = INTEGRACAO_TIPO_OPERACAO_LABELS;
 
 const AVISO_CONFIRMACAO =
   "Esta ação criará uma saída na PJ e uma entrada na PF vinculada.";
