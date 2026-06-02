@@ -26,7 +26,7 @@ import {
 } from "./finance.js";
 import { stateApi, adminApi, healthApi } from "./api.js";
 import { useAuth } from "./AuthContext.jsx";
-import { resolveProfileTipo } from "./profileLabels.js";
+import { normalizeTipoPerfil, resolveProfileTipo } from "./profileLabels.js";
 import { registerStateFlush } from "./persistence.js";
 
 const GestorContext = createContext(null);
@@ -65,7 +65,7 @@ export function GestorProvider({ children }) {
   const adminStateBackup = useRef(null);
 
   const buildProfile = useCallback((u) => ({
-    tipo_perfil: u?.tipo_perfil || "juridica",
+    tipo_perfil: normalizeTipoPerfil(u?.tipo_perfil),
     nome_perfil: u?.nome_perfil || u?.nome,
     nome: u?.nome,
   }), []);

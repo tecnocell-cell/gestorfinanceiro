@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
+import { isPessoaJuridica } from "../profileLabels.js";
 import { integracaoPfPjApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
@@ -180,7 +181,8 @@ function PreviewLancamento({ titulo, lado, lanc }) {
 }
 
 export default function IntegracaoPfPjPage() {
-  const { viewOnly, reloadAppState } = useGestor();
+  const { viewOnly, reloadAppState, tipo } = useGestor();
+  const contaPJ = isPessoaJuridica(tipo);
   const [tab, setTab] = useState("vinculo");
 
   const [email, setEmail] = useState("");
@@ -484,6 +486,12 @@ export default function IntegracaoPfPjPage() {
       </div>
 
       <div className="of-section">
+        {!contaPJ && (
+          <div className="alert alert-warn" style={{ marginBottom: 16 }}>
+            Esta área é exclusiva para contas Pessoa Jurídica. O perfil exibido no menu usa o mesmo
+            critério do servidor; se o erro persistir, entre em contato com o suporte.
+          </div>
+        )}
         <TabBar tab={tab} setTab={setTab} vinculoAtivo={vinculoAtivo} />
 
         {tab === "vinculo" && (

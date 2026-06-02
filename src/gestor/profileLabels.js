@@ -16,8 +16,28 @@ const PJ_LABELS = {
   Transferencia: "Transferência",
 };
 
+const DEFAULT_TIPO_PERFIL = "juridica";
+
+/** Mesma regra de auth/me e requirePerfil no servidor (default jurídica). */
+export function normalizeTipoPerfil(tipo) {
+  const t = String(tipo ?? DEFAULT_TIPO_PERFIL).toLowerCase().trim();
+  return t === "fisica" ? "fisica" : "juridica";
+}
+
+/** Fonte alinhada ao header: resolveProfileTipo → normalizeTipoPerfil. */
+export function isPessoaJuridica(tipoOrSources) {
+  if (tipoOrSources && typeof tipoOrSources === "object" && !Array.isArray(tipoOrSources)) {
+    return normalizeTipoPerfil(resolveProfileTipo(tipoOrSources)) === "juridica";
+  }
+  return normalizeTipoPerfil(tipoOrSources) === "juridica";
+}
+
+export function isPessoaFisica(tipo) {
+  return normalizeTipoPerfil(tipo) === "fisica";
+}
+
 export function isPerfilFisica(tipo) {
-  return tipo === "fisica";
+  return isPessoaFisica(tipo);
 }
 
 export function labelLancamentoTipo(tipo, isPF) {
@@ -60,5 +80,6 @@ export function contaFieldLabels(isPF) {
 }
 
 export function resolveProfileTipo({ user, impersonatingUser, empresaTipo }) {
-  return impersonatingUser?.tipo_perfil ?? user?.tipo_perfil ?? empresaTipo ?? "juridica";
+  const raw = impersonatingUser?.tipo_perfil ?? user?.tipo_perfil ?? empresaTipo ?? DEFAULT_TIPO_PERFIL;
+  return normalizeTipoPerfil(raw);
 }

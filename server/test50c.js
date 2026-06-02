@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query, pool } from './db.js';
 import { createInitialState } from './initialState.js';
+import { isPessoaJuridica, normalizeTipoPerfil } from './profileTipo.js';
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 const TS = Date.now();
@@ -118,6 +119,37 @@ async function main() {
   const tokenPj = await login(emailPj, pass);
   const tokenPj2 = await login(emailPj2, pass);
   const tokenPf = await login(emailPf, pass);
+
+  console.log('--- 0. tipo_perfil vazio (retrocompat) ---');
+  assert(normalizeTipoPerfil(null) === 'juridica', 'normalizeTipoPerfil(null) => juridica');
+  assert(normalizeTipoPerfil('') === 'juridica', 'normalizeTipoPerfil("") => juridica');
+  assert(isPessoaJuridica(null), 'isPessoaJuridica(null)');
+
+  const emailPjNull = `test_pj_null_${TS}@test.local`;
+  await cleanup([emailPjNull]);
+  const hashNull = await bcrypt.hash(pass, 12);
+  const insNull = await query(
+    `INSERT INTO usuarios (email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil, email_verificado)
+     VALUES ($1,$2,'PJ Null','user',true,'','Empresa Null',true) RETURNING id`,
+    [emailPjNull, hashNull]
+  );
+  const stNull = createInitialState('juridica', 'Empresa Null');
+  await query('INSERT INTO estados (usuario_id, dados) VALUES ($1,$2)', [
+    insNull.rows[0].id,
+    JSON.stringify(stNull),
+  ]);
+  const tokenPjNull = await login(emailPjNull, pass);
+  const meNull = await req('/auth/me', { token: tokenPjNull });
+  assert(meNull.data.user?.tipo_perfil === 'juridica', 'auth/me default juridica quando vazio no banco');
+
+  const prevNull = await req('/integracao-pf-pj/pro-labore/preview', {
+    method: 'POST',
+    token: tokenPjNull,
+    body: { valor: 100, data: '2026-06-01' },
+    allowError: true,
+  });
+  assert(prevNull.status !== 403, 'tipo_perfil vazio: preview não retorna 403 restrito PJ');
+  assert(prevNull.status === 422, 'tipo_perfil vazio: preview sem vínculo = 422');
 
   console.log('--- 1. Vínculo ---');
 
@@ -276,7 +308,7 @@ async function main() {
   const lista = await req('/integracao-pf-pj/operacoes', { token: tokenPj });
   assert(lista.data.operacoes?.some((o) => o.status === 'rollback'), 'Histórico inclui operação rollback');
 
-  await cleanup([emailPj, emailPj2, emailPf]);
+  await cleanup([emailPj, emailPj2, emailPf, emailPjNull]);
   await pool.end();
 
   console.log('\n=== Auditoria 5.0C.1: todos os testes passaram ===');

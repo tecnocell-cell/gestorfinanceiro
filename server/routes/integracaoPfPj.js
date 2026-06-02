@@ -29,6 +29,7 @@ import {
   rollbackOperacao,
   mapOperacao,
 } from '../integracaoPfPj/operacaoWriter.js';
+import { isPessoaFisica, isPessoaJuridica, normalizeTipoPerfil } from '../profileTipo.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -62,11 +63,13 @@ async function getTipoPerfil(usuarioId) {
 
 async function requirePerfil(req, res, tipo) {
   const u = await getTipoPerfil(req.user.id);
-  if (!u || u.tipo_perfil !== tipo) {
-    res.status(403).json({ error: `Acesso restrito a contas ${tipo === 'juridica' ? 'PJ' : 'PF'}.` });
+  const perfil = normalizeTipoPerfil(u?.tipo_perfil);
+  const esperado = normalizeTipoPerfil(tipo);
+  if (!u || perfil !== esperado) {
+    res.status(403).json({ error: `Acesso restrito a contas ${esperado === 'juridica' ? 'PJ' : 'PF'}.` });
     return null;
   }
-  return u;
+  return { ...u, tipo_perfil: perfil };
 }
 
 async function findVinculoAtivoPj(usuarioPjId) {
@@ -236,7 +239,7 @@ router.get('/vinculo', async (req, res) => {
     const u = await getTipoPerfil(req.user.id);
     if (!u) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-    if (u.tipo_perfil === 'juridica') {
+    if (isPessoaJuridica(u.tipo_perfil)) {
       const row = await findVinculoAtivoPj(req.user.id);
       return res.json({ vinculo: mapVinculo(row) });
     }
@@ -287,7 +290,7 @@ router.get('/buscar-pf', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Informe o e-mail da conta PF.' });
 
     const pf = await findPfByEmail(email);
-    if (!pf || pf.tipo_perfil !== 'fisica' || !pf.ativo) {
+    if (!pf || !isPessoaFisica(pf.tipo_perfil) || !pf.ativo) {
       return res.status(404).json({ error: 'Nenhuma conta PF ativa encontrada com este e-mail.' });
     }
 
@@ -324,7 +327,7 @@ router.post('/vinculo', async (req, res) => {
     }
 
     const pf = await findPfByEmail(email);
-    if (!pf || pf.tipo_perfil !== 'fisica' || !pf.ativo) {
+    if (!pf || !isPessoaFisica(pf.tipo_perfil) || !pf.ativo) {
       return res.status(404).json({ error: 'Nenhuma conta PF ativa encontrada com este e-mail.' });
     }
 

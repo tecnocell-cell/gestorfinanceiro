@@ -4,6 +4,7 @@ import { NAV_ITEMS, NAV_ITEMS_FISICA, NAV_SECTIONS_FISICA, NAV_SECTIONS_PJ } fro
 import ResumoAnualPage from "./pages/ResumoAnualPage.jsx";
 import { useGestor } from "./GestorContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
+import { isPessoaFisica } from "./profileLabels.js";
 import {
   ModalLancamento, ModalConta, ModalPlano,
   ModalCliente, ModalFornecedor, ModalCategoriaPF, ModalMeta,
@@ -120,7 +121,7 @@ export default function GestorApp() {
     }
   };
 
-  const isPF = tipo === "fisica";
+  const isPF = isPessoaFisica(tipo);
   const navItems = isPF ? NAV_ITEMS_FISICA : NAV_ITEMS;
   const navSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
   const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
