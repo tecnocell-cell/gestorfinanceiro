@@ -8,6 +8,10 @@
  *   GET    /api/integracao-pf-pj/buscar-pf?email=
  *   POST   /api/integracao-pf-pj/aceitar
  *   POST   /api/integracao-pf-pj/recusar
+ *   POST   /api/integracao-pf-pj/pro-labore/preview | /pro-labore
+ *   POST   /api/integracao-pf-pj/lucros/preview | /lucros
+ *   GET    /api/integracao-pf-pj/operacoes
+ *   POST   /api/integracao-pf-pj/operacoes/:id/rollback
  */
 
 import { Router } from 'express';
@@ -16,9 +20,13 @@ import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
 import {
   previewProLabore,
   confirmProLabore,
+} from '../integracaoPfPj/proLaboreWriter.js';
+import {
+  previewOperacao,
+  confirmOperacao,
   rollbackOperacao,
   mapOperacao,
-} from '../integracaoPfPj/proLaboreWriter.js';
+} from '../integracaoPfPj/operacaoWriter.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -95,6 +103,9 @@ async function loadEstadosForPreview(usuarioPjId, usuarioPfId) {
   }
   return { dadosPj: pjRows[0].dados, dadosPf: pfRows[0].dados, nomePj: uPj?.nome_perfil || uPj?.nome };
 }
+
+const MSG_VINCULO_PRO_LABORE = 'Vínculo PF ativo necessário para lançar pró-labore.';
+const MSG_VINCULO_LUCROS = 'Vínculo PF ativo necessário para distribuir lucros.';
 
 async function lockEstadosOrdenados(client, usuarioA, usuarioB) {
   const sorted = [usuarioA, usuarioB].sort();
@@ -375,7 +386,7 @@ router.post('/pro-labore/preview', async (req, res) => {
 
     const vinculo = await findVinculoAtivoConfirmado(req.user.id);
     if (!vinculo) {
-      return res.status(422).json({ error: 'Vínculo PF ativo necessário para lançar pró-labore.' });
+      return res.status(422).json({ error: MSG_VINCULO_PRO_LABORE });
     }
 
     const { valor, data, observacao } = req.body || {};
@@ -423,7 +434,7 @@ router.post('/pro-labore', async (req, res) => {
 
     if (!vincRows.length) {
       await client.query('ROLLBACK');
-      return res.status(422).json({ error: 'Vínculo PF ativo necessário para lançar pró-labore.' });
+      return res.status(422).json({ error: MSG_VINCULO_PRO_LABORE });
     }
 
     const vinculo = vincRows[0];
@@ -449,6 +460,93 @@ router.post('/pro-labore', async (req, res) => {
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error('integracao-pf-pj POST /pro-labore:', err.message);
     res.status(500).json({ error: 'Erro ao registrar pró-labore.' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─── POST /lucros/preview ─────────────────────────────────────────────────────
+
+router.post('/lucros/preview', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const vinculo = await findVinculoAtivoConfirmado(req.user.id);
+    if (!vinculo) {
+      return res.status(422).json({ error: MSG_VINCULO_LUCROS });
+    }
+
+    const { valor, data, observacao } = req.body || {};
+    const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
+      req.user.id,
+      vinculo.usuario_pf_id
+    );
+
+    const preview = previewOperacao('distribuicao_lucros', {
+      dadosPj,
+      dadosPf,
+      vinculo,
+      nomePj,
+      valor,
+      data,
+      observacao,
+    });
+
+    return res.json(preview);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /lucros/preview:', err.message);
+    res.status(500).json({ error: 'Erro ao gerar preview.' });
+  }
+});
+
+// ─── POST /lucros ─────────────────────────────────────────────────────────────
+
+router.post('/lucros', async (req, res) => {
+  if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+  const client = await pool.connect();
+  try {
+    const { valor, data, observacao } = req.body || {};
+
+    await client.query('BEGIN');
+
+    const { rows: vincRows } = await client.query(
+      `SELECT ${VINCULO_COLS}
+       FROM integracao_pf_pj_vinculo
+       WHERE usuario_pj_id = $1 AND status = 'ativo'
+       FOR UPDATE`,
+      [req.user.id]
+    );
+
+    if (!vincRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: MSG_VINCULO_LUCROS });
+    }
+
+    const vinculo = vincRows[0];
+    const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
+    const uPj = await getTipoPerfil(req.user.id);
+
+    const result = await confirmOperacao(client, 'distribuicao_lucros', {
+      usuarioPjId: req.user.id,
+      vinculo,
+      nomePj: uPj?.nome_perfil || uPj?.nome,
+      dadosPj: estados[req.user.id],
+      dadosPf: estados[vinculo.usuario_pf_id],
+      valor,
+      data,
+      observacao,
+    });
+
+    await client.query('COMMIT');
+
+    return res.status(201).json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /lucros:', err.message);
+    res.status(500).json({ error: 'Erro ao registrar distribuição de lucros.' });
   } finally {
     client.release();
   }

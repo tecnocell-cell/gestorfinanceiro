@@ -1,19 +1,25 @@
 /**
- * IntegracaoPfPjPage — Vínculo + Pró-labore PJ ↔ PF (Etapas 5.0B/5.0C)
+ * IntegracaoPfPjPage — Vínculo + Pró-labore + Lucros PJ ↔ PF (Etapas 5.0B–5.1)
  */
 import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { integracaoPfPjApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
-  Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote,
+  Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
 } from "../components/icons.jsx";
 
 const TABS = [
   { id: "vinculo", label: "Vínculo" },
   { id: "prolabore", label: "Pró-labore" },
+  { id: "lucros", label: "Distribuição de Lucros" },
   { id: "historico", label: "Histórico" },
 ];
+
+const TIPO_OP_LABEL = {
+  pro_labore: "Pró-labore",
+  distribuicao_lucros: "Distribuição de lucros",
+};
 
 function statusBadge(status) {
   if (status === "ativo") return { label: "Ativo", cls: "badge-cp-pago", Icon: CheckCircle };
@@ -38,6 +44,81 @@ function TabBar({ tab, setTab, vinculoAtivo }) {
         </button>
       ))}
     </div>
+  );
+}
+
+function OperacaoForm({
+  description,
+  vinculo,
+  viewOnly,
+  valor,
+  setValor,
+  data,
+  setData,
+  observacao,
+  setObservacao,
+  preview,
+  clearPreview,
+  previewLoading,
+  confirmando,
+  onPreview,
+  onConfirm,
+  previewBtnLabel,
+  confirmBtnLabel,
+}) {
+  if (!vinculo) {
+    return (
+      <div className="alert alert-warn" style={{ margin: 0 }}>
+        Vínculo PF ativo necessário. Conclua o aceite na aba Vínculo.
+      </div>
+    );
+  }
+  if (viewOnly) {
+    return <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização.</div>;
+  }
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
+        {description}
+      </p>
+      <div className="form-grid" style={{ marginBottom: 16 }}>
+        <div className="form-group">
+          <label className="form-label">Valor (R$) *</label>
+          <input className="form-input" type="number" min="0.01" step="0.01" placeholder="5000.00"
+            value={valor} onChange={(e) => { setValor(e.target.value); clearPreview(); }} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Data *</label>
+          <input className="form-input" type="date" value={data}
+            onChange={(e) => { setData(e.target.value); clearPreview(); }} />
+        </div>
+        <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+          <label className="form-label">Observação (opcional)</label>
+          <input className="form-input" type="text" placeholder="Ex: exercício 2025"
+            value={observacao} onChange={(e) => { setObservacao(e.target.value); clearPreview(); }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: preview ? 16 : 0 }}>
+        <button type="button" className="btn btn-secondary"
+          disabled={previewLoading || !valor || !data}
+          onClick={onPreview}>
+          {previewLoading ? "Gerando..." : previewBtnLabel}
+        </button>
+        {preview && (
+          <button type="button" className="btn btn-primary"
+            disabled={confirmando}
+            onClick={onConfirm}>
+            {confirmando ? "Confirmando..." : confirmBtnLabel}
+          </button>
+        )}
+      </div>
+      {preview && (
+        <div style={{ display: "grid", gap: 12, marginTop: 4 }}>
+          <PreviewLancamento titulo="Lançamento PJ" lado="Saída" lanc={preview.lancamentoPj} />
+          <PreviewLancamento titulo="Lançamento PF" lado="Entrada" lanc={preview.lancamentoPf} />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -99,6 +180,13 @@ export default function IntegracaoPfPjPage() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+
+  const [lucrosValor, setLucrosValor] = useState("");
+  const [lucrosData, setLucrosData] = useState(new Date().toISOString().slice(0, 10));
+  const [lucrosObs, setLucrosObs] = useState("");
+  const [lucrosPreview, setLucrosPreview] = useState(null);
+  const [lucrosPreviewLoading, setLucrosPreviewLoading] = useState(false);
+  const [lucrosConfirmando, setLucrosConfirmando] = useState(false);
 
   const [operacoes, setOperacoes] = useState([]);
   const [loadingOps, setLoadingOps] = useState(false);
@@ -206,6 +294,40 @@ export default function IntegracaoPfPjPage() {
     }
   };
 
+  const handlePreviewLucros = async () => {
+    setLucrosPreviewLoading(true);
+    setErro(null);
+    setLucrosPreview(null);
+    try {
+      const res = await integracaoPfPjApi.previewLucros(lucrosValor, lucrosData, lucrosObs);
+      setLucrosPreview(res);
+    } catch (err) {
+      setErro(err.message || "Erro ao gerar preview.");
+    } finally {
+      setLucrosPreviewLoading(false);
+    }
+  };
+
+  const handleConfirmarLucros = async () => {
+    setLucrosConfirmando(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      await integracaoPfPjApi.confirmarLucros(lucrosValor, lucrosData, lucrosObs);
+      setLucrosPreview(null);
+      setLucrosValor("");
+      setLucrosObs("");
+      setMsg("Distribuição de lucros registrada nos dois lados.");
+      if (reloadAppState) reloadAppState();
+      setTab("historico");
+      loadOperacoes();
+    } catch (err) {
+      setErro(err.message || "Erro ao confirmar distribuição de lucros.");
+    } finally {
+      setLucrosConfirmando(false);
+    }
+  };
+
   const handleConfirmarProLabore = async () => {
     setConfirmando(true);
     setErro(null);
@@ -227,7 +349,8 @@ export default function IntegracaoPfPjPage() {
   };
 
   const handleRollback = async (op) => {
-    if (!window.confirm("Desfazer este pró-labore? Os lançamentos PJ e PF serão removidos.")) return;
+    const tipo = TIPO_OP_LABEL[op.tipoOperacao] || "operação";
+    if (!window.confirm(`Desfazer esta ${tipo}? Os lançamentos PJ e PF serão removidos.`)) return;
     setDesfazendoId(op.id);
     setErro(null);
     try {
@@ -254,7 +377,7 @@ export default function IntegracaoPfPjPage() {
           </div>
           <h2 className="of-hero-title">Vincule sua conta PF</h2>
           <p className="of-hero-sub">
-            Você possui uma conta PF conosco? Vincule aqui e lance pró-labore
+            Vincule sua conta PF e lance pró-labore ou distribuição de lucros
             com lançamentos automáticos nos dois lados.
           </p>
         </div>
@@ -354,59 +477,63 @@ export default function IntegracaoPfPjPage() {
               <Banknote size={18} strokeWidth={2} aria-hidden />
               Lançar Pró-labore
             </div>
-            {!vinculoAtivo ? (
-              <div className="alert alert-warn" style={{ margin: 0 }}>
-                Vínculo PF ativo necessário. Conclua o aceite na aba Vínculo.
-              </div>
-            ) : viewOnly ? (
-              <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização.</div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
+            <OperacaoForm
+              vinculo={vinculoAtivo ? vinculo : null}
+              viewOnly={viewOnly}
+              valor={valor}
+              setValor={setValor}
+              data={data}
+              setData={setData}
+              observacao={observacao}
+              setObservacao={setObservacao}
+              preview={preview}
+              clearPreview={() => setPreview(null)}
+              previewLoading={previewLoading}
+              confirmando={confirmando}
+              onPreview={handlePreviewProLabore}
+              onConfirm={handleConfirmarProLabore}
+              previewBtnLabel="Ver preview"
+              confirmBtnLabel="Confirmar pró-labore"
+              description={
+                <>
                   Gera automaticamente <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> vinculada
-                  ({vinculo.nomePf || vinculo.emailPf}).
-                </p>
-                <div className="form-grid" style={{ marginBottom: 16 }}>
-                  <div className="form-group">
-                    <label className="form-label">Valor (R$) *</label>
-                    <input className="form-input" type="number" min="0.01" step="0.01" placeholder="5000.00"
-                      value={valor} onChange={(e) => { setValor(e.target.value); setPreview(null); }} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Data *</label>
-                    <input className="form-input" type="date" value={data}
-                      onChange={(e) => { setData(e.target.value); setPreview(null); }} />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                    <label className="form-label">Observação (opcional)</label>
-                    <input className="form-input" type="text" placeholder="Ex: competência maio/2026"
-                      value={observacao} onChange={(e) => { setObservacao(e.target.value); setPreview(null); }} />
-                  </div>
-                </div>
+                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
+                </>
+              }
+            />
+          </div>
+        )}
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: preview ? 16 : 0 }}>
-                  <button type="button" className="btn btn-secondary"
-                    disabled={previewLoading || !valor || !data}
-                    onClick={handlePreviewProLabore}>
-                    {previewLoading ? "Gerando..." : "Ver preview"}
-                  </button>
-                  {preview && (
-                    <button type="button" className="btn btn-primary"
-                      disabled={confirmando}
-                      onClick={handleConfirmarProLabore}>
-                      {confirmando ? "Confirmando..." : "Confirmar pró-labore"}
-                    </button>
-                  )}
-                </div>
-
-                {preview && (
-                  <div style={{ display: "grid", gap: 12, marginTop: 4 }}>
-                    <PreviewLancamento titulo="Lançamento PJ" lado="Saída" lanc={preview.lancamentoPj} />
-                    <PreviewLancamento titulo="Lançamento PF" lado="Entrada" lanc={preview.lancamentoPf} />
-                  </div>
-                )}
-              </>
-            )}
+        {tab === "lucros" && (
+          <div className="card">
+            <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <TrendingUp size={18} strokeWidth={2} aria-hidden />
+              Distribuição de Lucros
+            </div>
+            <OperacaoForm
+              vinculo={vinculoAtivo ? vinculo : null}
+              viewOnly={viewOnly}
+              valor={lucrosValor}
+              setValor={setLucrosValor}
+              data={lucrosData}
+              setData={setLucrosData}
+              observacao={lucrosObs}
+              setObservacao={setLucrosObs}
+              preview={lucrosPreview}
+              clearPreview={() => setLucrosPreview(null)}
+              previewLoading={lucrosPreviewLoading}
+              confirmando={lucrosConfirmando}
+              onPreview={handlePreviewLucros}
+              onConfirm={handleConfirmarLucros}
+              previewBtnLabel="Ver preview"
+              confirmBtnLabel="Confirmar distribuição"
+              description={
+                <>
+                  Registra <strong>Saída na PJ</strong> e <strong>Entrada na PF</strong> por distribuição de lucros
+                  ({vinculo?.nomePf || vinculo?.emailPf || "—"}).
+                </>
+              }
+            />
           </div>
         )}
 
@@ -440,7 +567,7 @@ export default function IntegracaoPfPjPage() {
                       return (
                         <tr key={op.id}>
                           <td className="td-mono" style={{ fontSize: 12 }}>{fmtDate(op.data)}</td>
-                          <td style={{ fontSize: 12, textTransform: "capitalize" }}>{op.tipoOperacao?.replace("_", "-")}</td>
+                          <td style={{ fontSize: 12 }}>{TIPO_OP_LABEL[op.tipoOperacao] || op.tipoOperacao}</td>
                           <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                               title={op.historico}>{op.historico}</td>
                           <td className="td-mono" style={{ textAlign: "right" }}>{fmtBRL(op.valor)}</td>

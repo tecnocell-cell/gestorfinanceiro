@@ -229,6 +229,18 @@ export const integracaoPfPjApi = {
       body: { valor, data, observacao: observacao || "" },
     }),
 
+  previewLucros: (valor, data, observacao) =>
+    request("/integracao-pf-pj/lucros/preview", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
+  confirmarLucros: (valor, data, observacao) =>
+    request("/integracao-pf-pj/lucros", {
+      method: "POST",
+      body: { valor, data, observacao: observacao || "" },
+    }),
+
   listOperacoes: () => request("/integracao-pf-pj/operacoes"),
 
   rollbackOperacao: (id) =>
