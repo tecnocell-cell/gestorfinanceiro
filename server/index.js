@@ -16,6 +16,7 @@ import {
   fetchRollbackIntegracaoLancamentoIds,
   stripLancamentosIntegracaoRollback,
 } from "./integracaoPfPj/estadoMerge.js";
+import { countPlanoContas } from "./initialState.js";
 import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
@@ -192,15 +193,20 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
     const stripped = stripLancamentosIntegracaoRollback(normalized, rollbackIds);
     if (stripped !== normalized) {
       normalized = normalizeStateForUser(stripped, profile);
+    }
+    const planoAntes = countPlanoContas(dados);
+    const planoDepois = countPlanoContas(normalized);
+    const normalizeSeguro = planoDepois >= planoAntes;
+    if (normalizeSeguro && JSON.stringify(normalized) !== JSON.stringify(dados)) {
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
         [req.user.id, JSON.stringify(normalized)]
       );
-    } else if (JSON.stringify(normalized) !== JSON.stringify(dados)) {
-      await query(
-        `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
-        [req.user.id, JSON.stringify(normalized)]
+    } else if (!normalizeSeguro && planoDepois < planoAntes) {
+      console.warn(
+        `GET /state usuario ${req.user.id}: normalização ignorada (planoContas ${planoAntes} → ${planoDepois})`
       );
+      normalized = dados;
     }
 
     res.json({ dados: normalized, profile });

@@ -114,6 +114,24 @@ function defaultPessoa(nome) {
 const isValidAppState = (dados) =>
   dados && Array.isArray(dados.empresas) && dados.empresas.length > 0;
 
+/** Une listas de todas as empresas (evita perder categorias/contas em slots legados). */
+function mergeEmpresaField(empresas, field) {
+  const merged = [];
+  const seen = new Set();
+  for (const emp of empresas || []) {
+    for (const item of emp[field] || []) {
+      if (!item?.id || seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function countPlanoContas(dados) {
+  return mergeEmpresaField(dados?.empresas, 'planoContas').length;
+}
+
 /** Alinha empresa ativa ao tipo_perfil do usuário (mesma regra do frontend) */
 export function normalizeStateForUser(dados, user) {
   if (!isValidAppState(dados)) return dados;
@@ -122,17 +140,22 @@ export function normalizeStateForUser(dados, user) {
 
   const nome = user.nome_perfil || user.nome || "Perfil";
   const activeId = dados.empresaAtivaId || dados.empresas[0]?.id;
+  const empresas = dados.empresas || [];
 
   if (tipoPerfil === "fisica") {
-    const allLancamentos = dados.empresas.flatMap((e) => e.lancamentos || []);
-    const allMetas = dados.empresas.flatMap((e) => e.metas || []);
-    const allOrcamentos = dados.empresas.flatMap((e) => e.orcamentos || []);
-    const allFechamentos = dados.empresas.flatMap((e) => e.fechamentos || []);
+    const allLancamentos = empresas.flatMap((e) => e.lancamentos || []);
+    const allMetas = empresas.flatMap((e) => e.metas || []);
+    const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
+    const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
+    const mergedPlano = mergeEmpresaField(empresas, 'planoContas');
+    const mergedContas = mergeEmpresaField(empresas, 'contas');
+    const mergedClientes = mergeEmpresaField(empresas, 'clientes');
+    const mergedFornecedores = mergeEmpresaField(empresas, 'fornecedores');
 
     const base =
-      dados.empresas.find((e) => e.tipo === "fisica") ||
-      dados.empresas.find((e) => e.id === activeId) ||
-      dados.empresas[0];
+      empresas.find((e) => e.tipo === "fisica") ||
+      empresas.find((e) => e.id === activeId) ||
+      empresas[0];
 
     let converted;
     if (base.tipo === "fisica") {
@@ -141,16 +164,29 @@ export function normalizeStateForUser(dados, user) {
         tipo: "fisica",
         nome: base.nome || nome,
         pessoa: base.pessoa || defaultPessoa(base.nome || nome),
-        planoContas: base.planoContas?.length ? base.planoContas : defaultCategoriasPF(),
-        contas: base.contas?.length ? base.contas : defaultContasPF(),
+        planoContas: mergedPlano.length
+          ? mergedPlano
+          : (base.planoContas?.length ? base.planoContas : defaultCategoriasPF()),
+        contas: mergedContas.length
+          ? mergedContas
+          : (base.contas?.length ? base.contas : defaultContasPF()),
+        clientes: mergedClientes.length ? mergedClientes : (base.clientes || []),
+        fornecedores: mergedFornecedores.length ? mergedFornecedores : (base.fornecedores || []),
       };
     } else {
       const pf = createPerfilPF(base.nome || nome);
       converted = {
         ...pf.empresas[0],
         id: base.id,
-        contas: base.contas?.length ? base.contas : defaultContasPF(),
-        planoContas: base.planoContas?.length ? base.planoContas : defaultCategoriasPF(),
+        pessoa: base.pessoa || defaultPessoa(base.nome || nome),
+        contas: mergedContas.length
+          ? mergedContas
+          : (base.contas?.length ? base.contas : defaultContasPF()),
+        planoContas: mergedPlano.length
+          ? mergedPlano
+          : (base.planoContas?.length ? base.planoContas : defaultCategoriasPF()),
+        clientes: mergedClientes.length ? mergedClientes : (base.clientes || []),
+        fornecedores: mergedFornecedores.length ? mergedFornecedores : (base.fornecedores || []),
       };
     }
 
@@ -162,24 +198,36 @@ export function normalizeStateForUser(dados, user) {
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
 
-  const empresas = dados.empresas.map((emp) => {
+  const mergedPlanoPj = mergeEmpresaField(empresas, 'planoContas');
+  const mergedContasPj = mergeEmpresaField(empresas, 'contas');
+  const mergedClientesPj = mergeEmpresaField(empresas, 'clientes');
+  const mergedFornecedoresPj = mergeEmpresaField(empresas, 'fornecedores');
+
+  const empresasOut = empresas.map((emp) => {
     if (emp.id !== activeId) return emp;
     return {
       ...emp,
       tipo: "juridica",
       nome: emp.nome || nome,
-      // Preserva company do usuário; só usa default se estiver ausente
       company: emp.company || defaultCompany(emp.nome || nome),
-      contas: emp.contas?.length ? emp.contas : defaultContasPJ(),
-      planoContas: emp.planoContas?.length ? emp.planoContas : defaultPlanoPJ(),
+      contas: mergedContasPj.length
+        ? mergedContasPj
+        : (emp.contas?.length ? emp.contas : defaultContasPJ()),
+      planoContas: mergedPlanoPj.length
+        ? mergedPlanoPj
+        : (emp.planoContas?.length ? emp.planoContas : defaultPlanoPJ()),
       lancamentos: emp.lancamentos || [],
-      clientes: emp.clientes || [],
-      fornecedores: emp.fornecedores || [],
+      clientes: mergedClientesPj.length ? mergedClientesPj : (emp.clientes || []),
+      fornecedores: mergedFornecedoresPj.length
+        ? mergedFornecedoresPj
+        : (emp.fornecedores || []),
       fechamentos: emp.fechamentos || [],
       metas: emp.metas || [],
       orcamentos: emp.orcamentos || [],
     };
   });
 
-  return { ...dados, empresas };
+  return { ...dados, empresas: empresasOut };
 }
+
+export { countPlanoContas, mergeEmpresaField };
