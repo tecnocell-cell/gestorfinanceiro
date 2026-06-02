@@ -16,13 +16,19 @@
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const API_URL =
-  (import.meta.env.VITE_CENTERFLOW_API_URL as string | undefined) ||
-  "http://localhost:3001/api";
+function envUrl(value: string | undefined): string | undefined {
+  const trimmed = String(value ?? "").trim();
+  return trimmed || undefined;
+}
 
+/** API da landing: env explícita ou mesmo host (/api via proxy nginx). */
+const API_URL =
+  envUrl(import.meta.env.VITE_CENTERFLOW_API_URL as string | undefined) ?? "/api";
+
+/** App autenticado após login (domínio do painel). */
 export const APP_URL =
-  (import.meta.env.VITE_CENTERFLOW_APP_URL as string | undefined) ||
-  "http://localhost:5173";
+  envUrl(import.meta.env.VITE_CENTERFLOW_APP_URL as string | undefined) ??
+  "https://financeiro.fluxiva.app";
 
 /** Chaves idênticas às usadas em src/gestor/api.js do app autenticado. */
 const TOKEN_KEY = "gestor_token";

@@ -11,8 +11,12 @@
  *   npx vite build --config vite.spa.config.ts
  *
  * Dev:
+ *   cp .env.spa.example .env
  *   npx vite --config vite.spa.config.ts
  *   → http://localhost:5174
+ *
+ * Produção (sem .env): API relativa /api; app → financeiro.fluxiva.app
+ * Deploy pode sobrescrever via centerflow-frontend/.env (ver deploy-fluxiva.sh)
  *
  * Nota SPA: o servidor (Nginx/Express) deve servir index.html para
  * qualquer rota (/, /login, /cadastro) — o roteamento é client-side
