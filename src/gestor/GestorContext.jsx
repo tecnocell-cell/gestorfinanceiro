@@ -27,6 +27,7 @@ import {
 import { stateApi, adminApi, healthApi } from "./api.js";
 import { useAuth } from "./AuthContext.jsx";
 import { normalizeTipoPerfil, resolveProfileTipo } from "./profileLabels.js";
+import { safeNum } from "./finance.js";
 import { registerStateFlush } from "./persistence.js";
 
 const GestorContext = createContext(null);
@@ -385,7 +386,7 @@ export function GestorProvider({ children }) {
       const payload = {
         ...data,
         codigo: data.codigo ? Number(data.codigo) : undefined,
-        valor: parseFloat(data.valor),
+        valor: safeNum(data.valor),
         contaEntradaId: data.contaEntradaId || null,
         contaSaidaId:   data.contaSaidaId   || null,
         codigoDestino:  ent?.codigo ?? data.codigoDestino ?? null,

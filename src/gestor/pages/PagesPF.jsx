@@ -5,7 +5,9 @@ import {
   AreaChart, Area,
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
-import { fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos } from "../finance.js";
+import {
+  addMoney, fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos, safeNum, subMoney,
+} from "../finance.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
@@ -170,12 +172,13 @@ export function LancamentosPFPage() {
   };
 
   const resumo = useMemo(() => {
-    let ent = 0, sai = 0;
+    let ent = 0;
+    let sai = 0;
     for (const l of lancsFiltrados) {
-      if (l.tipo === "Entrada") ent += l.valor || 0;
-      else if (l.tipo === "Saida") sai += l.valor || 0;
+      if (l.tipo === "Entrada") ent = addMoney(ent, l.valor);
+      else if (l.tipo === "Saida") sai = addMoney(sai, l.valor);
     }
-    return { entradas: ent, saidas: sai, saldo: ent - sai, qtd: lancsFiltrados.length };
+    return { entradas: ent, saidas: sai, saldo: subMoney(ent, sai), qtd: lancsFiltrados.length };
   }, [lancsFiltrados]);
 
   return (
@@ -524,20 +527,20 @@ export function OrcamentoPage() {
         if (filterPeriodo.mes && (d.getMonth() + 1).toString().padStart(2, "0") !== filterPeriodo.mes) return false;
         return true;
       })
-      .reduce((s, l) => s + l.valor, 0);
+      .reduce((s, l) => addMoney(s, l.valor), 0);
   };
 
   const linhas = despesas.map((p) => {
     const orcado = getOrcado(p.id);
     const realizado = getRealizado(p.id);
-    const diff = orcado - realizado;
+    const diff = subMoney(orcado, realizado);
     const pct = orcado > 0 ? Math.min((realizado / orcado) * 100, 100) : 0;
     return { ...p, orcado, realizado, diff, pct };
   });
 
-  const totOrcado    = linhas.reduce((s, l) => s + l.orcado, 0);
-  const totRealizado = linhas.reduce((s, l) => s + l.realizado, 0);
-  const totDiff      = totOrcado - totRealizado;
+  const totOrcado    = linhas.reduce((s, l) => addMoney(s, l.orcado), 0);
+  const totRealizado = linhas.reduce((s, l) => addMoney(s, l.realizado), 0);
+  const totDiff      = subMoney(totOrcado, totRealizado);
 
   const fillClass = (pct) => pct >= 100 ? "red" : pct >= 80 ? "amber" : "green";
   const hint = PF_PAGE_HINTS.orcamento;
@@ -643,9 +646,9 @@ export function MetasPage() {
   const fillClass = (p) => p >= 100 ? "green" : p >= 50 ? "blue" : "purple";
 
   const handleAporte = () => {
-    const v = parseFloat(aporteValor);
+    const v = safeNum(aporteValor);
     if (!v || !aporteMeta) return;
-    metaCrud.update(aporteMeta.id, { valorAtual: (aporteMeta.valorAtual || 0) + v });
+    metaCrud.update(aporteMeta.id, { valorAtual: addMoney(aporteMeta.valorAtual || 0, v) });
     setAporteMeta(null);
     setAporteValor("");
   };
@@ -781,7 +784,7 @@ export function RelatoriosPFPage() {
           if (filterPeriodo.mes && (d.getMonth() + 1).toString().padStart(2, "0") !== filterPeriodo.mes) return false;
           return true;
         })
-        .reduce((s, l) => s + l.valor, 0);
+        .reduce((s, l) => addMoney(s, l.valor), 0);
       return { name: p.descricao, value: total };
     }).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
   }, [lancamentos, planoContas, filterPeriodo]);

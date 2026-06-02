@@ -1,5 +1,5 @@
 import { MESES } from "./constants.js";
-import { getSaldoConta, getDRE } from "./finance.js";
+import { addMoney, getDRE, getSaldoTotal, safeNum, subMoney } from "./finance.js";
 
 /** SER / VBSP / GSC — metodologia inspirada em orçamento consciente (Anatomia Financeira). */
 export function grupoResumoCategoria(pc) {
@@ -19,11 +19,11 @@ const mesKey = (i) => (i + 1).toString().padStart(2, "0");
 export function getSaldoContaAte(contaId, contas, lancamentos, ateData) {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta || !ateData) return 0;
-  let saldo = conta.saldoInicial || 0;
+  let saldo = safeNum(conta.saldoInicial);
   for (const l of lancamentos) {
     if (!l.data || l.data > ateData) continue;
-    if (l.contaEntradaId === contaId) saldo += l.valor || 0;
-    if (l.contaSaidaId === contaId) saldo -= l.valor || 0;
+    if (l.contaEntradaId === contaId) saldo = addMoney(saldo, l.valor);
+    if (l.contaSaidaId === contaId) saldo = subMoney(saldo, l.valor);
   }
   return saldo;
 }
@@ -43,10 +43,10 @@ function sumPlanoNoMes(lancamentos, planoId, ano, mesIndex, modo = "auto") {
       return true;
     })
     .reduce((s, l) => {
-      if (modo === "entrada") return l.tipo === "Entrada" ? s + l.valor : s;
-      if (modo === "saida") return l.tipo === "Saida" ? s + l.valor : s;
-      if (l.tipo === "Entrada") return s + l.valor;
-      if (l.tipo === "Saida") return s + l.valor;
+      if (modo === "entrada") return l.tipo === "Entrada" ? addMoney(s, l.valor) : s;
+      if (modo === "saida") return l.tipo === "Saida" ? addMoney(s, l.valor) : s;
+      if (l.tipo === "Entrada") return addMoney(s, l.valor);
+      if (l.tipo === "Saida") return addMoney(s, l.valor);
       return s;
     }, 0);
 }
@@ -93,7 +93,7 @@ export function buildResumoAnual({
     }));
 
   const somaMeses = (rows) =>
-    MESES.map((_, mi) => rows.reduce((s, r) => s + (r.meses[mi] || 0), 0));
+    MESES.map((_, mi) => rows.reduce((s, r) => addMoney(s, r.meses[mi] || 0), 0));
 
   const receitasRows = mapCategorias(receitasPlano, "entrada");
   const receitasTotais = somaMeses(receitasRows);
@@ -122,7 +122,7 @@ export function buildResumoAnual({
   }));
   const saldoTotalMeses = MESES.map((_, i) =>
     contasAtivas.reduce(
-      (s, c) => s + getSaldoContaAte(c.id, contas, lancamentos, lastDayOfMonth(ano, i)),
+      (s, c) => addMoney(s, getSaldoContaAte(c.id, contas, lancamentos, lastDayOfMonth(ano, i))),
       0
     )
   );
@@ -130,15 +130,20 @@ export function buildResumoAnual({
   const mensalDre = MESES.map((_, i) => getDRE(lancs, planoContas, ano, mesKey(i)));
 
   const receitaMeses = mensalDre.map((d) => d.receitas);
-  const custoMeses = mensalDre.map((d) => d.custos + d.impostos);
-  const despesaMeses = mensalDre.map((d) => d.despesas);
-  const gastoVbspGsc = MESES.map((_, i) => (vbspTotais[i] || 0) + (gscTotais[i] || 0));
-  const fechamentoMeses = MESES.map((_, i) => receitaMeses[i] - serTotais[i] - gastoVbspGsc[i] - (isPF ? 0 : custoMeses[i]));
+  const custoMeses = mensalDre.map((d) => addMoney(d.custos, d.impostos));
+  const despesaMeses = mensalDre.map((d) => safeNum(d.despesas));
+  const gastoVbspGsc = MESES.map((_, i) => addMoney(vbspTotais[i] || 0, gscTotais[i] || 0));
+  const fechamentoMeses = MESES.map((_, i) =>
+    subMoney(
+      subMoney(receitaMeses[i], serTotais[i]),
+      addMoney(gastoVbspGsc[i], isPF ? 0 : custoMeses[i])
+    )
+  );
 
-  const anoReceita = receitaMeses.reduce((a, b) => a + b, 0);
-  const anoSer = serTotais.reduce((a, b) => a + b, 0);
-  const anoVbsp = vbspTotais.reduce((a, b) => a + b, 0);
-  const anoGsc = gscTotais.reduce((a, b) => a + b, 0);
+  const anoReceita = receitaMeses.reduce((a, b) => addMoney(a, b), 0);
+  const anoSer = serTotais.reduce((a, b) => addMoney(a, b), 0);
+  const anoVbsp = vbspTotais.reduce((a, b) => addMoney(a, b), 0);
+  const anoGsc = gscTotais.reduce((a, b) => addMoney(a, b), 0);
   const saldoAtual = getSaldoTotal(contas, lancamentos);
 
   let pjSections = null;
@@ -171,15 +176,11 @@ export function buildResumoAnual({
       serMeses: serTotais,
       vbspMeses: vbspTotais,
       gscMeses: gscTotais,
-      gastoTotalMeses: isPF ? gastoVbspGsc : despesaMeses.map((d, i) => d + custoMeses[i]),
+      gastoTotalMeses: isPF ? gastoVbspGsc : despesaMeses.map((d, i) => addMoney(d, custoMeses[i])),
       fechamentoMeses,
       saldoContaMeses: saldoTotalMeses,
-      saldoProjetadoMeses: saldoTotalMeses.map((s, i) => s + fechamentoMeses[i]),
+      saldoProjetadoMeses: saldoTotalMeses.map((s, i) => addMoney(s, fechamentoMeses[i])),
     },
     pjSections,
   };
-}
-
-function getSaldoTotal(contas, lancamentos) {
-  return contas.filter((c) => !c.inativo).reduce((s, c) => s + getSaldoConta(c.id, contas, lancamentos), 0);
 }

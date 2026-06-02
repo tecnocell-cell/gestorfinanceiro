@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { fmtBRL, fmtPct, safeNum } from "../finance.js";
+import { addMoney, fmtBRL, fmtPct, safeNum, subMoney } from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -111,7 +111,7 @@ export default function DashboardV2Page() {
     return recorrencias
       .filter((r) => r.status === "ativa" && r.proxima_data >= hoje && r.proxima_data <= limite)
       .reduce(
-        (acc, r) => acc + (r.tipo === "Receita" ? safeNum(r.valor) : -safeNum(r.valor)),
+        (acc, r) => (r.tipo === "Receita" ? addMoney(acc, r.valor) : subMoney(acc, r.valor)),
         0
       );
   }, [recorrencias]);
@@ -120,7 +120,7 @@ export default function DashboardV2Page() {
     () => mensal.map((m) => ({
       name: m.name,
       Receitas: safeNum(m.Receita),
-      Despesas: safeNum(m.Custo) + safeNum(m.Despesas),
+      Despesas: addMoney(m.Custo, m.Despesas),
     })),
     [mensal]
   );
@@ -154,7 +154,7 @@ export default function DashboardV2Page() {
       const plano = planoContas.find((p) => p.id === l.planoId);
       if (!plano || plano.tipo === "Receita") continue;
       const nome = plano.descricao;
-      h[nome] = (h[nome] || 0) + safeNum(l.valor);
+      h[nome] = addMoney(h[nome] || 0, l.valor);
       if (!meta[nome]) meta[nome] = { fill: plano.cor, icone: plano.icone };
     }
     return Object.entries(h)
@@ -165,7 +165,7 @@ export default function DashboardV2Page() {
 
   const sparkReceitas = useMemo(() => mensal.map((m) => safeNum(m.Receita)), [mensal]);
   const sparkDespesas = useMemo(
-    () => mensal.map((m) => safeNum(m.Custo) + safeNum(m.Despesas)),
+    () => mensal.map((m) => addMoney(m.Custo, m.Despesas)),
     [mensal]
   );
   const sparkLucro = useMemo(() => mensal.map((m) => safeNum(m["Lucro Líquido"])), [mensal]);
@@ -203,7 +203,7 @@ export default function DashboardV2Page() {
       });
     }
     if (categoriasData.length > 0) {
-      const totalDesp = categoriasData.reduce((s, c) => s + safeNum(c.value), 0);
+      const totalDesp = categoriasData.reduce((s, c) => addMoney(s, c.value), 0);
       const top = categoriasData[0];
       const pct = totalDesp > 0 ? (safeNum(top.value) / totalDesp) * 100 : 0;
       items.push({
@@ -455,7 +455,7 @@ export default function DashboardV2Page() {
                       content={({ viewBox }) => {
                         const { cx, cy } = viewBox || {};
                         if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
-                        const total = categoriasData.reduce((s, x) => s + safeNum(x.value), 0);
+                        const total = categoriasData.reduce((s, x) => addMoney(s, x.value), 0);
                         return (
                           <g>
                             <text x={cx} y={cy - 6} textAnchor="middle" className="pie-center-label">Total</text>

@@ -5,7 +5,10 @@ import {
   AreaChart, Area, ComposedChart, Line,
 } from "recharts";
 import { MESES, CHART } from "../constants.js";
-import { fmtBRL, fmtPct, fmtDate, fmtDateTime, lancamentosComSaldoConta, contaPorCodigo, generateId } from "../finance.js";
+import {
+  addMoney, fmtBRL, fmtPct, fmtDate, fmtDateTime, lancamentosComSaldoConta,
+  contaPorCodigo, generateId, safeNum, subMoney,
+} from "../finance.js";
 import { labelInstituicaoConta } from "../bancosBrasil.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
@@ -180,24 +183,25 @@ export function LancamentosPage() {
     const { ano, mes } = filterPeriodo;
     const beforeDate = mes ? `${ano}-${mes}-01` : ano ? `${ano}-01-01` : null;
     if (!beforeDate) return null;
-    let saldo = conta.saldoInicial || 0;
+    let saldo = safeNum(conta.saldoInicial);
     lancamentos
       .filter((l) => l.data < beforeDate && (l.contaEntradaId === contaFilter || l.contaSaidaId === contaFilter))
       .sort((a, b) => a.data.localeCompare(b.data))
       .forEach((l) => {
-        if (l.contaEntradaId === contaFilter) saldo += l.valor;
-        if (l.contaSaidaId === contaFilter) saldo -= l.valor;
+        if (l.contaEntradaId === contaFilter) saldo = addMoney(saldo, l.valor);
+        if (l.contaSaidaId === contaFilter) saldo = subMoney(saldo, l.valor);
       });
     return saldo;
   }, [contaFilter, filterPeriodo, lancamentos, contas]);
 
   const resumo = useMemo(() => {
-    let ent = 0, sai = 0;
+    let ent = 0;
+    let sai = 0;
     for (const l of rows) {
-      if (l.tipo === "Entrada") ent += l.valor || 0;
-      else if (l.tipo === "Saida") sai += l.valor || 0;
+      if (l.tipo === "Entrada") ent = addMoney(ent, l.valor);
+      else if (l.tipo === "Saida") sai = addMoney(sai, l.valor);
     }
-    return { entradas: ent, saidas: sai, saldo: ent - sai, qtd: rows.length };
+    return { entradas: ent, saidas: sai, saldo: subMoney(ent, sai), qtd: rows.length };
   }, [rows]);
 
   return (
@@ -751,10 +755,10 @@ export function ContasPage({ pfMode = false } = {}) {
     const ativas = contas.filter((c) => !c.inativo);
     const saldoBanco = ativas
       .filter((c) => String(c.tipo || "").toLowerCase() === "banco")
-      .reduce((s, c) => s + getSaldoConta(c.id), 0);
+      .reduce((s, c) => addMoney(s, getSaldoConta(c.id)), 0);
     const saldoOutros = ativas
       .filter((c) => String(c.tipo || "").toLowerCase() !== "banco")
-      .reduce((s, c) => s + getSaldoConta(c.id), 0);
+      .reduce((s, c) => addMoney(s, getSaldoConta(c.id)), 0);
     return {
       total: getSaldoTotal(),
       qtd: ativas.length,
@@ -1347,8 +1351,8 @@ export function ConciliacaoPage() {
 
 export function BalancetePage() {
   const { balancete } = useGestor();
-  const totDeb = balancete.reduce((s, l) => s + l.debito, 0);
-  const totCred = balancete.reduce((s, l) => s + l.credito, 0);
+  const totDeb = balancete.reduce((s, l) => addMoney(s, l.debito), 0);
+  const totCred = balancete.reduce((s, l) => addMoney(s, l.credito), 0);
 
   return (
     <div>

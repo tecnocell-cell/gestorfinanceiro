@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
-import { fmtBRL } from "../finance.js";
+import { addMoney, fmtBRL } from "../finance.js";
 import { MESES } from "../constants.js";
 import { buildResumoAnual } from "../resumoAnual.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
@@ -131,9 +131,9 @@ export default function ResumoAnualPage({ variant = "pf" }) {
       ]
     : [
         { label: "Receita", value: fmtBRL(data.kpis.receita), tone: "in" },
-        { label: "Custos + Impostos", value: fmtBRL(data.pjSections?.custos.totais.reduce((a, b) => a + b, 0) ?? 0), tone: "out" },
-        { label: "Despesas", value: fmtBRL(data.pjSections?.despesas.totais.reduce((a, b) => a + b, 0) ?? 0), tone: "vbsp" },
-        { label: "Lucro (ano)", value: fmtBRL((data.pjSections?.lucroMeses ?? []).reduce((a, b) => a + b, 0)), tone: "ser" },
+        { label: "Custos + Impostos", value: fmtBRL(data.pjSections?.custos.totais.reduce((a, b) => addMoney(a, b), 0) ?? 0), tone: "out" },
+        { label: "Despesas", value: fmtBRL(data.pjSections?.despesas.totais.reduce((a, b) => addMoney(a, b), 0) ?? 0), tone: "vbsp" },
+        { label: "Lucro (ano)", value: fmtBRL((data.pjSections?.lucroMeses ?? []).reduce((a, b) => addMoney(a, b), 0)), tone: "ser" },
         { label: "Saldo Atual", value: fmtBRL(data.kpis.saldoAtual), tone: "saldo" },
       ];
 

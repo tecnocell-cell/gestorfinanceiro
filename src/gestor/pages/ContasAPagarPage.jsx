@@ -15,7 +15,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
-import { fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
+import { addMoney, fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
 import { MESES }                from "../constants.js";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 import {
@@ -138,8 +138,8 @@ export default function ContasAPagarPage() {
     const h = hojeStr();
     const h7 = em7Str();
     const abertos   = periodFiltered.filter((l) => l._status !== "pago");
-    const aPagar    = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => s + l.valor, 0);
-    const aReceber  = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => s + l.valor, 0);
+    const aPagar    = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => addMoney(s, l.valor), 0);
+    const aReceber  = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => addMoney(s, l.valor), 0);
     const vencidos  = abertos.filter((l) => l._status === "atrasado").length;
     const vencendo7 = abertos.filter((l) => l._venc > h && l._venc <= h7).length;
     return { aPagar, aReceber, vencidos, vencendo7 };

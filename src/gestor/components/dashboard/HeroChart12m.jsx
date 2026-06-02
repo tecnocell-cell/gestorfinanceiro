@@ -4,7 +4,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { CHART, MESES } from "../../constants.js";
-import { fmtBRL, safeNum } from "../../finance.js";
+import { addMoney, fmtBRL, safeNum, subMoney } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
 import { Star, Circle, LineChart } from "../icons.jsx";
 
@@ -21,7 +21,7 @@ function HeroTooltip({ active, payload, label, currentMonthName, bestMonthName }
   const get = (k) => safeNum(payload.find((p) => p.dataKey === k)?.value);
   const rec = get("Receitas");
   const desp = get("Despesas");
-  const saldo = rec - desp;
+  const saldo = subMoney(rec, desp);
   const isCurrent = label === currentMonthName;
   const isBest    = label === bestMonthName;
   return (
@@ -65,15 +65,18 @@ function HeroChart12m({ data, title = "Receitas × Despesas (12 meses)", subtitl
     () => (data || []).map((d) => {
       const Receitas = safeNum(d.Receitas);
       const Despesas = safeNum(d.Despesas);
-      return { ...d, name: d.name, Receitas, Despesas, Saldo: Receitas - Despesas };
+      return { ...d, name: d.name, Receitas, Despesas, Saldo: subMoney(Receitas, Despesas) };
     }),
     [data]
   );
 
   const totals = useMemo(() => {
     let r = 0, d = 0;
-    for (const x of enriched) { r += safeNum(x.Receitas); d += safeNum(x.Despesas); }
-    return { rec: r, desp: d, saldo: r - d };
+    for (const x of enriched) {
+      r = addMoney(r, x.Receitas);
+      d = addMoney(d, x.Despesas);
+    }
+    return { rec: r, desp: d, saldo: subMoney(r, d) };
   }, [enriched]);
 
   const currentMonthName = MESES[new Date().getMonth()];

@@ -2,12 +2,26 @@ import { MESES } from "./constants.js";
 
 export const generateId = () => Math.random().toString(36).slice(2, 11);
 
-/** Valor numérico seguro para cálculos e gráficos (NaN/inválido → fallback). */
-export const safeNum = (v, fallback = 0) => {
-  if (v == null || v === "") return fallback;
-  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
-  return Number.isFinite(n) ? n : fallback;
+/** Arredonda valor monetário para 2 casas (evita 999,99 em vez de 1.000,00 por float). */
+export const roundMoney = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(2));
 };
+
+/** Valor numérico seguro para cálculos e gráficos (NaN/inválido → fallback, sempre 2 casas). */
+export const safeNum = (v, fallback = 0) => {
+  if (v == null || v === "") return roundMoney(fallback);
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+  return Number.isFinite(n) ? roundMoney(n) : roundMoney(fallback);
+};
+
+/** Soma monetária com arredondamento a cada passo. */
+export const addMoney = (...values) =>
+  values.reduce((sum, v) => roundMoney(sum + safeNum(v)), 0);
+
+/** Subtração monetária com arredondamento final. */
+export const subMoney = (a, b) => roundMoney(safeNum(a) - safeNum(b));
 
 export const fmtBRL = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(safeNum(v));
@@ -52,15 +66,17 @@ export const getSaldoConta = (contaId, contas, lancamentos) => {
   if (!conta) return 0;
   const entradas = lancamentos
     .filter((l) => l.contaEntradaId === contaId)
-    .reduce((s, l) => s + safeNum(l.valor), 0);
+    .reduce((s, l) => addMoney(s, l.valor), 0);
   const saidas = lancamentos
     .filter((l) => l.contaSaidaId === contaId)
-    .reduce((s, l) => s + safeNum(l.valor), 0);
-  return safeNum(conta.saldoInicial) + entradas - saidas;
+    .reduce((s, l) => addMoney(s, l.valor), 0);
+  return addMoney(conta.saldoInicial, subMoney(entradas, saidas));
 };
 
 export const getSaldoTotal = (contas, lancamentos) =>
-  contas.filter((c) => !c.inativo).reduce((s, c) => s + getSaldoConta(c.id, contas, lancamentos), 0);
+  contas
+    .filter((c) => !c.inativo)
+    .reduce((s, c) => addMoney(s, getSaldoConta(c.id, contas, lancamentos)), 0);
 
 export const filterLancamentos = (lancamentos, { ano, mes, tipo, search, contaId, consiliado }) => {
   return lancamentos
@@ -147,8 +163,8 @@ const movPlano = (lancamentos, planoId, opts = {}) => {
     })
     .reduce(
       (acc, l) => {
-        if (l.tipo === "Entrada") acc.entradas += safeNum(l.valor);
-        if (l.tipo === "Saida" || l.tipo === "Transferencia") acc.saidas += safeNum(l.valor);
+        if (l.tipo === "Entrada") acc.entradas = addMoney(acc.entradas, l.valor);
+        if (l.tipo === "Saida" || l.tipo === "Transferencia") acc.saidas = addMoney(acc.saidas, l.valor);
         return acc;
       },
       { entradas: 0, saidas: 0 }
@@ -158,20 +174,20 @@ const movPlano = (lancamentos, planoId, opts = {}) => {
 function computeDRE(resultado, planoContas) {
   const receitas = planoContas
     .filter((p) => p.tipo === "Receita")
-    .reduce((s, p) => s + (resultado[p.id]?.entradas || 0), 0);
+    .reduce((s, p) => addMoney(s, resultado[p.id]?.entradas || 0), 0);
   const custos = planoContas
     .filter((p) => p.tipo === "Custo")
-    .reduce((s, p) => s + (resultado[p.id]?.saidas || 0), 0);
+    .reduce((s, p) => addMoney(s, resultado[p.id]?.saidas || 0), 0);
   const despesas = planoContas
     .filter((p) => p.tipo === "Despesa")
-    .reduce((s, p) => s + (resultado[p.id]?.saidas || 0), 0);
+    .reduce((s, p) => addMoney(s, resultado[p.id]?.saidas || 0), 0);
   const impostos = planoContas
     .filter((p) => p.tipo === "Imposto")
-    .reduce((s, p) => s + (resultado[p.id]?.saidas || 0), 0);
+    .reduce((s, p) => addMoney(s, resultado[p.id]?.saidas || 0), 0);
 
-  const lucroBruto = receitas - custos;
-  const lucroLiquido = lucroBruto - despesas;
-  const lucroAposImpostos = lucroLiquido - impostos;
+  const lucroBruto = subMoney(receitas, custos);
+  const lucroLiquido = subMoney(lucroBruto, despesas);
+  const lucroAposImpostos = subMoney(lucroLiquido, impostos);
 
   return {
     receitas,
@@ -182,8 +198,8 @@ function computeDRE(resultado, planoContas) {
     lucroLiquido,
     lucroAposImpostos,
     resultado,
-    lucroPct: receitas > 0 ? lucroLiquido / receitas : 0,
-    lucroAposImpPct: receitas > 0 ? lucroAposImpostos / receitas : 0,
+    lucroPct: receitas > 0 ? roundMoney(lucroLiquido / receitas) : 0,
+    lucroAposImpPct: receitas > 0 ? roundMoney(lucroAposImpostos / receitas) : 0,
   };
 }
 
@@ -191,7 +207,7 @@ export const getDRE = (lancamentos, planoContas, ano, mes) => {
   const resultado = {};
   planoContas.forEach((pc) => {
     const { entradas, saidas } = movPlano(lancamentos, pc.id, { ano, mes });
-    resultado[pc.id] = { entradas, saidas, saldo: entradas - saidas };
+    resultado[pc.id] = { entradas, saidas, saldo: subMoney(entradas, saidas) };
   });
   return computeDRE(resultado, planoContas);
 };
@@ -200,7 +216,7 @@ export const getDREByRange = (lancamentos, planoContas, from, to) => {
   const resultado = {};
   planoContas.forEach((pc) => {
     const { entradas, saidas } = movPlano(lancamentos, pc.id, { from, to });
-    resultado[pc.id] = { entradas, saidas, saldo: entradas - saidas };
+    resultado[pc.id] = { entradas, saidas, saldo: subMoney(entradas, saidas) };
   });
   return computeDRE(resultado, planoContas);
 };
@@ -214,13 +230,13 @@ export const getConsultaDRE = (lancamentos, planoContas, contas, ano, mes) =>
       const periodo = movPlano(lancamentos, pc.id, { ano, mes });
       const saldoAnterior =
         pc.tipo === "Receita"
-          ? anterior.entradas - anterior.saidas
-          : anterior.saidas - anterior.entradas;
+          ? subMoney(anterior.entradas, anterior.saidas)
+          : subMoney(anterior.saidas, anterior.entradas);
       const { entradas, saidas } = periodo;
       const saldoAtual =
         pc.tipo === "Receita"
-          ? saldoAnterior + entradas - saidas
-          : saldoAnterior + saidas - entradas;
+          ? addMoney(saldoAnterior, subMoney(entradas, saidas))
+          : addMoney(saldoAnterior, subMoney(saidas, entradas));
 
       const contasFin = contas
         .filter(
@@ -253,13 +269,13 @@ export const getConsultaDREByRange = (lancamentos, planoContas, contas, from, to
       const periodo = movPlano(lancamentos, pc.id, { from, to });
       const saldoAnterior =
         pc.tipo === "Receita"
-          ? anterior.entradas - anterior.saidas
-          : anterior.saidas - anterior.entradas;
+          ? subMoney(anterior.entradas, anterior.saidas)
+          : subMoney(anterior.saidas, anterior.entradas);
       const { entradas, saidas } = periodo;
       const saldoAtual =
         pc.tipo === "Receita"
-          ? saldoAnterior + entradas - saidas
-          : saldoAnterior + saidas - entradas;
+          ? addMoney(saldoAnterior, subMoney(entradas, saidas))
+          : addMoney(saldoAnterior, subMoney(saidas, entradas));
 
       const contasFin = contas
         .filter(
@@ -314,7 +330,7 @@ export const getBalancete = (lancamentos, planoContas, contas, ano, mes) => {
       tipo: pc.tipo,
       debito,
       credito,
-      saldo: credito - debito,
+      saldo: subMoney(credito, debito),
     };
   });
 
@@ -338,9 +354,9 @@ export const getFluxoCaixa = (lancamentos, ano, mes) => {
   let saldo = 0;
   return filtered.map((l) => {
     if (l.tipo !== "Transferencia") {
-      saldo += l.tipo === "Entrada" ? safeNum(l.valor) : -safeNum(l.valor);
+      saldo = l.tipo === "Entrada" ? addMoney(saldo, l.valor) : subMoney(saldo, l.valor);
     }
-    return { ...l, saldoAcumulado: saldo };
+    return { ...l, saldoAcumulado: roundMoney(saldo) };
   });
 };
 
@@ -353,9 +369,9 @@ export const lancamentosComSaldoConta = (lancamentos, contas, contaId) => {
   const sortedAsc = [...sortedDesc].reverse();
   let saldo = safeNum(conta.saldoInicial);
   const withSaldoAsc = sortedAsc.map((l) => {
-    if (l.contaEntradaId === contaId) saldo += safeNum(l.valor);
-    if (l.contaSaidaId === contaId) saldo -= safeNum(l.valor);
-    return { ...l, saldoConta: saldo };
+    if (l.contaEntradaId === contaId) saldo = addMoney(saldo, l.valor);
+    if (l.contaSaidaId === contaId) saldo = subMoney(saldo, l.valor);
+    return { ...l, saldoConta: roundMoney(saldo) };
   });
   return withSaldoAsc.reverse();
 };

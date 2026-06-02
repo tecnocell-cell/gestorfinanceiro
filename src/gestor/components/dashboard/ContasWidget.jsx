@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { fmtBRL } from "../../finance.js";
+import { addMoney, fmtBRL } from "../../finance.js";
 import { WidgetTitle } from "../IconBox.jsx";
 import {
   Wallet, Landmark, PiggyBank, CreditCard, Banknote,
@@ -25,9 +25,9 @@ function ContasWidget({ contas, getSaldoConta }) {
     [ativas, getSaldoConta]
   );
 
-  const totalGeral = useMemo(() => items.reduce((s, c) => s + c.saldo, 0), [items]);
+  const totalGeral = useMemo(() => items.reduce((s, c) => addMoney(s, c.saldo), 0), [items]);
   const baseAbs = useMemo(
-    () => items.reduce((s, c) => s + Math.abs(c.saldo), 0) || 1,
+    () => items.reduce((s, c) => addMoney(s, Math.abs(c.saldo)), 0) || 1,
     [items]
   );
 
