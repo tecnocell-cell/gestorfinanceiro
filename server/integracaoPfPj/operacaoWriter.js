@@ -3,8 +3,19 @@
  */
 
 import { randomUUID } from 'crypto';
+import {
+  SOURCE_INTEGRACAO,
+  appendLancamentoToEstado,
+  collectAllLancamentos,
+  prepareEstadoForWrite,
+  profileForPf,
+  profileForPj,
+  removeIntegracaoLancamento,
+  resolveEmpresaAtiva,
+  toUserProfile,
+} from './estadoMerge.js';
 
-const SOURCE = 'integracao_pf_pj';
+const SOURCE = SOURCE_INTEGRACAO;
 
 export const TIPOS_OPERACAO = {
   pro_labore: {
@@ -68,17 +79,13 @@ function nextCodigo(lancamentos) {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
-function resolveEmpresaAtiva(dados) {
-  const empresas = Array.isArray(dados?.empresas) ? dados.empresas : [];
-  if (!empresas.length) {
-    const err = new Error('Estado sem empresa/perfil.');
-    err.status = 422;
-    throw err;
-  }
-  const activeId = dados.empresaAtivaId;
-  let idx = activeId ? empresas.findIndex((e) => e.id === activeId) : -1;
-  if (idx < 0) idx = 0;
-  return { empresas, idx, empresa: empresas[idx] };
+function resolveEmpresaForPreview(dadosPj, dadosPf) {
+  const pj = prepareEstadoForWrite(dadosPj, { tipo_perfil: 'juridica' });
+  const pf = prepareEstadoForWrite(dadosPf, { tipo_perfil: 'fisica' });
+  return {
+    empPj: resolveEmpresaAtiva(pj).empresa,
+    empPf: resolveEmpresaAtiva(pf).empresa,
+  };
 }
 
 function pickConta(empresa) {
@@ -194,8 +201,7 @@ export function previewOperacao(tipoOperacao, {
 
   const valorNum = parseValor(valor);
   const dataStr = parseData(data);
-  const { empresa: empPj } = resolveEmpresaAtiva(dadosPj);
-  const { empresa: empPf } = resolveEmpresaAtiva(dadosPf);
+  const { empPj, empPf } = resolveEmpresaForPreview(dadosPj, dadosPf);
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
@@ -252,6 +258,8 @@ export async function confirmOperacao(client, tipoOperacao, {
   nomePj,
   dadosPj,
   dadosPf,
+  pjProfile,
+  pfProfile,
   valor,
   data,
   observacao,
@@ -261,8 +269,12 @@ export async function confirmOperacao(client, tipoOperacao, {
 
   const valorNum = parseValor(valor);
   const dataStr = parseData(data);
-  const { empresas: empresasPj, idx: idxPj, empresa: empPj } = resolveEmpresaAtiva(dadosPj);
-  const { empresas: empresasPf, idx: idxPf, empresa: empPf } = resolveEmpresaAtiva(dadosPf);
+  const pfProf = profileForPf(pfProfile, vinculo.nome_pf);
+  const pjProf = profileForPj(pjProfile, nomePj);
+  const preparedPj = prepareEstadoForWrite(dadosPj, pjProf);
+  const preparedPf = prepareEstadoForWrite(dadosPf, pfProf);
+  const empPj = resolveEmpresaAtiva(preparedPj).empresa;
+  const empPf = resolveEmpresaAtiva(preparedPf).empresa;
 
   const contaPj = pickConta(empPj);
   const contaPf = pickConta(empPf);
@@ -289,7 +301,7 @@ export async function confirmOperacao(client, tipoOperacao, {
   const lancPj = buildLancamento({
     tipoOperacao,
     id: lancamentoPjId,
-    codigo: nextCodigo(empPj.lancamentos),
+    codigo: nextCodigo(collectAllLancamentos(preparedPj)),
     data: dataStr,
     tipo: 'Saida',
     valor: valorNum,
@@ -307,7 +319,7 @@ export async function confirmOperacao(client, tipoOperacao, {
   const lancPf = buildLancamento({
     tipoOperacao,
     id: lancamentoPfId,
-    codigo: nextCodigo(empPf.lancamentos),
+    codigo: nextCodigo(collectAllLancamentos(preparedPf)),
     data: dataStr,
     tipo: 'Entrada',
     valor: valorNum,
@@ -322,21 +334,17 @@ export async function confirmOperacao(client, tipoOperacao, {
     usuarioPfId: vinculo.usuario_pf_id,
   });
 
-  const novasEmpresasPj = empresasPj.map((e, i) =>
-    i === idxPj ? { ...e, lancamentos: [...(e.lancamentos || []), lancPj] } : e
-  );
-  const novasEmpresasPf = empresasPf.map((e, i) =>
-    i === idxPf ? { ...e, lancamentos: [...(e.lancamentos || []), lancPf] } : e
+  const novosDadosPj = appendLancamentoToEstado(preparedPj, lancPj, pjProf);
+  const novosDadosPf = appendLancamentoToEstado(preparedPf, lancPf, pfProf);
+
+  await client.query(
+    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+    [JSON.stringify(novosDadosPj), usuarioPjId]
   );
 
   await client.query(
     'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
-    [JSON.stringify({ ...dadosPj, empresas: novasEmpresasPj }), usuarioPjId]
-  );
-
-  await client.query(
-    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
-    [JSON.stringify({ ...dadosPf, empresas: novasEmpresasPf }), vinculo.usuario_pf_id]
+    [JSON.stringify(novosDadosPf), vinculo.usuario_pf_id]
   );
 
   const { rows: opRows } = await client.query(
@@ -365,29 +373,27 @@ export async function confirmOperacao(client, tipoOperacao, {
   };
 }
 
-function removeLancamentoById(dados, lancamentoId) {
-  const empresas = Array.isArray(dados?.empresas) ? dados.empresas : [];
-  let removidos = 0;
+function removeLancamentoById(dados, lancamentoId, userProfile, operacaoId) {
+  return removeIntegracaoLancamento(
+    dados,
+    { lancamentoId, operacaoId },
+    userProfile
+  );
+}
 
-  const novasEmpresas = empresas.map((emp) => {
-    const lancamentos = Array.isArray(emp.lancamentos) ? emp.lancamentos : [];
-    const filtrados = lancamentos.filter((l) => {
-      const remove =
-        String(l.id) === String(lancamentoId) &&
-        String(l.source || '') === SOURCE;
-      if (remove) removidos += 1;
-      return !remove;
-    });
-    if (filtrados.length === lancamentos.length) return emp;
-    return { ...emp, lancamentos: filtrados };
-  });
-
-  return { novosDados: { ...dados, empresas: novasEmpresas }, removidos };
+async function loadUserProfile(client, usuarioId) {
+  const { rows } = await client.query(
+    'SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1',
+    [usuarioId]
+  );
+  return toUserProfile(rows[0]);
 }
 
 export async function rollbackOperacao(client, {
   usuarioPjId,
   operacaoId,
+  pjProfile,
+  pfProfile,
 }) {
   const { rows: opRows } = await client.query(
     `SELECT o.*, v.usuario_pj_id, v.usuario_pf_id
@@ -405,6 +411,11 @@ export async function rollbackOperacao(client, {
   }
 
   const op = opRows[0];
+
+  const pjRow = pjProfile || await loadUserProfile(client, op.usuario_pj_id);
+  const pfRow = pfProfile || await loadUserProfile(client, op.usuario_pf_id);
+  const pjWrite = profileForPj(pjRow);
+  const pfWrite = profileForPf(pfRow, op.nome_pf);
 
   if (op.status === 'rollback') {
     const err = new Error('Esta operação já foi desfeita.');
@@ -433,11 +444,15 @@ export async function rollbackOperacao(client, {
 
   const { novosDados: dadosPj, removidos: remPj } = removeLancamentoById(
     dadosPjRaw,
-    op.lancamento_pj_id
+    op.lancamento_pj_id,
+    pjWrite,
+    op.id
   );
   const { novosDados: dadosPf, removidos: remPf } = removeLancamentoById(
     dadosPfRaw,
-    op.lancamento_pf_id
+    op.lancamento_pf_id,
+    pfWrite,
+    op.id
   );
 
   await client.query(

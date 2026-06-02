@@ -178,6 +178,7 @@ function registerOperacaoPjPfRoutes(router, {
       const vinculo = vincRows[0];
       const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
       const uPj = await getTipoPerfil(req.user.id);
+      const uPf = await getTipoPerfil(vinculo.usuario_pf_id);
 
       const result = await confirmOperacao(client, tipoOperacao, {
         usuarioPjId: req.user.id,
@@ -185,6 +186,8 @@ function registerOperacaoPjPfRoutes(router, {
         nomePj: uPj?.nome_perfil || uPj?.nome,
         dadosPj: estados[req.user.id],
         dadosPf: estados[vinculo.usuario_pf_id],
+        pjProfile: uPj,
+        pfProfile: uPf,
         valor,
         data,
         observacao,
@@ -537,6 +540,7 @@ router.post('/pro-labore', async (req, res) => {
     const vinculo = vincRows[0];
     const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
     const uPj = await getTipoPerfil(req.user.id);
+    const uPf = await getTipoPerfil(vinculo.usuario_pf_id);
 
     const result = await confirmProLabore(client, {
       usuarioPjId: req.user.id,
@@ -544,6 +548,8 @@ router.post('/pro-labore', async (req, res) => {
       nomePj: uPj?.nome_perfil || uPj?.nome,
       dadosPj: estados[req.user.id],
       dadosPf: estados[vinculo.usuario_pf_id],
+      pjProfile: uPj,
+      pfProfile: uPf,
       valor,
       data,
       observacao,
@@ -624,6 +630,7 @@ router.post('/lucros', async (req, res) => {
     const vinculo = vincRows[0];
     const estados = await lockEstadosOrdenados(client, req.user.id, vinculo.usuario_pf_id);
     const uPj = await getTipoPerfil(req.user.id);
+    const uPf = await getTipoPerfil(vinculo.usuario_pf_id);
 
     const result = await confirmOperacao(client, 'distribuicao_lucros', {
       usuarioPjId: req.user.id,
@@ -631,6 +638,8 @@ router.post('/lucros', async (req, res) => {
       nomePj: uPj?.nome_perfil || uPj?.nome,
       dadosPj: estados[req.user.id],
       dadosPf: estados[vinculo.usuario_pf_id],
+      pjProfile: uPj,
+      pfProfile: uPf,
       valor,
       data,
       observacao,
