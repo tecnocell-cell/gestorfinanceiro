@@ -8,7 +8,7 @@ function integracaoValorBody(valor, data, observacao) {
     throw new Error("Valor inválido. Informe um valor maior que zero.");
   }
   return {
-    valorCentavos,
+    valorCentavos: Math.trunc(valorCentavos),
     data,
     observacao: observacao || "",
   };

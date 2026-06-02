@@ -30,6 +30,16 @@ import {
   mapOperacao,
 } from '../integracaoPfPj/operacaoWriter.js';
 import { isPessoaFisica, isPessoaJuridica, normalizeTipoPerfil } from '../profileTipo.js';
+import { reaisFromCentavos, resolveValorCentavos } from '../utils/money.js';
+
+/** Centavos inteiros a partir do body (valorCentavos preferido; nunca float*100). */
+function centavosFromIntegracaoBody(body = {}) {
+  return resolveValorCentavos({
+    valorCentavos: body.valorCentavos ?? body.valor_centavos,
+    valor_centavos: body.valor_centavos ?? body.valorCentavos,
+    valor: body.valor,
+  });
+}
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -129,7 +139,8 @@ function registerOperacaoPjPfRoutes(router, {
         return res.status(422).json({ error: msgVinculo });
       }
 
-      const { valor, valorCentavos, data, observacao } = req.body || {};
+      const { data, observacao } = req.body || {};
+      const cents = centavosFromIntegracaoBody(req.body);
       const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
         req.user.id,
         vinculo.usuario_pf_id
@@ -140,8 +151,8 @@ function registerOperacaoPjPfRoutes(router, {
         dadosPf,
         vinculo,
         nomePj,
-        valor,
-        valorCentavos,
+        centavosInput: cents,
+        valor: reaisFromCentavos(cents),
         data,
         observacao,
       });
@@ -159,7 +170,8 @@ function registerOperacaoPjPfRoutes(router, {
 
     const client = await pool.connect();
     try {
-      const { valor, valorCentavos, data, observacao } = req.body || {};
+      const { data, observacao } = req.body || {};
+      const cents = centavosFromIntegracaoBody(req.body);
 
       await client.query('BEGIN');
 
@@ -189,8 +201,8 @@ function registerOperacaoPjPfRoutes(router, {
         dadosPf: estados[vinculo.usuario_pf_id],
         pjProfile: uPj,
         pfProfile: uPf,
-        valor,
-        valorCentavos,
+        centavosInput: cents,
+        valor: reaisFromCentavos(cents),
         data,
         observacao,
       });
@@ -491,7 +503,8 @@ router.post('/pro-labore/preview', async (req, res) => {
       return res.status(422).json({ error: MSG_VINCULO_PRO_LABORE });
     }
 
-    const { valor, valorCentavos, data, observacao } = req.body || {};
+    const { data, observacao } = req.body || {};
+    const cents = centavosFromIntegracaoBody(req.body);
     const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
       req.user.id,
       vinculo.usuario_pf_id
@@ -502,8 +515,8 @@ router.post('/pro-labore/preview', async (req, res) => {
       dadosPf,
       vinculo,
       nomePj,
-      valor,
-      valorCentavos,
+      centavosInput: cents,
+      valor: reaisFromCentavos(cents),
       data,
       observacao,
     });
@@ -523,7 +536,8 @@ router.post('/pro-labore', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const { valor, valorCentavos, data, observacao } = req.body || {};
+    const { data, observacao } = req.body || {};
+    const cents = centavosFromIntegracaoBody(req.body);
 
     await client.query('BEGIN');
 
@@ -553,8 +567,8 @@ router.post('/pro-labore', async (req, res) => {
       dadosPf: estados[vinculo.usuario_pf_id],
       pjProfile: uPj,
       pfProfile: uPf,
-      valor,
-      valorCentavos,
+      centavosInput: cents,
+      valor: reaisFromCentavos(cents),
       data,
       observacao,
     });
@@ -583,7 +597,8 @@ router.post('/lucros/preview', async (req, res) => {
       return res.status(422).json({ error: MSG_VINCULO_LUCROS });
     }
 
-    const { valor, valorCentavos, data, observacao } = req.body || {};
+    const { data, observacao } = req.body || {};
+    const cents = centavosFromIntegracaoBody(req.body);
     const { dadosPj, dadosPf, nomePj } = await loadEstadosForPreview(
       req.user.id,
       vinculo.usuario_pf_id
@@ -594,8 +609,8 @@ router.post('/lucros/preview', async (req, res) => {
       dadosPf,
       vinculo,
       nomePj,
-      valor,
-      valorCentavos,
+      centavosInput: cents,
+      valor: reaisFromCentavos(cents),
       data,
       observacao,
     });
@@ -615,7 +630,8 @@ router.post('/lucros', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const { valor, valorCentavos, data, observacao } = req.body || {};
+    const { data, observacao } = req.body || {};
+    const cents = centavosFromIntegracaoBody(req.body);
 
     await client.query('BEGIN');
 
@@ -645,8 +661,8 @@ router.post('/lucros', async (req, res) => {
       dadosPf: estados[vinculo.usuario_pf_id],
       pjProfile: uPj,
       pfProfile: uPf,
-      valor,
-      valorCentavos,
+      centavosInput: cents,
+      valor: reaisFromCentavos(cents),
       data,
       observacao,
     });

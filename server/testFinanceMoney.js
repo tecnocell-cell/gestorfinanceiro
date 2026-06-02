@@ -45,6 +45,8 @@ eq(parseValorToCentavos(15000), 1500000, "15000 → 1500000 centavos");
 eq(parseValorToCentavos("15.000,00"), 1500000, "15.000,00 BR → centavos");
 eq(parseDecimalMoneyString("15.000,00"), 15000, "15.000,00 → 15000 reais");
 eq(resolveValorCentavos({ valorCentavos: 1500000 }), 1500000, "valorCentavos preferido");
+eq(resolveValorCentavos({ valorCentavos: '1500000' }), 1500000, "valorCentavos string");
+eq(parseValorToCentavos(15000), 1500000, "parseValorToCentavos 15000");
 eq(reaisFromCentavos(500000), 5000, "500000 centavos → 5000.00");
 eq(reaisFromCentavos(1500000), 15000, "1500000 centavos → 15000.00");
 eq(reaisFromCentavos(499999), 4999.99, "499999 centavos → 4999.99");

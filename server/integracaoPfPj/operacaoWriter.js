@@ -21,7 +21,17 @@ import {
   validateLancamentoPfIntegracao,
   validateLancamentoPjIntegracao,
 } from './lancamentoPfPj.js';
-import { parseValor, parseValorToCentavos, reaisFromCentavos, resolveValorCentavos } from '../utils/money.js';
+import {
+  parseCentavosInteiro,
+  parseValor,
+  reaisFromCentavos,
+  reaisToCentavos,
+  resolveValorCentavos,
+} from '../utils/money.js';
+
+function parseCentavosFromRow(raw) {
+  return parseCentavosInteiro(raw) ?? 0;
+}
 
 const SOURCE = SOURCE_INTEGRACAO;
 
@@ -174,14 +184,22 @@ export function previewOperacao(tipoOperacao, {
   vinculo,
   nomePj,
   valor,
-  valorCentavos: valorCentavosIn,
+  centavosInput,
+  valorCentavos: valorCentavosLegacy,
   data,
   observacao,
 }) {
   assertTipoOperacao(tipoOperacao);
   const config = TIPOS_OPERACAO[tipoOperacao];
 
-  const valorNum = reaisFromCentavos(resolveValorCentavos({ valor, valorCentavos: valorCentavosIn }));
+  const centsResolved =
+    centavosInput ??
+    resolveValorCentavos({
+      valorCentavos: valorCentavosLegacy,
+      valor_centavos: valorCentavosLegacy,
+      valor,
+    });
+  const valorNum = reaisFromCentavos(centsResolved);
   const dataStr = parseData(data);
   const { empPj, empPf } = resolveEmpresaForPreview(dadosPj, dadosPf);
 
@@ -243,23 +261,31 @@ export async function confirmOperacao(client, tipoOperacao, {
   pjProfile,
   pfProfile,
   valor,
-  valorCentavos: valorCentavosIn,
+  centavosInput,
+  valorCentavos: valorCentavosLegacy,
   data,
   observacao,
 }) {
   assertTipoOperacao(tipoOperacao);
   const config = TIPOS_OPERACAO[tipoOperacao];
 
-  let valorCentavos;
+  let centsOperacao;
   try {
-    valorCentavos = resolveValorCentavos({ valor, valorCentavos: valorCentavosIn });
+    centsOperacao =
+      centavosInput ??
+      resolveValorCentavos({
+        valorCentavos: valorCentavosLegacy,
+        valor_centavos: valorCentavosLegacy,
+        valor,
+      });
   } catch (e) {
     if (e.status) throw e;
     const err = new Error('Valor deve ser maior que zero.');
     err.status = 400;
     throw err;
   }
-  const valorNum = reaisFromCentavos(valorCentavos);
+  centsOperacao = reaisToCentavos(reaisFromCentavos(centsOperacao));
+  const valorNum = reaisFromCentavos(centsOperacao);
   const dataStr = parseData(data);
   const pfProf = profileForPf(pfProfile, vinculo.nome_pf);
   const pjProf = profileForPj(pjProfile, nomePj);
@@ -295,7 +321,7 @@ export async function confirmOperacao(client, tipoOperacao, {
     codigo: nextCodigo(collectAllLancamentos(preparedPj)),
     data: dataStr,
     tipo: 'Saida',
-    valorCentavos,
+    valorCentavos: centsOperacao,
     historico: historicos.pj,
     conta: contaPj,
     plano: planoPj,
@@ -313,7 +339,7 @@ export async function confirmOperacao(client, tipoOperacao, {
     codigo: nextCodigo(collectAllLancamentos(preparedPf)),
     data: dataStr,
     tipo: 'Entrada',
-    valorCentavos,
+    valorCentavos: centsOperacao,
     historico: historicos.pf,
     conta: contaPf,
     plano: planoPf,
@@ -339,6 +365,15 @@ export async function confirmOperacao(client, tipoOperacao, {
     throw err;
   }
 
+  const centPj = reaisToCentavos(lancPj.valor);
+  const centPf = reaisToCentavos(lancPf.valor);
+  if (centPj !== centPf) {
+    const err = new Error('Valores PJ e PF divergem após montar lançamentos.');
+    err.status = 500;
+    throw err;
+  }
+  centsOperacao = centPj;
+
   const novosDadosPj = appendLancamentoToEstado(preparedPj, lancPj, pjProf);
   const novosDadosPf = appendLancamentoToEstado(preparedPf, lancPf, pfProf);
 
@@ -363,7 +398,7 @@ export async function confirmOperacao(client, tipoOperacao, {
       operacaoId,
       vinculo.id,
       tipoOperacao,
-      valorCentavos,
+      centsOperacao,
       dataStr,
       historicos.resumo,
       lancamentoPjId,
@@ -493,7 +528,7 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
 }) {
   assertTipoOperacao(op.tipo_operacao);
   const config = TIPOS_OPERACAO[op.tipo_operacao];
-  const valorCentavos = Math.round(Number(op.valor_centavos));
+  const valorCentavos = parseCentavosFromRow(op.valor_centavos);
   const dataStr = op.data instanceof Date
     ? op.data.toISOString().slice(0, 10)
     : String(op.data).slice(0, 10);
@@ -557,12 +592,13 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
 
 export function mapOperacao(row) {
   if (!row) return null;
+  const valorCentavos = parseCentavosFromRow(row.valor_centavos);
   return {
     id: row.id,
     vinculoId: row.vinculo_id,
     tipoOperacao: row.tipo_operacao,
-    valor: reaisFromCentavos(row.valor_centavos),
-    valorCentavos: Math.round(Number(row.valor_centavos)),
+    valor: reaisFromCentavos(valorCentavos),
+    valorCentavos,
     data: row.data instanceof Date
       ? row.data.toISOString().slice(0, 10)
       : String(row.data).slice(0, 10),

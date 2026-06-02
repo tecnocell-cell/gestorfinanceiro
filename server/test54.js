@@ -17,6 +17,7 @@ import {
   snapshotPlanoCampos,
 } from './integracaoPfPj/lancamentoPfPj.js';
 import { addMoney, getDRE, getSaldoTotal } from '../src/gestor/finance.js';
+import { parseValorToCentavos, reaisFromCentavos } from './utils/money.js';
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 const TS = Date.now();
@@ -164,8 +165,46 @@ async function main() {
   ];
 
   for (const [path, valor, data] of ops) {
-    await req(path, { method: 'POST', token: tokenPj, body: { valor, data } });
+    const valorCentavos = parseValorToCentavos(valor);
+    await req(path, {
+      method: 'POST',
+      token: tokenPj,
+      body: { valor, valorCentavos, data },
+    });
   }
+
+  const data15000 = '2026-08-05';
+  const cents15000 = parseValorToCentavos(15000);
+  assert(cents15000 === 1500000, `15000 → ${cents15000} centavos`);
+  const conf15000 = await req('/integracao-pf-pj/transferencia', {
+    method: 'POST',
+    token: tokenPj,
+    body: { valorCentavos: cents15000, data: data15000 },
+  });
+  const opId15000 = conf15000.data?.operacao?.id;
+  assert(opId15000, 'confirmação transferência 15000 retorna operacao');
+
+  const hist = await req('/integracao-pf-pj/operacoes', { token: tokenPj });
+  const opHist = (hist.data?.operacoes || []).find((o) => o.id === opId15000);
+  assert(opHist, 'operação 15000 no histórico');
+  assert(opHist.valorCentavos === 1500000, `histórico valorCentavos=1500000 (got ${opHist.valorCentavos})`);
+  assert(opHist.valor === 15000, `histórico valor=15000 (got ${opHist.valor})`);
+
+  const row15000 = (
+    await query(
+      'SELECT valor_centavos FROM integracao_pf_pj_operacoes WHERE id = $1',
+      [opId15000]
+    )
+  ).rows[0];
+  assert(Number(row15000.valor_centavos) === 1500000, 'DB valor_centavos=1500000');
+
+  const dadosPf15000 = (await query('SELECT dados FROM estados WHERE usuario_id = $1', [pf.id]))
+    .rows[0].dados;
+  const lPf15000 = collectAllLancamentos(dadosPf15000).find(
+    (l) => l.id === conf15000.data?.lancamentoPfId
+  );
+  assert(lPf15000?.valor === 15000, `lançamento PF = 15000 (got ${lPf15000?.valor})`);
+  assert(reaisFromCentavos(row15000.valor_centavos) === 15000, 'reaisFromCentavos DB');
 
   const dadosPf = (await query('SELECT dados FROM estados WHERE usuario_id = $1', [pf.id])).rows[0].dados;
   const dadosPj = (await query('SELECT dados FROM estados WHERE usuario_id = $1', [pj.id])).rows[0].dados;
@@ -184,10 +223,10 @@ async function main() {
     assert(l.historico?.includes('recebida') || l.historico?.includes('recebido'), `histórico PF (${l.historico})`);
   }
 
-  assert(mPf.dre.receitas === 34000, `PF receitas = 34000 (got ${mPf.dre.receitas})`);
+  assert(mPf.dre.receitas === 49000, `PF receitas = 49000 (got ${mPf.dre.receitas})`);
   assert(mPf.dre.despesas === 0, `PF despesas = 0 (got ${mPf.dre.despesas})`);
   assert(mPf.dre.custos === 0, `PF custos = 0 (got ${mPf.dre.custos})`);
-  assert(mPf.saldo === 34000, `PF saldo = 34000 (got ${mPf.saldo})`);
+  assert(mPf.saldo === 49000, `PF saldo = 49000 (got ${mPf.saldo})`);
 
   const lancsPjIntegracao = mPj.lancs.filter((l) => l.source === 'integracao_pf_pj');
   for (const l of lancsPjIntegracao) {
@@ -211,7 +250,7 @@ async function main() {
     (s, l) => (l.tipo === 'Saida' ? addMoney(s, l.valor) : s),
     0
   );
-  assert(saidasPj === 34000, `PJ saídas integração = 34000 (got ${saidasPj})`);
+  assert(saidasPj === 49000, `PJ saídas integração = 49000 (got ${saidasPj})`);
   assert(mPj.dre.receitas === 0, `PJ receitas inalteradas (got ${mPj.dre.receitas})`);
 
   await cleanup([emailPj, emailPf]);

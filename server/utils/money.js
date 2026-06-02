@@ -67,13 +67,47 @@ export function parseValorToCentavos(valor) {
   return cents;
 }
 
-/** Aceita valorCentavos (inteiro) do cliente ou valor em reais/string. */
+/** Centavos inteiros vindos do cliente (sem float * 100). */
+export function parseCentavosInteiro(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  if (/^\d+$/.test(s)) {
+    const c = parseInt(s, 10);
+    return Number.isFinite(c) && c > 0 ? c : null;
+  }
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const c = Math.trunc(n);
+  return c > 0 ? c : null;
+}
+
+/**
+ * Aceita valorCentavos (inteiro) do cliente ou valor em reais/string.
+ * Nunca usa Math.round(valor * 100).
+ */
 export function resolveValorCentavos(body = {}) {
   const rawCents = body.valorCentavos ?? body.valor_centavos;
-  if (rawCents != null && rawCents !== '') {
-    const c = Math.round(Number(rawCents));
-    if (Number.isFinite(c) && c > 0) return c;
+  const fromCents = parseCentavosInteiro(rawCents);
+
+  if (fromCents != null) {
+    if (body.valor != null && body.valor !== '') {
+      try {
+        const fromReais = parseValorToCentavos(body.valor);
+        if (Math.abs(fromCents - fromReais) > 1) {
+          const err = new Error(
+            'valorCentavos e valor em reais divergem. Envie apenas valorCentavos (inteiro).'
+          );
+          err.status = 400;
+          throw err;
+        }
+      } catch (e) {
+        if (e.status === 400 && e.message?.includes('divergem')) throw e;
+        /* valor inválido no body — ignora e usa só centavos */
+      }
+    }
+    return fromCents;
   }
+
   return parseValorToCentavos(body.valor);
 }
 
