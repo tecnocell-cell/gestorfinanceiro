@@ -17,6 +17,7 @@ import {
   stripLancamentosIntegracaoRollback,
 } from "./integracaoPfPj/estadoMerge.js";
 import { countPlanoContas } from "./initialState.js";
+import { normalizeMoneyInState } from "./normalizeEstadoMoney.js";
 import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { isAccountVerified } from "./verification.js";
@@ -177,7 +178,10 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       return res.json({ dados: initialState, profile });
     }
 
-    const dados = rows[0].dados;
+    let dados = rows[0].dados;
+    if (isValid(dados)) {
+      dados = normalizeMoneyInState(dados);
+    }
     if (!isValid(dados)) {
       const { profile, state: initialState } = await loadProfile();
       await query(
@@ -232,7 +236,8 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       nome: u?.nome,
     };
     const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
-    let toSave = isValid(dados) ? normalizeStateForUser(dados, profile) : dados;
+    let toSave = isValid(dados) ? normalizeMoneyInState(dados) : dados;
+    toSave = isValid(toSave) ? normalizeStateForUser(toSave, profile) : toSave;
     const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, req.user.id);
     toSave = stripLancamentosIntegracaoRollback(toSave, rollbackIds);
     if (isValid(toSave)) {

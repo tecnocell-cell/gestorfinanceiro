@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { generateId } from "../finance.js";
+import { generateId, safeNum } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
 import { isLancamentoPago } from "../pfDueDates.js";
 import {
@@ -491,7 +491,7 @@ export function ModalConta() {
     const data = {
       ...form,
       codigo: Number(form.codigo) || form.codigo,
-      saldoInicial: parseFloat(form.saldoInicial) || 0,
+      saldoInicial: safeNum(form.saldoInicial),
       codigoClassificacao: form.codigoClassificacao ? Number(form.codigoClassificacao) : null,
       instituicao: form.instituicao || null,
       icone: form.icone || null,
@@ -507,7 +507,7 @@ export function ModalConta() {
     : ["Banco", "Caixa", "Outros"];
 
   const saldoFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    parseFloat(form.saldoInicial) || 0
+    safeNum(form.saldoInicial)
   );
 
   return (
@@ -1043,7 +1043,7 @@ export function ModalMeta() {
   const handleSave = () => {
     if (!form.descricao.trim()) return alert("Descrição obrigatória.");
     if (!form.valorAlvo)        return alert("Valor alvo obrigatório.");
-    const data = { ...form, valorAlvo: parseFloat(form.valorAlvo), valorAtual: parseFloat(form.valorAtual) || 0 };
+    const data = { ...form, valorAlvo: safeNum(form.valorAlvo), valorAtual: safeNum(form.valorAtual) };
     if (item?.id) metaCrud.update(item.id, data);
     else metaCrud.add({ ...data, id: generateId() });
     closeModal();

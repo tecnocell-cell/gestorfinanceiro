@@ -1,7 +1,7 @@
 /**
  * Geração segura de lançamentos a partir de recorrências.
  */
-import { getStatusLancamento, toDateKey } from "./finance.js";
+import { getStatusLancamento, toDateKey, safeNum } from "./finance.js";
 
 export const SOURCE_RECORRENCIA = "recorrencia";
 
@@ -247,7 +247,7 @@ export function buildLancamentoFromRecorrencia({
     toDateKey(vencimentoOverride ?? recorrencia.proxima_data) ||
     new Date().toISOString().slice(0, 10);
   const monthKey = monthKeyFromDate(dataVenc);
-  const valor = valorOverride != null ? valorOverride : parseFloat(recorrencia.valor);
+  const valor = valorOverride != null ? safeNum(valorOverride) : safeNum(recorrencia.valor);
   const tipoLanc = recorrencia.tipo === "Receita" ? "Entrada" : "Saida";
   const contaId = recorrencia.conta_id;
   const conta = (contas || []).find((c) => c.id === contaId);

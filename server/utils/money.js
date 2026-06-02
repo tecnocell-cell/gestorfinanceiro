@@ -80,3 +80,16 @@ export function resolveValorCentavos(body = {}) {
 export function parseValor(valor) {
   return reaisFromCentavos(parseValorToCentavos(valor));
 }
+
+export function roundMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(2));
+}
+
+/** Centavos inteiros a partir de valor em reais já normalizado. */
+export function reaisToCentavos(valor) {
+  const reais = roundMoney(Math.abs(Number(valor)));
+  const [intPart, decPart = '00'] = reais.toFixed(2).split('.');
+  return parseInt(intPart, 10) * 100 + parseInt(decPart.slice(0, 2).padEnd(2, '0'), 10);
+}

@@ -16,7 +16,7 @@ import {
   pickPlanoReceitaPf,
   snapshotPlanoCampos,
 } from './integracaoPfPj/lancamentoPfPj.js';
-import { getDRE, getSaldoTotal } from '../src/gestor/finance.js';
+import { addMoney, getDRE, getSaldoTotal } from '../src/gestor/finance.js';
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 const TS = Date.now();
@@ -207,7 +207,10 @@ async function main() {
     }
   }
 
-  const saidasPj = lancsPjIntegracao.reduce((s, l) => s + (l.tipo === 'Saida' ? l.valor : 0), 0);
+  const saidasPj = lancsPjIntegracao.reduce(
+    (s, l) => (l.tipo === 'Saida' ? addMoney(s, l.valor) : s),
+    0
+  );
   assert(saidasPj === 34000, `PJ saídas integração = 34000 (got ${saidasPj})`);
   assert(mPj.dre.receitas === 0, `PJ receitas inalteradas (got ${mPj.dre.receitas})`);
 

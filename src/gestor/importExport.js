@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { generateId, nextLote } from "./finance.js";
+import { generateId, nextLote, safeNum } from "./finance.js";
 
 export const downloadText = (filename, content, mime = "text/plain;charset=utf-8") => {
   const blob = new Blob([content], { type: mime });
@@ -50,7 +50,7 @@ export const parseOFX = (text) => {
     txs.push({
       id: generateId(),
       data,
-      valor: Math.abs(amt),
+      valor: safeNum(Math.abs(amt)),
       tipo: amt >= 0 ? "Entrada" : "Saida",
       historico: memo,
       consiliado: false,
@@ -81,7 +81,7 @@ export const parseMercadoPagoCSV = (text) => {
     return {
       id: generateId(),
       data,
-      valor: Math.abs(rawVal),
+      valor: safeNum(Math.abs(rawVal)),
       tipo: rawVal >= 0 ? "Entrada" : "Saida",
       historico: cols[idxDesc]?.trim() || "Mercado Pago",
       consiliado: false,
@@ -120,7 +120,7 @@ export const rowsToLancamentos = (rows, lote, contaId, planoId) =>
       const [d, m, y] = data.split("/");
       data = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
     }
-    const val = parseFloat(String(find("valor", "amount", "value")).replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+    const val = safeNum(String(find("valor", "amount", "value")).replace(/[^\d,.-]/g, "").replace(",", "."));
     return {
       id: generateId(),
       lote,
@@ -129,7 +129,7 @@ export const rowsToLancamentos = (rows, lote, contaId, planoId) =>
       contaEntradaId: val >= 0 ? contaId : null,
       contaSaidaId: val < 0 ? contaId : null,
       planoId,
-      valor: Math.abs(val),
+      valor: safeNum(Math.abs(val)),
       historico: String(find("histor", "desc", "memo", "title") || "Importação planilha"),
       exportado: false,
       consiliado: false,

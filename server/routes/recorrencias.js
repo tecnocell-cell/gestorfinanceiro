@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { query } from "../db.js";
 import { authMiddleware, activeMiddleware } from "../middleware/auth.js";
+import { parseDecimalMoneyString } from "../utils/money.js";
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
@@ -97,8 +98,8 @@ router.post("/", async (req, res) => {
   if (!CAMPOS_VALIDOS_PERIODICIDADE.includes(periodicidade)) {
     return res.status(400).json({ error: "Periodicidade deve ser 'mensal', 'semanal' ou 'anual'." });
   }
-  const valorNum = parseFloat(valor);
-  if (isNaN(valorNum) || valorNum <= 0) {
+  const valorNum = parseDecimalMoneyString(valor);
+  if (valorNum == null || valorNum <= 0) {
     return res.status(400).json({ error: "Valor deve ser um número positivo." });
   }
 
@@ -154,7 +155,7 @@ router.patch("/:id", async (req, res) => {
       return res.status(404).json({ error: "Recorrência não encontrada." });
     }
 
-    const valorNum = valor !== undefined ? parseFloat(valor) : null;
+    const valorNum = valor !== undefined ? parseDecimalMoneyString(valor) : null;
 
     const { rows } = await query(
       `UPDATE recorrencias SET

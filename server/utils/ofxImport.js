@@ -5,6 +5,7 @@
 import { randomUUID } from 'crypto';
 import { parseOfxFile } from './parseOfx.js';
 import { gerarFingerprint } from './fingerprint.js';
+import { roundMoney } from './money.js';
 
 export function classificarTransacoes(usuarioId, txs, existingSet) {
   const seenInFile = new Set();
@@ -143,7 +144,7 @@ function buildLancamento(tx, { conta, contaId, planoId, loteId, codigo, source =
     codigo,
     data: tx.data,
     tipo: tx.tipo,
-    valor: Math.abs(Number(tx.valor)),
+    valor: roundMoney(Math.abs(Number(tx.valor))),
     historico: hist,
     descricao: hist,
     planoId: planoId || '',

@@ -518,14 +518,14 @@ export function OrcamentoPage() {
       (o) => o.categoriaId === catId && o.ano === filterPeriodo.ano && o.mes === filterPeriodo.mes
     );
     if (existing) {
-      orcamentoCrud.update(existing.id, { valor: parseFloat(valor) || 0 });
+      orcamentoCrud.update(existing.id, { valor: safeNum(valor) });
     } else {
       orcamentoCrud.add({
         id: generateId(),
         categoriaId: catId,
         ano: filterPeriodo.ano,
         mes: filterPeriodo.mes,
-        valor: parseFloat(valor) || 0,
+        valor: safeNum(valor),
       });
     }
   };

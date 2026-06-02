@@ -12,6 +12,7 @@
  */
 
 import { createHash } from 'crypto';
+import { reaisToCentavos } from './money.js';
 
 /**
  * Normaliza texto para uso no fingerprint.
@@ -42,7 +43,7 @@ export function gerarFingerprint(usuarioId, tx) {
   }
 
   // Fingerprint calculado: todos os campos relevantes
-  const valorCents = Math.round(Math.abs(tx.valor) * 100);
+  const valorCents = reaisToCentavos(tx.valor);
   const payload = [
     usuarioId,
     String(tx.data || ''),

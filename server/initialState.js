@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { selectPlanoContasForPf } from "../src/gestor/categoriasPfUtils.js";
 
 const id = () => randomUUID();
 const ano = () => new Date().getFullYear().toString();
@@ -147,7 +148,13 @@ export function normalizeStateForUser(dados, user) {
     const allMetas = empresas.flatMap((e) => e.metas || []);
     const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
-    const mergedPlano = mergeEmpresaField(empresas, 'planoContas');
+    const mergedPlanoRaw = mergeEmpresaField(empresas, 'planoContas');
+    const mergedPlano = selectPlanoContasForPf(
+      mergedPlanoRaw,
+      empresas,
+      empresas.flatMap((e) => e.lancamentos || []),
+      defaultCategoriasPF
+    );
     const mergedContas = mergeEmpresaField(empresas, 'contas');
     const mergedClientes = mergeEmpresaField(empresas, 'clientes');
     const mergedFornecedores = mergeEmpresaField(empresas, 'fornecedores');

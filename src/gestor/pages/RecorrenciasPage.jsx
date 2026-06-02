@@ -123,7 +123,7 @@ function ModalRecorrencia({ recorrencia, onClose, onCreate, onUpdate, contas, pl
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const valor = parseFloat(form.valor);
+    const valor = safeNum(form.valor);
     if (!form.descricao.trim()) return setError("Informe a descrição.");
     if (isNaN(valor) || valor <= 0) return setError("Valor inválido.");
     if (!form.proxima_data) return setError("Informe a próxima data.");
@@ -370,7 +370,7 @@ function ModalGerarLancamento({ recorrencia, mesReferencia, dataVenc, onClose, o
   const dataVencStr = toDateKey(dataVenc) || hoje();
 
   const handleConfirm = async () => {
-    const valor = parseFloat(valorLanc);
+    const valor = safeNum(valorLanc);
     if (isNaN(valor) || valor <= 0) return setError("Valor inválido.");
     if (jaGeradaNoMes) {
       return setError("Esta recorrência já foi gerada para o mês do vencimento. Não é possível duplicar.");
@@ -587,7 +587,7 @@ export default function RecorrenciasPage() {
     const rec = { ...gerarTarget, conta_id: contaId, plano_id: planoId };
     criarLancamentoRecorrencia(rec, {
       historico,
-      valor: parseFloat(valor),
+      valor: safeNum(valor),
       mesReferencia,
       vencimentoOverride: vencimentoNoMesReferencia(rec, mesReferencia),
     });

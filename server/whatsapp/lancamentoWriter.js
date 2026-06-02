@@ -14,6 +14,7 @@
 
 import { randomUUID } from "crypto";
 import { query } from "../db.js";
+import { parseValor } from "../utils/money.js";
 import { suggestCategory } from "./messageParser.js";
 
 // ── Utilitários ───────────────────────────────────────────────────────────────
@@ -150,7 +151,7 @@ export async function addLancamentoFromWhatsApp(usuarioId, parsed) {
     codigo:         nextCodigo(lancamentos),
     data:           todayIso(),
     tipo:           tipoLanc,
-    valor:          parseFloat(parsed.valor),
+    valor:          parseValor(parsed.valor),
     // historico = campo exibido e pesquisável na tela de lançamentos
     historico:      String(parsed.descricao || "").trim(),
     descricao:      String(parsed.descricao || "").trim(),
