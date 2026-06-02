@@ -5505,50 +5505,66 @@ export const css = `
     word-break: break-word;
     white-space: normal;
   }
+  .lanc-table-wrap-pj {
+    overflow-x: hidden;
+  }
   .lanc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   .lanc-table.lanc-table-pj {
-    table-layout: auto;
-    min-width: 0;
+    table-layout: fixed;
+    width: 100%;
+    font-size: 11px;
   }
-  .lanc-table-pj .lanc-td-val {
-    width: 100px;
-    min-width: 100px;
-    max-width: 110px;
-  }
-  .lanc-table-pj .lanc-td-saldo {
-    width: 96px;
-    min-width: 96px;
-  }
-  .lanc-table-pj .lanc-td-cat {
-    width: 11%;
-    min-width: 100px;
-    max-width: 140px;
-  }
-  .lanc-table-pj .lanc-td-op {
-    width: 10%;
-    min-width: 96px;
-    max-width: 128px;
-  }
-  .lanc-table-pj .lanc-td-hist {
-    min-width: 140px;
+  .lanc-table-pj .lanc-col-cod { width: 4%; }
+  .lanc-table-pj .lanc-col-lote { width: 5%; }
+  .lanc-table-pj .lanc-col-date { width: 9%; }
+  .lanc-table-pj .lanc-col-conta { width: 11%; }
+  .lanc-table-pj .lanc-col-val { width: 9%; }
+  .lanc-table-pj .lanc-col-saldo { width: 8%; }
+  .lanc-table-pj .lanc-col-cat { width: 14%; }
+  .lanc-table-pj .lanc-col-op { width: 9%; }
+  .lanc-table-pj .lanc-col-hist { width: auto; }
+  .lanc-table-pj .lanc-col-dom { width: 5%; }
+  .lanc-table-pj .lanc-col-act { width: 52px; }
+  .lanc-table-pj thead th {
+    font-size: 9px;
+    padding: 6px 5px;
+    letter-spacing: 0.03em;
     white-space: normal;
-    overflow: visible;
+    line-height: 1.2;
   }
   .lanc-table-pj tbody td {
+    padding: 6px 5px;
+    font-size: 11px;
+    line-height: 1.35;
     overflow: visible;
     vertical-align: top;
+  }
+  .lanc-table-pj .lanc-td-conta,
+  .lanc-table-pj .lanc-td-cat,
+  .lanc-table-pj .lanc-td-hist {
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  .lanc-table-pj .lanc-td-cat,
+  .lanc-table-pj .lanc-td-op {
+    font-size: 10.5px;
+  }
+  .lanc-table-pj .lanc-cell-clip {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
   .lanc-table-pj .lanc-td-val,
   .lanc-table-pj .lanc-date-cell,
   .lanc-table-pj td.td-mono {
     white-space: nowrap;
-  }
-  .lanc-table-pj .lanc-td-hist {
-    overflow: visible;
-    white-space: normal;
+    font-size: 10.5px;
   }
   .lanc-table-pj .lanc-td-hist .lanc-cell-hist {
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
+    font-size: 10.5px;
   }
   .lanc-table thead th {
     text-align: left; padding: 10px 12px;
@@ -5681,6 +5697,14 @@ export const css = `
     text-overflow: ellipsis;
     display: inline-block;
     vertical-align: middle;
+  }
+  .lanc-table-pj .lanc-badge-integracao {
+    font-size: 9px;
+    padding: 2px 5px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.2;
   }
   .lanc-mobile-op { font-weight: 600; color: #4338ca; }
   .lanc-badge-green { background: color-mix(in oklab, #10b981 14%, var(--bg)); color: #047857; border-color: color-mix(in oklab, #10b981 28%, transparent); }

@@ -23,6 +23,7 @@ import {
   resolveEmpresaAtiva,
 } from './integracaoPfPj/estadoMerge.js';
 import { rebuildIntegracaoLancamentosForOperacao } from './integracaoPfPj/operacaoWriter.js';
+import { reaisFromCentavos } from './utils/money.js';
 import {
   validateLancamentoPfIntegracao,
   validateLancamentoPjIntegracao,
@@ -53,6 +54,29 @@ function nextCodigo(lancamentos) {
 
 function hasLancamentoId(dados, id) {
   return collectAllLancamentos(dados).some((l) => String(l.id) === String(id));
+}
+
+function syncValoresIntegracao(dados, ops, profile) {
+  const prepared = prepareEstadoForWrite(dados, profile);
+  const byLancId = new Map();
+  for (const op of ops) {
+    byLancId.set(String(op.lancamento_pj_id), op);
+    byLancId.set(String(op.lancamento_pf_id), op);
+  }
+  let corrigidos = 0;
+  const empresas = prepared.empresas.map((emp) => {
+    const lancamentos = (emp.lancamentos || []).map((l) => {
+      const op = byLancId.get(String(l.id));
+      if (!op || String(l.source || '') !== 'integracao_pf_pj') return l;
+      const esperado = reaisFromCentavos(op.valor_centavos);
+      if (Math.abs(Number(l.valor) - esperado) < 0.005) return l;
+      corrigidos += 1;
+      console.log(`  ~ valor ${l.valor} → ${esperado} (${l.historico})`);
+      return { ...l, valor: esperado };
+    });
+    return { ...emp, lancamentos };
+  });
+  return { dados: { ...prepared, empresas }, corrigidos };
 }
 
 async function main() {
@@ -101,6 +125,16 @@ async function main() {
 
   let inseridosPj = 0;
   let inseridosPf = 0;
+
+  const { dados: dadosPjSync, corrigidos: corrPj } = syncValoresIntegracao(
+    estadoPjRows[0].dados,
+    opRows,
+    pjProfile
+  );
+  if (corrPj > 0) {
+    dadosPj = dadosPjSync;
+    console.log(`Valores PJ corrigidos (centavos): ${corrPj}`);
+  }
 
   for (const op of opRows) {
     const faltaPj = !hasLancamentoId(dadosPj, op.lancamento_pj_id);
@@ -173,8 +207,30 @@ async function main() {
   console.log(`Lançamentos PJ recriados: ${inseridosPj}`);
   console.log(`Lançamentos PF recriados: ${inseridosPf}`);
 
-  if (!inseridosPj) {
-    console.log('Nada a reparar — todos os lançamentos PJ já existem no estado.');
+  if (!inseridosPj && corrPj === 0) {
+    console.log('Nada a reparar — lançamentos e valores PJ já estão corretos.');
+    await pool.end();
+    return;
+  }
+
+  if (!inseridosPj && corrPj > 0 && dryRun) {
+    console.log('[dry-run] Apenas correção de valores seria aplicada.');
+    await pool.end();
+    return;
+  }
+
+  if (!inseridosPj && corrPj > 0) {
+    ensureBackupDir();
+    const backupPath = path.join(
+      BACKUP_DIR,
+      `pj-valores-${pjUser.id}-${Date.now()}.json`
+    );
+    fs.writeFileSync(backupPath, JSON.stringify(estadoPjRows[0].dados, null, 2));
+    await query(
+      'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+      [JSON.stringify(prepareEstadoForWrite(dadosPj, pjProfile)), pjUser.id]
+    );
+    console.log('Valores PJ corrigidos no estado.');
     await pool.end();
     return;
   }

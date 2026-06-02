@@ -325,23 +325,35 @@ export function LancamentosPage() {
           </div>
         ) : (
           <>
-            <div className="lanc-table-wrap">
+            <div className="lanc-table-wrap lanc-table-wrap-pj">
               <table className="lanc-table lanc-table-pj">
+                <colgroup>
+                  <col className="lanc-col-cod" />
+                  <col className="lanc-col-lote" />
+                  <col className="lanc-col-date" />
+                  <col className="lanc-col-conta" />
+                  <col className="lanc-col-conta" />
+                  <col className="lanc-col-val" />
+                  {(showSaldoCol || contaFilter) && <col className="lanc-col-saldo" />}
+                  <col className="lanc-col-cat" />
+                  <col className="lanc-col-op" />
+                  <col className="lanc-col-hist" />
+                  <col className="lanc-col-dom" />
+                  <col className="lanc-col-act" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Cód.</th>
                     <th>Lote</th>
                     <th>Data</th>
-                    <th>Cód. Saída</th>
-                    <th>Conta Saída</th>
-                    <th>Cód. Entrada</th>
-                    <th>Conta Entrada</th>
+                    <th>Conta saída</th>
+                    <th>Conta entrada</th>
                     <th className="lanc-th-num">Valor</th>
                     {(showSaldoCol || contaFilter) && <th className="lanc-th-num">Saldo</th>}
                     <th>Categoria</th>
                     <th>Operação</th>
                     <th>Histórico</th>
-                    <th>Domínio</th>
+                    <th>Dom.</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -373,10 +385,8 @@ export function LancamentosPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="td-mono">{l.codigoOrigem ?? cSai?.codigo ?? "—"}</td>
-                        <td>{cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
-                        <td className="td-mono">{l.codigoDestino ?? cEnt?.codigo ?? "—"}</td>
-                        <td>{cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                        <td className="lanc-td-conta">{cSai?.apelido || cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                        <td className="lanc-td-conta">{cEnt?.apelido || cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
                         <td className={`lanc-th-num lanc-td-val lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
                         {(showSaldoCol || contaFilter) && <td className="lanc-th-num lanc-td-saldo td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
                         <td className="lanc-cell-clip lanc-td-cat" title={planoLabel || undefined}>

@@ -21,6 +21,7 @@ import {
   validateLancamentoPfIntegracao,
   validateLancamentoPjIntegracao,
 } from './lancamentoPfPj.js';
+import { parseValor, parseValorToCentavos, reaisFromCentavos } from '../utils/money.js';
 
 const SOURCE = SOURCE_INTEGRACAO;
 
@@ -100,16 +101,6 @@ function pickConta(empresa) {
   return contas.find((c) => !c.inativo) || contas[0] || null;
 }
 
-function parseValor(valor) {
-  const n = typeof valor === 'number' ? valor : parseFloat(String(valor || '').replace(',', '.'));
-  if (!Number.isFinite(n) || n <= 0) {
-    const err = new Error('Valor deve ser maior que zero.');
-    err.status = 400;
-    throw err;
-  }
-  return Math.round(n * 100) / 100;
-}
-
 function parseData(raw) {
   const s = String(raw || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
@@ -126,7 +117,7 @@ export function buildIntegracaoLancamento({
   codigo,
   data,
   tipo,
-  valor,
+  valorCentavos,
   historico,
   conta,
   plano,
@@ -144,7 +135,7 @@ export function buildIntegracaoLancamento({
     codigo,
     data,
     tipo,
-    valor: Math.abs(Number(valor)),
+    valor: reaisFromCentavos(valorCentavos),
     historico,
     descricao: historico,
     ...planoSnap,
@@ -257,7 +248,16 @@ export async function confirmOperacao(client, tipoOperacao, {
   assertTipoOperacao(tipoOperacao);
   const config = TIPOS_OPERACAO[tipoOperacao];
 
-  const valorNum = parseValor(valor);
+  let valorCentavos;
+  try {
+    valorCentavos = parseValorToCentavos(valor);
+  } catch (e) {
+    if (e.status) throw e;
+    const err = new Error('Valor deve ser maior que zero.');
+    err.status = 400;
+    throw err;
+  }
+  const valorNum = reaisFromCentavos(valorCentavos);
   const dataStr = parseData(data);
   const pfProf = profileForPf(pfProfile, vinculo.nome_pf);
   const pjProf = profileForPj(pjProfile, nomePj);
@@ -286,7 +286,6 @@ export async function confirmOperacao(client, tipoOperacao, {
   const operacaoId = randomUUID();
   const lancamentoPjId = randomUUID();
   const lancamentoPfId = randomUUID();
-  const valorCentavos = Math.round(valorNum * 100);
 
   const lancPj = buildIntegracaoLancamento({
     tipoOperacao,
@@ -294,7 +293,7 @@ export async function confirmOperacao(client, tipoOperacao, {
     codigo: nextCodigo(collectAllLancamentos(preparedPj)),
     data: dataStr,
     tipo: 'Saida',
-    valor: valorNum,
+    valorCentavos,
     historico: historicos.pj,
     conta: contaPj,
     plano: planoPj,
@@ -312,7 +311,7 @@ export async function confirmOperacao(client, tipoOperacao, {
     codigo: nextCodigo(collectAllLancamentos(preparedPf)),
     data: dataStr,
     tipo: 'Entrada',
-    valor: valorNum,
+    valorCentavos,
     historico: historicos.pf,
     conta: contaPf,
     plano: planoPf,
@@ -490,7 +489,7 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
 }) {
   assertTipoOperacao(op.tipo_operacao);
   const config = TIPOS_OPERACAO[op.tipo_operacao];
-  const valorNum = Number(op.valor_centavos) / 100;
+  const valorCentavos = Math.round(Number(op.valor_centavos));
   const dataStr = op.data instanceof Date
     ? op.data.toISOString().slice(0, 10)
     : String(op.data).slice(0, 10);
@@ -519,7 +518,7 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
     codigo: 0,
     data: dataStr,
     tipo: 'Saida',
-    valor: valorNum,
+    valorCentavos,
     historico: historicos.pj,
     conta: contaPj,
     plano: planoPj,
@@ -537,7 +536,7 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
     codigo: 0,
     data: dataStr,
     tipo: 'Entrada',
-    valor: valorNum,
+    valorCentavos,
     historico: historicos.pf,
     conta: contaPf,
     plano: planoPf,
@@ -558,8 +557,8 @@ export function mapOperacao(row) {
     id: row.id,
     vinculoId: row.vinculo_id,
     tipoOperacao: row.tipo_operacao,
-    valor: row.valor_centavos / 100,
-    valorCentavos: Number(row.valor_centavos),
+    valor: reaisFromCentavos(row.valor_centavos),
+    valorCentavos: Math.round(Number(row.valor_centavos)),
     data: row.data instanceof Date
       ? row.data.toISOString().slice(0, 10)
       : String(row.data).slice(0, 10),

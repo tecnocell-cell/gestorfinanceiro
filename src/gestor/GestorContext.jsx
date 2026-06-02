@@ -241,10 +241,14 @@ export function GestorProvider({ children }) {
   // Retrocompatibilidade: normaliza tipo "Despesa"→"Saida" e "Receita"→"Entrada"
   // (lançamentos gerados por recorrências antigas usavam os tipos errados)
   const lancamentos = useMemo(
-    () => (empresa.lancamentos || []).map((l) =>
-      l.tipo === "Despesa" ? { ...l, tipo: "Saida" } :
-      l.tipo === "Receita" ? { ...l, tipo: "Entrada" } : l
-    ),
+    () => (empresa.lancamentos || []).map((l) => {
+      const base =
+        l.tipo === "Despesa" ? { ...l, tipo: "Saida" } :
+        l.tipo === "Receita" ? { ...l, tipo: "Entrada" } : l;
+      if (base.valor == null || base.valor === "") return base;
+      const rounded = safeNum(base.valor);
+      return rounded === base.valor ? base : { ...base, valor: rounded };
+    }),
     [empresa.lancamentos]
   );
   const fechamentos = empresa.fechamentos  || [];
