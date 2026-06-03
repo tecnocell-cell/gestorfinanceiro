@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Check, Sparkles, Users, Smartphone, Bot } from "lucide-react";
-import { PF_COMMERCIAL_PLANS, PJ_COMMERCIAL_PLANS } from "@/data/commercialPlans";
+import { PF_COMMERCIAL_PLANS, PJ_COMMERCIAL_PLANS } from "@/lib/commercialPlans";
 
 export function Plans() {
   const [tab, setTab] = useState<"PF" | "PJ">("PF");

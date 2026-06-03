@@ -7,7 +7,7 @@ import {
   PF_COMMERCIAL_PLANS,
   PJ_COMMERCIAL_PLANS,
   type CommercialPlanDisplay,
-} from "@/data/commercialPlans";
+} from "@/lib/commercialPlans";
 
 function PlanCard({ plan }: { plan: CommercialPlanDisplay }) {
   const popularLabel = plan.key.startsWith("PJ_") ? "Recomendado" : "Mais popular";

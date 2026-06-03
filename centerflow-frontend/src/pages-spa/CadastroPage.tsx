@@ -34,7 +34,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import {
   COMMERCIAL_PLANS_BY_KEY,
   type CommercialPlanKey,
-} from "@/data/commercialPlans";
+} from "@/lib/commercialPlans";
 
 // ── Planos (alinhados ao gestor — commercialPlans.ts) ───────────────────────
 
