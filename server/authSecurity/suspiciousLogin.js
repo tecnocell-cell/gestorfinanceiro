@@ -1,10 +1,19 @@
 import { query } from '../db.js';
 import { getLastSuccessfulLogin } from './loginAudit.js';
 
+function suspiciousLoginDisabled() {
+  const v = String(process.env.SUSPICIOUS_LOGIN || '').toLowerCase();
+  return v === 'false' || v === '0' || v === 'off';
+}
+
 /**
- * Marca login como suspeito quando IP, user-agent ou tentativas recentes divergem.
+ * Marca login como suspeito quando há combinação de risco (não só IP ou UA novo isolado).
  */
 export async function assessSuspiciousLogin(userId, ip, userAgent) {
+  if (suspiciousLoginDisabled()) {
+    return { suspicious: false, reasons: [] };
+  }
+
   const reasons = [];
 
   const { rows: failRows } = await query(
@@ -33,8 +42,10 @@ export async function assessSuspiciousLogin(userId, ip, userAgent) {
     }
   }
 
-  return {
-    suspicious: reasons.length > 0,
-    reasons,
-  };
+  // Exige OTP: muitas falhas recentes OU IP + UA diferentes juntos (não só um sinal isolado)
+  const suspicious =
+    reasons.includes('tentativas_recentes') ||
+    (reasons.includes('ip_novo') && reasons.includes('user_agent_novo'));
+
+  return { suspicious, reasons };
 }

@@ -48,11 +48,7 @@ async function request(path, options = {}) {
     return typeof raw === "string" && raw ? raw : "";
   })();
 
-  if (res.status === 401 || (res.status === 403 && path === "/auth/login")) {
-    // Login inválido: não limpa sessão nem recarrega a página
-    if (path === "/auth/login") {
-      throw new Error(apiError || "E-mail ou senha incorretos.");
-    }
+  if (res.status === 401 || (res.status === 403 && path !== "/auth/login")) {
     const hadSession = !!localStorage.getItem("gestor_token");
     localStorage.removeItem("gestor_token");
     localStorage.removeItem("gestor_user");
@@ -63,7 +59,9 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     if (res.status === 502 || res.status === 503) {
-      throw new Error("Servidor indisponível. Inicie o backend com: npm run server");
+      throw new Error(
+        "Servidor indisponível (502). Verifique se a API Node está rodando e o proxy /api aponta para ela."
+      );
     }
     throw new Error(apiError || `HTTP ${res.status}`);
   }
@@ -82,8 +80,14 @@ export const authApi = {
     if (status === 403 && data.requires_otp) {
       return { requires_otp: true, ...data };
     }
+    if (status === 429 && data.requires_otp) {
+      return { requires_otp: true, ...data };
+    }
     if (status === 403 && data.needs_verification) {
       throw new Error(data.error || "Confirme seu cadastro.");
+    }
+    if (status === 403) {
+      throw new Error(data.error || "Acesso negado.");
     }
     if (status === 401) {
       throw new Error(data.error || "E-mail ou senha incorretos.");

@@ -22,9 +22,11 @@ export default function LoginPage({ onRegister }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setNeedsVerify(false);
+    setOtpFlow(null);
     const result = await login(form.email, form.senha);
     if (result?.needsVerification) setNeedsVerify(true);
     if (result?.requiresOtp && result.otp) {
+      clearError();
       setOtpFlow({
         ...result.otp,
         email: form.email,
@@ -42,6 +44,8 @@ export default function LoginPage({ onRegister }) {
       });
       setSession(data.token, data.user);
       setOtpFlow(null);
+    } catch (err) {
+      throw err;
     } finally {
       setOtpBusy(false);
     }

@@ -39,7 +39,7 @@ import {
   resetLoginAttempts,
 } from "./authSecurity/bruteForce.js";
 import { assessSuspiciousLogin } from "./authSecurity/suspiciousLogin.js";
-import { criarEnviarOtp } from "./authSecurity/otp.js";
+import { criarEnviarOtp, getPendingOtp } from "./authSecurity/otp.js";
 import { OTP_TTL_MIN } from "./authSecurity/constants.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
 import { conexoesRouter } from "./routes/conexoes.js";
@@ -145,10 +145,13 @@ app.post("/api/auth/login", async (req, res) => {
         });
       } catch (err) {
         if (err.code === "OTP_RATE_LIMIT") {
-          return res.status(429).json({
-            error: err.message,
-            requires_otp: true,
-          });
+          otp = await getPendingOtp({ usuarioId: user.id, tipo: "login_suspeito" });
+          if (!otp) {
+            return res.status(429).json({
+              error: err.message,
+              requires_otp: true,
+            });
+          }
         } else if (err.code === "OTP_CANAL_INDISPONIVEL") {
           return res.status(503).json({ error: err.message });
         } else {

@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await authApi.login(email, senha);
       if (data?.requires_otp) {
+        setError(null);
         return { ok: false, requiresOtp: true, otp: data };
       }
       if (!data?.token || !data?.user) {

@@ -85,6 +85,29 @@ async function assertRateLimit(usuarioId, destino) {
   }
 }
 
+/** OTP válido ainda não usado (ex.: rate limit no reenvio). */
+export async function getPendingOtp({ usuarioId, tipo }) {
+  const { rows } = await query(
+    `SELECT id, expires_at, canal, destino
+     FROM otps
+     WHERE usuario_id = $1 AND tipo = $2 AND used_at IS NULL
+       AND expires_at > NOW() AND tentativas < $3
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [usuarioId, tipo, MAX_OTP_ATTEMPTS]
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    ok: true,
+    otp_id: row.id,
+    expires_at: row.expires_at,
+    canal: row.canal,
+    destino_mascarado: maskDestino(row.destino, row.canal),
+    ttl_minutes: OTP_TTL_MIN,
+  };
+}
+
 export async function invalidarOtp({ otpId, usuarioId, tipo }) {
   if (otpId) {
     await query(
