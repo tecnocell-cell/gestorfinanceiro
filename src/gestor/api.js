@@ -101,6 +101,14 @@ export const authApi = {
     request("/auth/reset-password", { method: "POST", body: { token, nova_senha } }),
 };
 
+// ─── Billing (planos e assinatura) ───────────────────────────────────────────
+export const billingApi = {
+  planos: () => request("/billing/planos"),
+  assinatura: () => request("/billing/assinatura"),
+  simularUpgrade: (plano_slug) =>
+    request("/billing/assinatura/simular", { method: "POST", body: { plano_slug } }),
+};
+
 // ─── Estado do App ────────────────────────────────────────────────────────────
 export const stateApi = {
   fetch: () => request("/state"),

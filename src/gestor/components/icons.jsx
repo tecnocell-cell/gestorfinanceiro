@@ -103,6 +103,7 @@ export const NAV_ICON_MAP = {
   "open-finance": Link2,
   perfil: User,
   seguranca: Shield,
+  "plano-assinatura": CircleDollarSign,
   dre: BarChart3,
   plano: FolderTree,
   impostos: Percent,

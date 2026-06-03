@@ -8,6 +8,7 @@ import { isPessoaFisica } from "./profileLabels.js";
 import {
   ModalLancamento, ModalConta, ModalPlano,
   ModalCliente, ModalFornecedor, ModalCategoriaPF, ModalMeta,
+  ModalCentroCusto, ModalProjetoFinanceiro, ModalOrcamentoMensal,
 } from "./components/Modals.jsx";
 import AdminPanel        from "./pages/AdminPage.jsx";
 import RecorrenciasPage  from "./pages/RecorrenciasPage.jsx";
@@ -21,6 +22,7 @@ import ResultadoClientePage from "./pages/ResultadoClientePage.jsx";
 import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import OrcadoRealizadoPage from "./pages/OrcadoRealizadoPage.jsx";
 import SegurancaPage from "./pages/SegurancaPage.jsx";
+import PlanoAssinaturaPage from "./pages/PlanoAssinaturaPage.jsx";
 import SuportePage           from "./pages/SuportePage.jsx";
 import TutoriaisPage         from "./pages/TutoriaisPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
@@ -64,6 +66,7 @@ const PAGE_MAP_PJ = {
   suporte: () => <SuportePage />,
   empresa: EmpresaPage,
   seguranca: SegurancaPage,
+  "plano-assinatura": PlanoAssinaturaPage,
 };
 
 const PAGE_MAP_PF = {
@@ -85,6 +88,7 @@ const PAGE_MAP_PF = {
   suporte: () => <SuportePage pfMode />,
   perfil: PerfilPFPage,
   seguranca: SegurancaPage,
+  "plano-assinatura": PlanoAssinaturaPage,
 };
 
 // ─── SyncPill: indicador discreto de auto-sincronização ─────────────────────
@@ -357,6 +361,9 @@ export default function GestorApp() {
         {!isAdminPage && modalOpen === "fornecedor"   && <ModalFornecedor />}
         {!isAdminPage && modalOpen === "categoria-pf" && <ModalCategoriaPF />}
         {!isAdminPage && modalOpen === "meta"         && <ModalMeta />}
+        {!isAdminPage && modalOpen === "centro-custo" && <ModalCentroCusto />}
+        {!isAdminPage && modalOpen === "projeto-financeiro" && <ModalProjetoFinanceiro />}
+        {!isAdminPage && modalOpen === "orcamento-mensal" && <ModalOrcamentoMensal />}
 
         {!isAdminPage && !viewOnly && <PfDueAlert />}
       </div>

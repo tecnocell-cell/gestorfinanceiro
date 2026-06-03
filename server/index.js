@@ -21,6 +21,7 @@ import { normalizeMoneyInState } from "./normalizeEstadoMoney.js";
 import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { registerSecurityRoutes } from "./authSecurity/routes.js";
+import { registerBillingRoutes } from "./billing/routes.js";
 import { isAccountVerified } from "./verification.js";
 import { getRequestMeta } from "./authSecurity/requestMeta.js";
 import { recordLoginAudit } from "./authSecurity/loginAudit.js";
@@ -145,6 +146,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 registerAuthRoutes(app);
 registerSecurityRoutes(app);
+registerBillingRoutes(app);
 
 // ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
 app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
