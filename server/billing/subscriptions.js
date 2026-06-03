@@ -1,12 +1,22 @@
 import { query } from '../db.js';
-import { mergeRecursos, buildLimiteAvisos } from './planResources.js';
+import {
+  mergeRecursos,
+  buildLimiteAvisos,
+  defaultPlanoSlugForTipo,
+  segmentoFromTipoPerfil,
+  planoMatchesTipoPerfil,
+} from './planResources.js';
 
 const TRIAL_DAYS = parseInt(process.env.BILLING_TRIAL_DAYS || '14', 10);
 
-export async function listPlanosAtivos() {
+export async function listPlanosAtivos(tipoPerfil) {
+  const segmento = segmentoFromTipoPerfil(tipoPerfil);
   const { rows } = await query(
     `SELECT id, slug, nome, descricao, preco_centavos, intervalo, recursos, ativo, created_at
-     FROM planos WHERE ativo = true ORDER BY preco_centavos ASC`
+     FROM planos
+     WHERE ativo = true AND slug LIKE $1
+     ORDER BY preco_centavos ASC`,
+    [`${segmento}_%`]
   );
   return rows.map(formatPlano);
 }
@@ -18,6 +28,14 @@ export async function getPlanoBySlug(slug) {
     [slug]
   );
   return rows[0] || null;
+}
+
+async function getUsuarioTipoPerfil(usuarioId) {
+  const { rows } = await query(
+    `SELECT tipo_perfil FROM usuarios WHERE id = $1`,
+    [usuarioId]
+  );
+  return rows[0]?.tipo_perfil || 'juridica';
 }
 
 async function countLancamentosUsuario(usuarioId) {
@@ -38,6 +56,7 @@ function formatPlano(row) {
     preco_formatado: formatPreco(row.preco_centavos),
     intervalo: row.intervalo,
     recursos,
+    segmento: recursos.segmento,
     ativo: row.ativo,
   };
 }
@@ -79,8 +98,14 @@ export async function ensureAssinaturaPadrao(usuarioId) {
   );
   if (existing.rows.length) return existing.rows[0].id;
 
-  const free = await getPlanoBySlug('free');
-  if (!free) throw new Error('Plano Free não encontrado. Execute a migration 023.');
+  const tipoPerfil = await getUsuarioTipoPerfil(usuarioId);
+  const slugPadrao = defaultPlanoSlugForTipo(tipoPerfil);
+  const plano = await getPlanoBySlug(slugPadrao);
+  if (!plano) {
+    throw new Error(
+      `Plano padrão ${slugPadrao} não encontrado. Execute migrations 023 e 024.`
+    );
+  }
 
   const trialAte = new Date();
   trialAte.setDate(trialAte.getDate() + TRIAL_DAYS);
@@ -89,7 +114,7 @@ export async function ensureAssinaturaPadrao(usuarioId) {
     `INSERT INTO assinaturas (usuario_id, plano_id, status, inicio_em, trial_ate)
      VALUES ($1, $2, 'trial', NOW(), $3)
      RETURNING id`,
-    [usuarioId, free.id, trialAte]
+    [usuarioId, plano.id, trialAte]
   );
   return rows[0].id;
 }
@@ -136,8 +161,13 @@ function periodEndFromInterval(intervalo) {
 export async function simularUpgrade(usuarioId, planoSlug) {
   const plano = await getPlanoBySlug(planoSlug);
   if (!plano) return { ok: false, error: 'Plano não encontrado.' };
-  if (plano.slug === 'free') {
-    return { ok: false, error: 'Use outro plano para simular upgrade (Pro ou Empresarial).' };
+
+  const tipoPerfil = await getUsuarioTipoPerfil(usuarioId);
+  if (!planoMatchesTipoPerfil(plano.slug, tipoPerfil)) {
+    return {
+      ok: false,
+      error: 'Este plano não está disponível para o seu tipo de perfil (PF/PJ).',
+    };
   }
 
   await ensureAssinaturaPadrao(usuarioId);

@@ -1,4 +1,5 @@
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
+import { query } from '../db.js';
 import {
   listPlanosAtivos,
   getAssinaturaUsuario,
@@ -6,11 +7,18 @@ import {
   isSimulateAllowed,
 } from './subscriptions.js';
 
+async function tipoPerfilFromRequest(req) {
+  if (req.user?.tipo_perfil) return req.user.tipo_perfil;
+  const { rows } = await query('SELECT tipo_perfil FROM usuarios WHERE id = $1', [req.user.id]);
+  return rows[0]?.tipo_perfil || 'juridica';
+}
+
 export function registerBillingRoutes(app) {
-  app.get('/api/billing/planos', authMiddleware, activeMiddleware, async (_req, res) => {
+  app.get('/api/billing/planos', authMiddleware, activeMiddleware, async (req, res) => {
     try {
-      const planos = await listPlanosAtivos();
-      res.json({ planos, pagamentos_reais: false });
+      const tipoPerfil = await tipoPerfilFromRequest(req);
+      const planos = await listPlanosAtivos(tipoPerfil);
+      res.json({ planos, pagamentos_reais: false, segmento: planos[0]?.segmento || null });
     } catch (err) {
       console.error('billing/planos:', err.message);
       res.status(500).json({ error: 'Erro ao listar planos.' });
@@ -40,7 +48,7 @@ export function registerBillingRoutes(app) {
     const { plano_slug, planoSlug } = req.body || {};
     const slug = (plano_slug || planoSlug || '').toLowerCase().trim();
     if (!slug) {
-      return res.status(400).json({ error: 'Informe plano_slug (pro ou empresarial).' });
+      return res.status(400).json({ error: 'Informe plano_slug (ex.: pf_plus, pj_pro).' });
     }
 
     try {

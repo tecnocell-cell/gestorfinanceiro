@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../AuthContext.jsx";
 import { billingApi } from "../api.js";
 import { AlertTriangle } from "../components/icons.jsx";
 
@@ -11,6 +12,13 @@ function formatDate(value) {
   }
 }
 
+function formatAddonPreco(centavos) {
+  if (!centavos) return "—";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    centavos / 100
+  );
+}
+
 const STATUS_LABEL = {
   trial: "Período de teste",
   ativa: "Ativa",
@@ -20,14 +28,34 @@ const STATUS_LABEL = {
 
 function RecursosList({ recursos }) {
   if (!recursos) return null;
+
   const items = [
+    recursos.limiteUsuarios != null ? `${recursos.limiteUsuarios} usuário(s)` : null,
+    recursos.limiteWhatsappNumeros != null
+      ? `${recursos.limiteWhatsappNumeros} número(s) WhatsApp`
+      : null,
     recursos.limiteLancamentos == null
       ? "Lançamentos ilimitados"
       : `Até ${recursos.limiteLancamentos} lançamentos`,
-    recursos.openFinance ? "Open Finance" : null,
+    recursos.whatsappTexto ? "WhatsApp: texto" : null,
+    recursos.whatsappAudio ? "WhatsApp: áudio" : null,
+    recursos.whatsappComprovante ? "WhatsApp: comprovante" : null,
+    recursos.iaComprovante ? "Leitura de comprovante (IA)" : null,
+    recursos.centroCusto ? "Centro de custo" : null,
+    recursos.dreCompleto ? "DRE completo" : recursos.segmento === "pj" && recursos.centroCusto ? "DRE simplificado" : null,
+    recursos.projetos ? "Projetos financeiros" : null,
     recursos.integracaoPfPj ? "Integração PF/PJ" : null,
+    recursos.apiAccess ? "API access" : null,
     recursos.suportePrioritario ? "Suporte prioritário" : null,
+    recursos.openFinance ? "Open Finance (incluso)" : null,
   ].filter(Boolean);
+
+  const addon = recursos.openFinanceAddon;
+  if (addon && !recursos.openFinance) {
+    items.push(
+      `Open Finance add-on (em breve${addon.futuroPrecoSugeridoCentavos ? ` · ${formatAddonPreco(addon.futuroPrecoSugeridoCentavos)}` : ""})`
+    );
+  }
 
   return (
     <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, color: "var(--muted)" }}>
@@ -39,12 +67,16 @@ function RecursosList({ recursos }) {
 }
 
 export default function PlanoAssinaturaPage() {
+  const { user } = useAuth();
   const [assinatura, setAssinatura] = useState(null);
   const [planos, setPlanos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [simulating, setSimulating] = useState(null);
+
+  const segmentoLabel =
+    user?.tipo_perfil === "fisica" ? "Pessoa Física (PF)" : "Pessoa Jurídica (PJ)";
 
   const load = useCallback(async () => {
     setError("");
@@ -100,8 +132,8 @@ export default function PlanoAssinaturaPage() {
           Pagamentos reais ainda não configurados
         </div>
         <p style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>
-          Não há cobrança por cartão, Stripe, Mercado Pago ou Asaas nesta versão. Use
-          &quot;Simular upgrade&quot; apenas em ambiente de desenvolvimento para testar planos.
+          Não há cobrança por cartão nesta versão. Use &quot;Simular upgrade&quot; para testar planos.
+          Open Finance automático (Pluggy) será add-on opcional — importação OFX/CSV segue em todos os planos.
         </p>
       </div>
 
@@ -120,6 +152,9 @@ export default function PlanoAssinaturaPage() {
       {assinatura && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">Plano atual</div>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
+            Perfil: {segmentoLabel}
+          </p>
           <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div>
               <div className="form-label">Plano</div>
@@ -139,6 +174,13 @@ export default function PlanoAssinaturaPage() {
             </div>
           </div>
           <RecursosList recursos={assinatura.recursos} />
+          {assinatura.recursos?.openFinanceAddon && !assinatura.recursos?.openFinance && (
+            <div className="alert alert-info" style={{ marginTop: 12, fontSize: 12 }}>
+              <strong>Open Finance add-on:</strong>{" "}
+              {assinatura.recursos.openFinanceAddon.descricao}.{" "}
+              {assinatura.recursos.openFinanceAddon.observacao}
+            </div>
+          )}
           {assinatura.avisos?.length > 0 && (
             <div style={{ marginTop: 12 }}>
               {assinatura.avisos.map((a) => (
@@ -152,11 +194,11 @@ export default function PlanoAssinaturaPage() {
       )}
 
       <div className="card">
-        <div className="card-title">Planos disponíveis</div>
+        <div className="card-title">Planos disponíveis ({segmentoLabel})</div>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {planos.map((p) => {
             const isCurrent = p.slug === currentSlug;
-            const canSimulate = p.slug !== "free" && !isCurrent;
+            const canSimulate = !isCurrent;
             return (
               <div
                 key={p.id}
@@ -168,7 +210,9 @@ export default function PlanoAssinaturaPage() {
               >
                 <div style={{ fontWeight: 600, fontSize: 16 }}>{p.nome}</div>
                 <div style={{ fontSize: 20, margin: "8px 0" }}>{p.preco_formatado}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.intervalo === "anual" ? "Cobrança anual" : "Cobrança mensal"}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {p.intervalo === "anual" ? "Cobrança anual" : "Cobrança mensal"}
+                </div>
                 <p style={{ fontSize: 13, color: "var(--muted)", minHeight: 40 }}>{p.descricao}</p>
                 <RecursosList recursos={p.recursos} />
                 {isCurrent ? (
@@ -183,11 +227,7 @@ export default function PlanoAssinaturaPage() {
                   >
                     {simulating === p.slug ? "Simulando…" : "Simular upgrade"}
                   </button>
-                ) : (
-                  <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 12, display: "block" }}>
-                    {p.slug === "free" ? "Plano gratuito" : ""}
-                  </span>
-                )}
+                ) : null}
               </div>
             );
           })}

@@ -1,5 +1,5 @@
 /**
- * Reaplica seed dos planos Free / Pro / Empresarial.
+ * Reaplica seed dos planos comerciais (Etapa 6.3B).
  * Uso: npm run seed:planos
  */
 import { config } from 'dotenv';
@@ -12,14 +12,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function main() {
   config();
-  const sql = readFileSync(join(__dirname, '../migrations/023_planos_assinaturas.sql'), 'utf-8');
-  const match = sql.match(/INSERT INTO planos[\s\S]*?;/);
-  if (!match) {
-    console.error('INSERT de planos não encontrado na migration 023.');
-    process.exit(1);
-  }
-  await query(match[0]);
-  console.log('✓ Planos Free, Pro e Empresarial atualizados.');
+  const sql = readFileSync(join(__dirname, '../migrations/024_planos_comerciais.sql'), 'utf-8');
+  await query(sql);
+  console.log('✓ Planos comerciais PF/PJ atualizados (024).');
   await pool.end();
 }
 

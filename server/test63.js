@@ -1,5 +1,5 @@
 /**
- * Testes Etapa 6.3 — Planos e assinaturas
+ * Testes Etapa 6.3 / 6.3B — Planos comerciais e assinaturas
  * Uso: node server/test63.js
  * Requer servidor rodando: npm run server
  */
@@ -9,10 +9,24 @@ config();
 import bcrypt from 'bcryptjs';
 import { query, pool } from './db.js';
 import { createInitialState } from './initialState.js';
-import { mergeRecursos, DEFAULT_RESOURCES_BY_SLUG } from './billing/planResources.js';
+import { runMigrations } from './migrate.js';
+import {
+  mergeRecursos,
+  DEFAULT_RESOURCES_BY_SLUG,
+  COMMERCIAL_PLAN_SLUGS,
+} from './billing/planResources.js';
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 const TS = Date.now();
+
+const PRECOS = {
+  pf_basico: 1990,
+  pf_plus: 2990,
+  pf_premium: 4990,
+  pj_start: 5990,
+  pj_pro: 9990,
+  pj_business: 19990,
+};
 
 async function req(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -35,15 +49,15 @@ function assert(cond, msg) {
   console.log(`  ✓ ${msg}`);
 }
 
-async function createUser({ email, senha }) {
+async function createUser({ email, senha, tipo, nomePerfil }) {
   const hash = await bcrypt.hash(senha, 12);
   const ins = await query(
     `INSERT INTO usuarios (
        email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil, email_verificado
-     ) VALUES ($1,$2,$3,'user',true,'fisica',$3,true) RETURNING id, email`,
-    [email, hash, 'Teste Billing']
+     ) VALUES ($1,$2,$3,'user',true,$4,$5,true) RETURNING id, email`,
+    [email, hash, nomePerfil, tipo, nomePerfil]
   );
-  const st = createInitialState('fisica', 'Teste Billing');
+  const st = createInitialState(tipo, nomePerfil);
   await query('INSERT INTO estados (usuario_id, dados) VALUES ($1,$2)', [
     ins.rows[0].id,
     JSON.stringify(st),
@@ -68,88 +82,139 @@ async function cleanup(emails) {
 }
 
 async function main() {
-  console.log('=== Testes Etapa 6.3 — Planos e assinaturas ===\n');
+  console.log('=== Testes Etapa 6.3B — Planos comerciais ===\n');
 
-  const email = `test_63_${TS}@test.local`;
+  await runMigrations();
+
+  const emailPf = `test_63_pf_${TS}@test.local`;
+  const emailPj = `test_63_pj_${TS}@test.local`;
   const pass = 'test123456';
-  await cleanup([email]);
+  await cleanup([emailPf, emailPj]);
 
-  console.log('--- Planos seedados ---');
+  console.log('--- Planos seedados (comerciais) ---');
   const { rows: planosDb } = await query(
-    `SELECT slug, recursos FROM planos WHERE ativo = true ORDER BY preco_centavos`
+    `SELECT slug, preco_centavos, recursos, ativo FROM planos ORDER BY preco_centavos`
   );
-  assert(planosDb.length >= 3, 'pelo menos 3 planos no banco');
-  const slugs = planosDb.map((p) => p.slug);
-  assert(slugs.includes('free'), 'plano free seedado');
-  assert(slugs.includes('pro'), 'plano pro seedado');
-  assert(slugs.includes('empresarial'), 'plano empresarial seedado');
+  const ativos = planosDb.filter((p) => p.ativo);
+  assert(ativos.length >= 6, 'pelo menos 6 planos comerciais ativos');
 
-  const freeRec = mergeRecursos('free', planosDb.find((p) => p.slug === 'free').recursos);
-  assert(freeRec.openFinance === false, 'free: openFinance false');
-  assert(freeRec.limiteLancamentos === 100, 'free: limite 100');
+  for (const slug of COMMERCIAL_PLAN_SLUGS.pf) {
+    assert(ativos.some((p) => p.slug === slug), `plano ${slug} ativo`);
+    const row = ativos.find((p) => p.slug === slug);
+    assert(row.preco_centavos === PRECOS[slug], `${slug}: preço ${PRECOS[slug]} centavos`);
+    const rec = mergeRecursos(slug, row.recursos);
+    assert(rec.openFinance === false, `${slug}: openFinance false`);
+    assert(rec.openFinanceAddon?.ativo === false, `${slug}: addon inativo`);
+    assert(rec.segmento === 'pf', `${slug}: segmento pf`);
+  }
 
-  const proRec = mergeRecursos('pro', planosDb.find((p) => p.slug === 'pro').recursos);
-  assert(proRec.openFinance === true, 'pro: openFinance true');
-  assert(proRec.integracaoPfPj === true, 'pro: integracaoPfPj true');
+  for (const slug of COMMERCIAL_PLAN_SLUGS.pj) {
+    assert(ativos.some((p) => p.slug === slug), `plano ${slug} ativo`);
+    const row = ativos.find((p) => p.slug === slug);
+    assert(row.preco_centavos === PRECOS[slug], `${slug}: preço correto`);
+    const rec = mergeRecursos(slug, row.recursos);
+    assert(rec.openFinance === false, `${slug}: openFinance false`);
+    assert(rec.integracaoPfPj === true, `${slug}: integracaoPfPj true`);
+  }
 
-  const empRec = mergeRecursos(
-    'empresarial',
-    planosDb.find((p) => p.slug === 'empresarial').recursos
-  );
-  assert(empRec.limiteLancamentos === null, 'empresarial: lançamentos ilimitados');
-  assert(empRec.suportePrioritario === true, 'empresarial: suporte prioritário');
+  const premium = mergeRecursos('pf_premium', ativos.find((p) => p.slug === 'pf_premium').recursos);
+  assert(premium.whatsappComprovante === true, 'pf_premium: comprovante');
+  assert(premium.suportePrioritario === true, 'pf_premium: suporte prioritário');
+  assert(premium.limiteWhatsappNumeros === 5, 'pf_premium: 5 números');
 
+  const pjPro = mergeRecursos('pj_pro', ativos.find((p) => p.slug === 'pj_pro').recursos);
+  assert(pjPro.dreCompleto === true, 'pj_pro: DRE completo');
+  assert(pjPro.limiteUsuarios === 8, 'pj_pro: 8 usuários');
+
+  assert(DEFAULT_RESOURCES_BY_SLUG.pf_basico.limiteWhatsappNumeros === 1, 'helper pf_basico 1 whatsapp');
+
+  const userPf = await createUser({
+    email: emailPf,
+    senha: pass,
+    tipo: 'fisica',
+    nomePerfil: 'PF Test 63',
+  });
+  const userPj = await createUser({
+    email: emailPj,
+    senha: pass,
+    tipo: 'juridica',
+    nomePerfil: 'PJ Test 63',
+  });
+
+  const tokenPf = await login(emailPf, pass);
+  const tokenPj = await login(emailPj, pass);
+
+  console.log('\n--- API planos por perfil ---');
+  const listPf = await req('/billing/planos', { token: tokenPf });
+  const slugsPf = (listPf.data.planos || []).map((p) => p.slug);
+  assert(slugsPf.length === 3, 'PF: exatamente 3 planos');
   assert(
-    DEFAULT_RESOURCES_BY_SLUG.pro.limiteLancamentos === 2000,
-    'helper recursos pro limite 2000'
+    COMMERCIAL_PLAN_SLUGS.pf.every((s) => slugsPf.includes(s)),
+    'PF: slugs pf_basico, pf_plus, pf_premium'
   );
+  assert(!slugsPf.some((s) => s.startsWith('pj_')), 'PF: sem planos PJ');
 
-  const user = await createUser({ email, senha: pass });
-  const token = await login(email, pass);
+  const listPj = await req('/billing/planos', { token: tokenPj });
+  const slugsPj = (listPj.data.planos || []).map((p) => p.slug);
+  assert(slugsPj.length === 3, 'PJ: exatamente 3 planos');
+  assert(
+    COMMERCIAL_PLAN_SLUGS.pj.every((s) => slugsPj.includes(s)),
+    'PJ: slugs pj_start, pj_pro, pj_business'
+  );
+  assert(!slugsPj.some((s) => s.startsWith('pf_')), 'PJ: sem planos PF');
 
-  console.log('\n--- API planos ---');
-  const list = await req('/billing/planos', { token });
-  assert(list.data.planos?.length >= 3, 'GET /billing/planos retorna planos');
-  assert(list.data.pagamentos_reais === false, 'flag pagamentos_reais false');
+  const pfPlusApi = listPf.data.planos.find((p) => p.slug === 'pf_plus');
+  assert(pfPlusApi.preco_centavos === 2990, 'API pf_plus preço 2990');
+  assert(pfPlusApi.recursos.whatsappAudio === true, 'API pf_plus áudio');
 
-  console.log('\n--- Assinatura padrão Free/trial ---');
-  const sub1 = await req('/billing/assinatura', { token });
-  assert(sub1.data.assinatura?.plano?.slug === 'free', 'sem assinatura → Free');
-  assert(sub1.data.assinatura?.status === 'trial', 'status trial padrão');
-  assert(sub1.data.assinatura?.trial_ate, 'trial_ate definido');
-  assert(sub1.data.assinatura?.recursos?.limiteLancamentos === 100, 'recursos free na assinatura');
+  console.log('\n--- Assinatura padrão por tipo ---');
+  const subPf = await req('/billing/assinatura', { token: tokenPf });
+  assert(subPf.data.assinatura?.plano?.slug === 'pf_basico', 'PF novo → pf_basico');
+  assert(subPf.data.assinatura?.recursos?.openFinance === false, 'PF: openFinance false');
 
-  const { rows: assDb } = await query('SELECT id FROM assinaturas WHERE usuario_id = $1', [
-    user.id,
-  ]);
-  assert(assDb.length === 1, 'assinatura criada no banco');
+  const subPj = await req('/billing/assinatura', { token: tokenPj });
+  assert(subPj.data.assinatura?.plano?.slug === 'pj_start', 'PJ novo → pj_start');
 
   console.log('\n--- Simular upgrade ---');
-  const up = await req('/billing/assinatura/simular', {
+  const upPf = await req('/billing/assinatura/simular', {
     method: 'POST',
-    token,
-    body: { plano_slug: 'pro' },
+    token: tokenPf,
+    body: { plano_slug: 'pf_premium' },
   });
-  assert(up.data.ok, 'simular upgrade ok');
-  assert(up.data.assinatura?.plano?.slug === 'pro', 'plano atualizado para pro');
-  assert(up.data.assinatura?.status === 'ativa', 'status ativa após simulação');
-  assert(up.data.assinatura?.recursos?.openFinance === true, 'recursos pro após upgrade');
+  assert(upPf.data.ok, 'PF upgrade pf_premium ok');
+  assert(upPf.data.assinatura?.plano?.slug === 'pf_premium', 'PF em premium');
+  assert(upPf.data.assinatura?.recursos?.openFinance === false, 'premium: openFinance ainda false');
 
-  const sub2 = await req('/billing/assinatura', { token });
-  assert(sub2.data.assinatura?.plano?.slug === 'pro', 'GET assinatura confirma pro');
-
-  const bad = await req('/billing/assinatura/simular', {
+  const cross = await req('/billing/assinatura/simular', {
     method: 'POST',
-    token,
-    body: { plano_slug: 'inexistente' },
+    token: tokenPf,
+    body: { plano_slug: 'pj_pro' },
     allowError: true,
   });
-  assert(bad.status === 400, 'slug inválido retorna 400');
+  assert(cross.status === 400, 'PF não pode simular plano PJ');
 
-  await cleanup([email]);
+  const upPj = await req('/billing/assinatura/simular', {
+    method: 'POST',
+    token: tokenPj,
+    body: { plano_slug: 'pj_pro' },
+  });
+  assert(upPj.data.assinatura?.plano?.slug === 'pj_pro', 'PJ upgrade pro');
+
+  console.log('\n--- Open Finance mock (Banco Demo) ---');
+  const ofStatus = await req('/open-finance/status', { token: tokenPf });
+  assert(ofStatus.data.demoMode === true || ofStatus.data.provider === 'mock', 'OF status mock');
+
+  const mockConn = await req('/open-finance/connections/mock', {
+    method: 'POST',
+    token: tokenPf,
+    body: {},
+  });
+  assert(mockConn.data.connection?.id, 'Banco Demo Fluxiva ainda funciona');
+
+  await cleanup([emailPf, emailPj]);
   await pool.end();
 
-  console.log('\n=== Todos os testes 6.3 passaram ===\n');
+  console.log('\n=== Todos os testes 6.3B passaram ===\n');
 }
 
 main().catch((err) => {

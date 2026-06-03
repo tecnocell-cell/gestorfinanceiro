@@ -52,7 +52,7 @@ const pjPlans: Plan[] = [
     users: "Até 3 usuários",
     numbers: "Até 2 números WhatsApp",
     ai: "Texto + áudio",
-    features: ["Categorias da empresa", "Relatórios PJ", "Centro de custo básico"],
+    features: ["Centro de custo básico", "Relatórios PJ", "DRE simplificado"],
   },
   {
     name: "PJ Pro",
@@ -61,7 +61,7 @@ const pjPlans: Plan[] = [
     users: "Até 8 usuários",
     numbers: "Até 5 números WhatsApp",
     ai: "Texto + áudio + comprovante (IA)",
-    features: ["Relatórios avançados", "Automações de lançamento", "DRE simplificado"],
+    features: ["Automações", "DRE completo", "Múltiplos centros de custo"],
     highlight: true,
   },
   {
@@ -71,7 +71,7 @@ const pjPlans: Plan[] = [
     users: "Até 20 usuários",
     numbers: "Até 15 números WhatsApp",
     ai: "Recursos completos com IA",
-    features: ["Governança e auditoria", "Relatórios exportáveis", "Suporte dedicado"],
+    features: ["Governança financeira", "Suporte dedicado", "API access"],
   },
 ];
 

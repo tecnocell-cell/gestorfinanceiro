@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGestor }      from "../GestorContext.jsx";
-import { conexoesApi, importacoesApi, openFinanceApi } from "../api.js";
+import { billingApi, conexoesApi, importacoesApi, openFinanceApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
   Bell, FileText, Table, PenLine, ArrowRight, Link2, AlertCircle,
@@ -659,8 +659,14 @@ function ImportacaoDetalheModal({ importacaoId, onClose, onNavigate }) {
   );
 }
 
+function canUseOpenFinanceRealFromRecursos(recursos) {
+  if (!recursos) return false;
+  return Boolean(recursos.openFinance) || recursos.openFinanceAddon?.ativo === true;
+}
+
 function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
   const [status, setStatus] = useState(null);
+  const [billingRecursos, setBillingRecursos] = useState(null);
   const [connections, setConnections] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [syncLogs, setSyncLogs] = useState([]);
@@ -680,13 +686,15 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
     setLoading(true);
     setErro(null);
     try {
-      const [st, conn, tx, logs] = await Promise.all([
+      const [st, conn, tx, logs, billing] = await Promise.all([
         openFinanceApi.status(),
         openFinanceApi.listConnections(),
         openFinanceApi.listTransactions({ limit: 30 }),
         openFinanceApi.listSyncLogs({ limit: 15 }),
+        billingApi.assinatura().catch(() => ({ assinatura: null })),
       ]);
       setStatus(st);
+      setBillingRecursos(billing?.assinatura?.recursos || null);
       setConnections(conn.connections || []);
       setTransactions(tx.transactions || []);
       setSyncLogs(logs.logs || []);
@@ -704,6 +712,14 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
   useEffect(() => {
     if (!contaSyncId && contasAtivas[0]?.id) setContaSyncId(contasAtivas[0].id);
   }, [contasAtivas, contaSyncId]);
+
+  const isMockMode = status?.demoMode || status?.provider === "mock";
+  const isPluggyMode = status?.provider === "pluggy";
+  const pluggyReady = status?.canStartPluggyConnect === true;
+  const pluggyConfigPending = isPluggyMode && status?.credentialsMissing;
+  const addonInfo = billingRecursos?.openFinanceAddon;
+  const hasOpenFinanceAddon = canUseOpenFinanceRealFromRecursos(billingRecursos);
+  const pluggyRealBlockedByPlano = isPluggyMode && pluggyReady && !hasOpenFinanceAddon;
 
   const handleConnectMock = async () => {
     if (viewOnly) return;
@@ -723,6 +739,10 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
 
   const handleConnectPluggy = async () => {
     if (viewOnly) return;
+    if (pluggyRealBlockedByPlano) {
+      setErro("Open Finance automático (Pluggy) estará disponível como add-on premium. Use importação OFX/CSV ou Banco Demo em ambiente de testes.");
+      return;
+    }
     if (!status?.canStartPluggyConnect) {
       setErro(
         status?.message ||
@@ -789,11 +809,6 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
     }
   };
 
-  const isMockMode = status?.demoMode || status?.provider === "mock";
-  const isPluggyMode = status?.provider === "pluggy";
-  const pluggyReady = status?.canStartPluggyConnect === true;
-  const pluggyConfigPending = isPluggyMode && status?.credentialsMissing;
-
   return (
     <div className="of-section" style={{ marginBottom: 24 }}>
       <div className="of-section-header">
@@ -856,7 +871,16 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
                 {" "}O administrador do Fluxiva deve definir as credenciais Pluggy no ambiente do servidor (uma vez para todos os usuários). Você não precisa alterar nenhum arquivo de configuração.
               </div>
             )}
-            {pluggyReady && !viewOnly && (
+            {pluggyRealBlockedByPlano && (
+              <div className="alert alert-info" style={{ marginTop: 10, fontSize: 12 }}>
+                <strong>Beta / Em breve</strong> — Open Finance automático via Pluggy será add-on opcional
+                {addonInfo?.futuroPrecoSugeridoCentavos
+                  ? ` (previsão a partir de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(addonInfo.futuroPrecoSugeridoCentavos / 100)})`
+                  : ""}
+                . Importação OFX/CSV/XLSX continua disponível no seu plano.
+              </div>
+            )}
+            {pluggyReady && hasOpenFinanceAddon && !viewOnly && (
               <>
                 <ol style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "10px 0 0 18px", padding: 0 }}>
                   <li>Abrir widget Pluggy</li>
