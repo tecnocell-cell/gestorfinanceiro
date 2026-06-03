@@ -77,20 +77,34 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Landing Fluxiva Financeiro — controle financeiro PF/PJ com IA no WhatsApp." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Landing Fluxiva Financeiro — controle financeiro PF/PJ com IA no WhatsApp." },
+      { title: "Fluxiva Financeiro — Controle financeiro inteligente no WhatsApp" },
+      {
+        name: "description",
+        content:
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+      },
+      { name: "author", content: "Fluxiva" },
+      { property: "og:title", content: "Fluxiva Financeiro — Controle financeiro inteligente no WhatsApp" },
+      {
+        property: "og:description",
+        content:
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+      },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "Landing Fluxiva Financeiro — controle financeiro PF/PJ com IA no WhatsApp." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9a4bdf3-5f47-4243-969c-6b8927ec7802/id-preview-b90d6bbb--df2cb5b1-39c1-460c-96c8-51b1733b296d.lovable.app-1780148325490.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9a4bdf3-5f47-4243-969c-6b8927ec7802/id-preview-b90d6bbb--df2cb5b1-39c1-460c-96c8-51b1733b296d.lovable.app-1780148325490.png" },
+      { property: "og:url", content: "https://fluxiva.app" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Fluxiva Financeiro — Controle financeiro inteligente no WhatsApp" },
+      {
+        name: "twitter:description",
+        content:
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+      },
+      { property: "og:image", content: "/fluxiva-icon.png" },
+      { name: "twitter:image", content: "/fluxiva-icon.png" },
     ],
     links: [
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/fluxiva-icon.png" },
       {
         rel: "stylesheet",
         href: appCss,
