@@ -211,7 +211,39 @@ export function buildLimiteAvisos({ recursos, totalLancamentos = 0 }) {
   return avisos;
 }
 
+/** Limita recursos premium quando assinatura está vencida (Etapa 6.5). */
+export function applyRecursosByStatus(recursos, status, planoSlug) {
+  if (status !== 'vencida' || !recursos) return recursos;
+
+  const basicSlug = segmentoFromSlug(planoSlug) === 'pj' ? 'pj_start' : 'pf_basico';
+  const basic = mergeRecursos(basicSlug, {});
+  const out = { ...recursos };
+
+  for (const [key, val] of Object.entries(basic)) {
+    if (typeof val === 'boolean' && val === false && out[key] === true) {
+      out[key] = false;
+    }
+  }
+  if (basic.limiteUsuarios != null) out.limiteUsuarios = basic.limiteUsuarios;
+  if (basic.limiteWhatsappNumeros != null) out.limiteWhatsappNumeros = basic.limiteWhatsappNumeros;
+  out._premiumBloqueado = true;
+  return out;
+}
+
 export function canUseRecurso(recursos, key) {
+  if (recursos?._premiumBloqueado) {
+    const premiumKeys = [
+      'whatsappAudio',
+      'whatsappComprovante',
+      'iaComprovante',
+      'suportePrioritario',
+      'dreCompleto',
+      'projetos',
+      'apiAccess',
+      'integracaoPfPj',
+    ];
+    if (premiumKeys.includes(key)) return false;
+  }
   if (key === 'openFinance') {
     return canUseOpenFinanceReal(recursos);
   }

@@ -105,6 +105,11 @@ export const authApi = {
 export const billingApi = {
   planos: () => request("/billing/planos"),
   assinatura: () => request("/billing/assinatura"),
+  faturas: () => request("/billing/faturas"),
+  pagamentos: () => request("/billing/pagamentos"),
+  checkout: (plano_slug) =>
+    request("/billing/checkout", { method: "POST", body: { plano_slug } }),
+  cancelar: () => request("/billing/cancelar", { method: "POST", body: {} }),
   simularUpgrade: (plano_slug) =>
     request("/billing/assinatura/simular", { method: "POST", body: { plano_slug } }),
 };
