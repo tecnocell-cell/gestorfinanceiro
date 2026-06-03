@@ -1,83 +1,11 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Check, Sparkles, Users, Smartphone, Bot } from "lucide-react";
-
-type Plan = {
-  name: string;
-  price: string;
-  tagline: string;
-  users: string;
-  numbers: string;
-  ai: string;
-  features: string[];
-  highlight?: boolean;
-};
-
-const pfPlans: Plan[] = [
-  {
-    name: "PF Básico",
-    price: "R$ 19,90",
-    tagline: "Para começar a organizar.",
-    users: "1 usuário",
-    numbers: "1 número WhatsApp",
-    ai: "Lançamento por texto",
-    features: ["Relatórios essenciais", "Metas pessoais", "Categorias inteligentes"],
-  },
-  {
-    name: "PF Plus",
-    price: "R$ 29,90",
-    tagline: "Mais agilidade no dia a dia.",
-    users: "1 usuário",
-    numbers: "Até 3 números",
-    ai: "Texto + áudio",
-    features: ["Relatórios completos", "Categorias avançadas", "Lançamento por áudio"],
-    highlight: true,
-  },
-  {
-    name: "PF Premium",
-    price: "R$ 49,90",
-    tagline: "O financeiro completo.",
-    users: "1 usuário",
-    numbers: "Até 5 números",
-    ai: "Texto + áudio + comprovante",
-    features: ["Leitura de comprovante por IA", "Suporte prioritário", "Tudo do Plus"],
-  },
-];
-
-const pjPlans: Plan[] = [
-  {
-    name: "PJ Start",
-    price: "R$ 59,90",
-    tagline: "Para equipes pequenas.",
-    users: "Até 3 usuários",
-    numbers: "Até 2 números",
-    ai: "Texto + áudio",
-    features: ["Centro de custo básico", "Relatórios PJ", "DRE simplificado"],
-  },
-  {
-    name: "PJ Pro",
-    price: "R$ 99,90",
-    tagline: "Para empresas em crescimento.",
-    users: "Até 8 usuários",
-    numbers: "Até 5 números",
-    ai: "Texto + áudio + comprovante",
-    features: ["Automações", "DRE completo", "Múltiplos centros de custo"],
-    highlight: true,
-  },
-  {
-    name: "PJ Business",
-    price: "R$ 199,90",
-    tagline: "Para empresas exigentes.",
-    users: "Até 20 usuários",
-    numbers: "Até 15 números",
-    ai: "Recursos completos com IA",
-    features: ["Governança financeira", "Suporte dedicado", "API access"],
-  },
-];
+import { PF_COMMERCIAL_PLANS, PJ_COMMERCIAL_PLANS } from "@/data/commercialPlans";
 
 export function Plans() {
   const [tab, setTab] = useState<"PF" | "PJ">("PF");
-  const plans = tab === "PF" ? pfPlans : pjPlans;
+  const plans = tab === "PF" ? PF_COMMERCIAL_PLANS : PJ_COMMERCIAL_PLANS;
 
   return (
     <section id="planos" className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-24">
@@ -118,7 +46,7 @@ export function Plans() {
       <div className="grid gap-6 md:grid-cols-3 md:gap-5 lg:gap-6">
         {plans.map((p) => (
           <div
-            key={p.name}
+            key={p.key}
             className={`relative rounded-3xl border p-7 transition-all duration-300 hover:-translate-y-2 ${
               p.highlight
                 ? "border-transparent text-primary-foreground md:scale-[1.04]"
@@ -177,6 +105,7 @@ export function Plans() {
 
             <Link
               to="/cadastro"
+              search={{ plan: p.key }}
               className={`mt-7 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all hover:scale-[1.02] ${
                 p.highlight
                   ? "bg-white text-[#063B22] hover:bg-white/95"

@@ -31,32 +31,42 @@ import {
   savePendingPlan, type ApiError,
 } from "@/lib/centerflowApi";
 import { BrandLogo } from "@/components/BrandLogo";
+import {
+  COMMERCIAL_PLANS_BY_KEY,
+  type CommercialPlanKey,
+} from "@/data/commercialPlans";
 
-// ── Planos ───────────────────────────────────────────────────────────────────
+// ── Planos (alinhados ao gestor — commercialPlans.ts) ───────────────────────
 
-type PlanKey =
-  | "PF_BASIC" | "PF_PLUS" | "PF_PREMIUM"
-  | "PJ_START" | "PJ_PRO" | "PJ_BUSINESS";
+type PlanKey = CommercialPlanKey;
 
-interface PlanDef {
-  label:    string;
-  price:    string;
-  type:     "PF" | "PJ";
-  users:    string;
-  numbers:  string;
-  ai:       string;
-  features: string[];
-  highlight?: boolean;
-}
-
-const PLANS: Record<PlanKey, PlanDef> = {
-  PF_BASIC:    { label: "PF Básico",    price: "R$ 19,90",  type: "PF", users: "1 usuário",         numbers: "1 número WhatsApp",   ai: "Lançamento por texto",              features: ["Relatórios essenciais", "Metas pessoais"] },
-  PF_PLUS:     { label: "PF Plus",      price: "R$ 29,90",  type: "PF", users: "1 usuário",         numbers: "Até 3 números",        ai: "Texto + áudio",                     features: ["Relatórios completos", "Categorias avançadas"], highlight: true },
-  PF_PREMIUM:  { label: "PF Premium",   price: "R$ 49,90",  type: "PF", users: "1 usuário",         numbers: "Até 5 números",        ai: "Texto + áudio + comprovante",       features: ["Leitura por IA", "Suporte prioritário"] },
-  PJ_START:    { label: "PJ Start",     price: "R$ 59,90",  type: "PJ", users: "Até 3 usuários",    numbers: "Até 2 números",        ai: "Texto + áudio",                     features: ["Centro de custo básico", "Relatórios PJ"] },
-  PJ_PRO:      { label: "PJ Pro",       price: "R$ 99,90",  type: "PJ", users: "Até 8 usuários",    numbers: "Até 5 números",        ai: "Texto + áudio + comprovante",       features: ["Automações", "DRE simplificado"], highlight: true },
-  PJ_BUSINESS: { label: "PJ Business",  price: "R$ 199,90", type: "PJ", users: "Até 20 usuários",   numbers: "Até 15 números",       ai: "Recursos completos com IA",          features: ["Governança", "Suporte dedicado"] },
-};
+const PLANS = Object.fromEntries(
+  Object.entries(COMMERCIAL_PLANS_BY_KEY).map(([key, p]) => [
+    key,
+    {
+      label: p.name,
+      price: p.price,
+      type: p.key.startsWith("PJ_") ? ("PJ" as const) : ("PF" as const),
+      users: p.users,
+      numbers: p.numbers,
+      ai: p.ai,
+      features: p.features,
+      highlight: p.highlight,
+    },
+  ])
+) as Record<
+  PlanKey,
+  {
+    label: string;
+    price: string;
+    type: "PF" | "PJ";
+    users: string;
+    numbers: string;
+    ai: string;
+    features: string[];
+    highlight?: boolean;
+  }
+>;
 
 const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
 
