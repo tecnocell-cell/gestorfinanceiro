@@ -102,6 +102,17 @@ export const authApi = {
 };
 
 // ─── Billing (planos e assinatura) ───────────────────────────────────────────
+export const empresaApi = {
+  context: () => request("/empresa/context"),
+  membros: () => request("/empresa/membros"),
+  convidar: (body) => request("/empresa/convidar", { method: "POST", body }),
+  aceitarConvite: (token) =>
+    request("/empresa/aceitar-convite", { method: "POST", body: { token } }),
+  atualizarMembro: (id, body) =>
+    request(`/empresa/membros/${id}`, { method: "PATCH", body }),
+  removerMembro: (id) => request(`/empresa/membros/${id}`, { method: "DELETE" }),
+};
+
 export const billingApi = {
   planos: () => request("/billing/planos"),
   assinatura: () => request("/billing/assinatura"),

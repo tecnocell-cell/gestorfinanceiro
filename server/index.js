@@ -22,7 +22,13 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { registerSecurityRoutes } from "./authSecurity/routes.js";
 import { registerBillingRoutes } from "./billing/routes.js";
+import { registerEmpresaRoutes } from "./routes/empresa.js";
 import { validateStateSave } from "./billing/accessControl.js";
+import {
+  attachEmpresaContext,
+  requirePermission,
+  getUserPermissions,
+} from "./auth/permissions.js";
 import { isAccountVerified } from "./verification.js";
 import { getRequestMeta } from "./authSecurity/requestMeta.js";
 import { recordLoginAudit } from "./authSecurity/loginAudit.js";
@@ -148,9 +154,10 @@ app.post("/api/auth/login", async (req, res) => {
 registerAuthRoutes(app);
 registerSecurityRoutes(app);
 registerBillingRoutes(app);
+registerEmpresaRoutes(app);
 
 // ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
-app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
+app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, async (req, res) => {
   try {
     const { rows } = await query(
       "SELECT id, email, nome, role, ativo, tipo_perfil, nome_perfil FROM usuarios WHERE id = $1",
@@ -158,6 +165,7 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
     );
     const user = rows[0];
     if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+    const perms = await getUserPermissions(req.user.id);
     res.json({
       user: {
         id: user.id,
@@ -167,6 +175,15 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
         tipo_perfil: user.tipo_perfil || "juridica",
         nome_perfil: user.nome_perfil || user.nome,
       },
+      empresa: {
+        ownerId: req.empresaContext.empresaOwnerId,
+        perfil: req.empresaContext.perfil,
+        isOwner: req.empresaContext.isOwner,
+        isMember: req.empresaContext.isMember,
+        permissions: perms.permissions,
+        canWrite: perms.canWrite,
+        viewOnly: perms.viewOnly,
+      },
     });
   } catch (err) {
     console.error("auth/me:", err.message);
@@ -175,17 +192,18 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {
 });
 
 // ─── Estado do App (protegido + conta ativa) ──────────────────────────────────
-app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
+app.get("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, requirePermission("state.read"), async (req, res) => {
   try {
+    const stateOwnerId = req.stateOwnerId;
     const { rows } = await query(
       "SELECT dados FROM estados WHERE usuario_id = $1",
-      [req.user.id]
+      [stateOwnerId]
     );
 
     const loadProfile = async () => {
       const { rows: userRows } = await query(
         "SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1",
-        [req.user.id]
+        [stateOwnerId]
       );
       const u = userRows[0];
       return {
@@ -204,7 +222,7 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       const { profile, state: initialState } = await loadProfile();
       await query(
         "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2)",
-        [req.user.id, JSON.stringify(initialState)]
+        [stateOwnerId, JSON.stringify(initialState)]
       );
       return res.json({ dados: initialState, profile });
     }
@@ -217,14 +235,14 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
       const { profile, state: initialState } = await loadProfile();
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
-        [req.user.id, JSON.stringify(initialState)]
+        [stateOwnerId, JSON.stringify(initialState)]
       );
       return res.json({ dados: initialState, profile });
     }
 
     const { profile } = await loadProfile();
     let normalized = normalizeStateForUser(dados, profile);
-    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, req.user.id);
+    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, stateOwnerId);
     const stripped = stripLancamentosIntegracaoRollback(normalized, rollbackIds);
     if (stripped !== normalized) {
       normalized = normalizeStateForUser(stripped, profile);
@@ -235,11 +253,11 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
     if (normalizeSeguro && JSON.stringify(normalized) !== JSON.stringify(dados)) {
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
-        [req.user.id, JSON.stringify(normalized)]
+        [stateOwnerId, JSON.stringify(normalized)]
       );
     } else if (!normalizeSeguro && planoDepois < planoAntes) {
       console.warn(
-        `GET /state usuario ${req.user.id}: normalização ignorada (planoContas ${planoAntes} → ${planoDepois})`
+        `GET /state usuario ${stateOwnerId}: normalização ignorada (planoContas ${planoAntes} → ${planoDepois})`
       );
       normalized = dados;
     }
@@ -251,14 +269,15 @@ app.get("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
   }
 });
 
-app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
+app.put("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, requirePermission("state.write"), async (req, res) => {
   const { dados } = req.body || {};
   if (!dados) return res.status(400).json({ error: "Campo 'dados' obrigatório." });
 
   try {
+    const stateOwnerId = req.stateOwnerId;
     const { rows: userRows } = await query(
       "SELECT tipo_perfil, nome_perfil, nome FROM usuarios WHERE id = $1",
-      [req.user.id]
+      [stateOwnerId]
     );
     const u = userRows[0];
     const profile = {
@@ -269,7 +288,7 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
     const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
     let toSave = isValid(dados) ? normalizeMoneyInState(dados) : dados;
     toSave = isValid(toSave) ? normalizeStateForUser(toSave, profile) : toSave;
-    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, req.user.id);
+    const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, stateOwnerId);
     toSave = stripLancamentosIntegracaoRollback(toSave, rollbackIds);
     if (isValid(toSave)) {
       toSave = normalizeStateForUser(toSave, profile);
@@ -277,10 +296,10 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
 
     const { rows: oldStateRows } = await query(
       "SELECT dados FROM estados WHERE usuario_id = $1",
-      [req.user.id]
+      [stateOwnerId]
     );
     const validation = await validateStateSave(
-      req.user.id,
+      stateOwnerId,
       oldStateRows[0]?.dados,
       toSave
     );
@@ -298,7 +317,7 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
        VALUES ($1, $2)
        ON CONFLICT (usuario_id)
        DO UPDATE SET dados = $2, updated_at = NOW()`,
-      [req.user.id, JSON.stringify(toSave)]
+      [stateOwnerId, JSON.stringify(toSave)]
     );
     res.json({ ok: true });
   } catch (err) {

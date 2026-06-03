@@ -1,4 +1,5 @@
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
+import { attachEmpresaContext, requireBillingAccess } from '../auth/permissions.js';
 import { query } from '../db.js';
 import {
   listPlanosAtivos,
@@ -25,8 +26,10 @@ async function tipoPerfilFromRequest(req) {
 
 export function registerBillingRoutes(app) {
   const pagamentosReais = () => isPagamentosReaisEnabled();
+  const billingGuard = [authMiddleware, activeMiddleware, attachEmpresaContext, requireBillingAccess];
+  const ownerId = (req) => req.empresaContext.empresaOwnerId;
 
-  app.get('/api/billing/planos', authMiddleware, activeMiddleware, async (req, res) => {
+  app.get('/api/billing/planos', ...billingGuard, async (req, res) => {
     try {
       const tipoPerfil = await tipoPerfilFromRequest(req);
       const planos = await listPlanosAtivos(tipoPerfil);
@@ -41,9 +44,9 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.get('/api/billing/usage', authMiddleware, activeMiddleware, async (req, res) => {
+  app.get('/api/billing/usage', ...billingGuard, async (req, res) => {
     try {
-      const usage = await getBillingUsage(req.user.id);
+      const usage = await getBillingUsage(ownerId(req));
       res.json(usage);
     } catch (err) {
       console.error('billing/usage:', err.message);
@@ -51,9 +54,9 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.get('/api/billing/assinatura', authMiddleware, activeMiddleware, async (req, res) => {
+  app.get('/api/billing/assinatura', ...billingGuard, async (req, res) => {
     try {
-      const assinatura = await getAssinaturaUsuario(req.user.id);
+      const assinatura = await getAssinaturaUsuario(ownerId(req));
       if (!assinatura) {
         return res.status(404).json({ error: 'Assinatura não encontrada.' });
       }
@@ -64,9 +67,9 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.get('/api/billing/faturas', authMiddleware, activeMiddleware, async (req, res) => {
+  app.get('/api/billing/faturas', ...billingGuard, async (req, res) => {
     try {
-      const faturas = await listFaturasUsuario(req.user.id);
+      const faturas = await listFaturasUsuario(ownerId(req));
       res.json({ faturas, pagamentos_reais: pagamentosReais() });
     } catch (err) {
       console.error('billing/faturas:', err.message);
@@ -74,9 +77,9 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.get('/api/billing/pagamentos', authMiddleware, activeMiddleware, async (req, res) => {
+  app.get('/api/billing/pagamentos', ...billingGuard, async (req, res) => {
     try {
-      const pagamentos = await listPagamentosUsuario(req.user.id);
+      const pagamentos = await listPagamentosUsuario(ownerId(req));
       res.json({ pagamentos, pagamentos_reais: pagamentosReais() });
     } catch (err) {
       console.error('billing/pagamentos:', err.message);
@@ -84,7 +87,7 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.post('/api/billing/checkout', authMiddleware, activeMiddleware, async (req, res) => {
+  app.post('/api/billing/checkout', ...billingGuard, async (req, res) => {
     if (!pagamentosReais()) {
       return res.status(503).json({
         error: 'Cobrança real indisponível. Configure ASAAS_API_KEY ou use simulação em ambiente de teste.',
@@ -98,7 +101,7 @@ export function registerBillingRoutes(app) {
     }
 
     try {
-      const result = await createCheckout(req.user.id, slug);
+      const result = await createCheckout(ownerId(req), slug);
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true, ...result, pagamentos_reais: true });
     } catch (err) {
@@ -107,9 +110,9 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.post('/api/billing/cancelar', authMiddleware, activeMiddleware, async (req, res) => {
+  app.post('/api/billing/cancelar', ...billingGuard, async (req, res) => {
     try {
-      const result = await cancelarAssinatura(req.user.id);
+      const result = await cancelarAssinatura(ownerId(req));
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true, message: result.message, assinatura: result.assinatura });
     } catch (err) {
@@ -118,7 +121,7 @@ export function registerBillingRoutes(app) {
     }
   });
 
-  app.post('/api/billing/assinatura/simular', authMiddleware, activeMiddleware, async (req, res) => {
+  app.post('/api/billing/assinatura/simular', ...billingGuard, async (req, res) => {
     if (!isSimulateAllowed()) {
       return res.status(403).json({
         error: 'Simulação de plano desabilitada neste ambiente.',
@@ -132,7 +135,7 @@ export function registerBillingRoutes(app) {
     }
 
     try {
-      const result = await simularUpgrade(req.user.id, slug);
+      const result = await simularUpgrade(ownerId(req), slug);
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({
         ok: true,

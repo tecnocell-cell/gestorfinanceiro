@@ -35,7 +35,7 @@ const GestorContext = createContext(null);
 const SAVE_DEBOUNCE_MS = 800;
 
 export function GestorProvider({ children }) {
-  const { token, user, profileReady } = useAuth();
+  const { token, user, profileReady, empresa: authEmpresa } = useAuth();
 
   const [state, setState] = useState(() => defaultState());
   const [appLoading, setAppLoading] = useState(!!token);
@@ -71,7 +71,7 @@ export function GestorProvider({ children }) {
     nome: u?.nome,
   }), []);
 
-  const viewOnly = !!impersonatingUser;
+  const viewOnly = !!impersonatingUser || authEmpresa?.viewOnly === true;
 
   const persistState = useCallback(async (snapshot) => {
     // Só salva se o estado foi carregado com sucesso pelo menos uma vez.

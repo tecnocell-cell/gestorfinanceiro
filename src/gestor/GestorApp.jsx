@@ -23,6 +23,8 @@ import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import OrcadoRealizadoPage from "./pages/OrcadoRealizadoPage.jsx";
 import SegurancaPage from "./pages/SegurancaPage.jsx";
 import PlanoAssinaturaPage from "./pages/PlanoAssinaturaPage.jsx";
+import EquipePage from "./pages/EquipePage.jsx";
+import { useEmpresaPermissions } from "./hooks/useEmpresaPermissions.js";
 import SuportePage           from "./pages/SuportePage.jsx";
 import TutoriaisPage         from "./pages/TutoriaisPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
@@ -65,6 +67,7 @@ const PAGE_MAP_PJ = {
   tutoriais: () => <TutoriaisPage />,
   suporte: () => <SuportePage />,
   empresa: EmpresaPage,
+  equipe: EquipePage,
   seguranca: SegurancaPage,
   "plano-assinatura": PlanoAssinaturaPage,
 };
@@ -152,9 +155,16 @@ export default function GestorApp() {
     }
   };
 
+  const { canAccessMenu } = useEmpresaPermissions();
   const isPF = isPessoaFisica(tipo);
-  const navItems = isPF ? NAV_ITEMS_FISICA : NAV_ITEMS;
-  const navSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
+  const rawSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
+  const navSections = rawSections
+    .map((block) => ({
+      ...block,
+      items: block.items.filter((n) => canAccessMenu(n.id)),
+    }))
+    .filter((block) => block.items.length > 0);
+  const navItems = navSections.flatMap((s) => s.items);
   const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
 
   const isAdminPage = page === "super-admin";

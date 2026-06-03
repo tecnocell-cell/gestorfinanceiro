@@ -174,3 +174,57 @@ export async function sendPasswordResetEmail(email, nome, token) {
   console.log("──────────────────────────────────────────\n");
   return { sent: true, canal: "email", dev: true };
 }
+
+export async function sendEmpresaConviteEmail({
+  email,
+  empresaNome,
+  perfil,
+  token,
+  convidadoPorNome,
+}) {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const subject = `Fluxiva — Convite para equipe (${empresaNome})`;
+  const text =
+    `Olá!\n\n` +
+    `${convidadoPorNome || "Um administrador"} convidou você para a equipe da empresa ${empresaNome} ` +
+    `com o perfil "${perfil}".\n\n` +
+    `Para aceitar, faça login na Fluxiva e use o token abaixo em Configurações → Equipe, ` +
+    `ou acesse:\n${appUrl}/gestor?aceitar_convite=${token}\n\n` +
+    `Token: ${token}\n\n` +
+    `O convite expira em ${parseInt(process.env.EMPRESA_CONVITE_TTL_DAYS || "7", 10)} dias.\n`;
+
+  if (process.env.SMTP_HOST) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transport = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+      await transport.sendMail({
+        from: process.env.SMTP_FROM || "noreply@gestor.local",
+        to: email,
+        subject,
+        text,
+      });
+      return { sent: true, canal: "email" };
+    } catch (err) {
+      console.error("SMTP convite empresa:", err.message);
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Falha ao enviar convite por e-mail.");
+      }
+    }
+  }
+
+  console.log("\n────────── CONVITE EQUIPE EMPRESA ──────────");
+  console.log(`Para: ${email}`);
+  console.log(`Empresa: ${empresaNome}`);
+  console.log(`Perfil: ${perfil}`);
+  console.log(`Token: ${token}`);
+  console.log("──────────────────────────────────────────\n");
+  return { sent: true, canal: "email", dev: true };
+}

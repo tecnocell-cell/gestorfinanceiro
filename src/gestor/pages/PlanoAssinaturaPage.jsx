@@ -203,6 +203,7 @@ export default function PlanoAssinaturaPage() {
     { key: "clientes", label: "Clientes" },
     { key: "projetos", label: "Projetos" },
     { key: "centrosCusto", label: "Centros de custo" },
+    { key: "usuarios", label: "Usuários da equipe", nested: true },
     { key: "whatsappNumeros", label: "Números WhatsApp" },
   ];
 
@@ -278,9 +279,13 @@ export default function PlanoAssinaturaPage() {
               </tr>
             </thead>
             <tbody>
-              {usageRows.map(({ key, label }) => {
-                const usado = usage.uso?.[key] ?? 0;
-                const lim = usage.limites?.[key];
+              {usageRows.map(({ key, label, nested }) => {
+                const raw = usage.uso?.[key];
+                const usado = nested && raw && typeof raw === "object" ? raw.usados : (raw ?? 0);
+                const lim =
+                  nested && raw && typeof raw === "object"
+                    ? raw.limite
+                    : usage.limites?.[key];
                 return (
                   <tr key={key}>
                     <td>{label}</td>

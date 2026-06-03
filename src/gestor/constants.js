@@ -109,6 +109,7 @@ export const NAV_SECTIONS_PJ = [
       { id: "tutoriais", label: "Tutoriais" },
       { id: "suporte", label: "Suporte" },
       { id: "empresa", label: "Empresa" },
+      { id: "equipe", label: "Equipe" },
       { id: "seguranca", label: "Segurança" },
       { id: "plano-assinatura", label: "Plano e Assinatura" },
     ],

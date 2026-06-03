@@ -11,6 +11,8 @@ import {
   canUseOpenFinanceReal,
   buildLimiteAvisos,
 } from './planResources.js';
+import { countEmpresaUsuariosAtivos } from '../empresa/empresaService.js';
+import { getStateOwnerId } from '../auth/permissions.js';
 
 export class PlanAccessError extends Error {
   constructor(message, { code = 'PLAN_LIMIT', status = 403, recurso = null, limite = null } = {}) {
@@ -180,6 +182,19 @@ export async function assertCanUseResource(usuarioId, recurso) {
   }
 }
 
+/** Bloqueia quando adicionar um slot ultrapassaria o limite do plano. */
+export async function assertUsuarioSlotsAvailable(ownerId, slotsAposInclusao) {
+  const { recursos } = await getUserSubscriptionResources(ownerId);
+  const limite = numericLimit(recursos, 'limiteUsuarios');
+  if (limite != null && slotsAposInclusao > limite) {
+    throw new PlanAccessError(`Você atingiu o limite de ${limite} usuarios do seu plano.`, {
+      code: 'PLAN_LIMIT',
+      recurso: 'usuarios',
+      limite,
+    });
+  }
+}
+
 export async function assertWithinLimit(usuarioId, recurso, quantidadeAtual) {
   const { recursos } = await getUserSubscriptionResources(usuarioId);
   const result = checkLimit(recursos, recurso, quantidadeAtual);
@@ -281,21 +296,25 @@ async function countWhatsappNumeros(usuarioId) {
 }
 
 export async function getBillingUsage(usuarioId) {
-  const bundle = await getUserSubscriptionResources(usuarioId);
+  const ownerId = await getStateOwnerId(usuarioId);
+  const bundle = await getUserSubscriptionResources(ownerId);
   const { recursos, status, plano_slug, plano_nome } = bundle;
 
   const { rows: stRows } = await query('SELECT dados FROM estados WHERE usuario_id = $1', [
-    usuarioId,
+    ownerId,
   ]);
   const uso = extractUsageFromDados(stRows[0]?.dados || {});
-  uso.whatsappNumeros = await countWhatsappNumeros(usuarioId);
+  uso.whatsappNumeros = await countWhatsappNumeros(ownerId);
+  const usuariosUsados = await countEmpresaUsuariosAtivos(ownerId);
+  const usuariosLimite = numericLimit(recursos, 'limiteUsuarios');
+  uso.usuarios = { usados: usuariosUsados, limite: usuariosLimite };
 
   const limites = {
     lancamentos: numericLimit(recursos, 'limiteLancamentos'),
     clientes: numericLimit(recursos, 'limiteClientes'),
     projetos: numericLimit(recursos, 'limiteProjetos'),
     centrosCusto: numericLimit(recursos, 'limiteCentrosCusto'),
-    usuarios: numericLimit(recursos, 'limiteUsuarios'),
+    usuarios: usuariosLimite,
     whatsappNumeros: numericLimit(recursos, 'limiteWhatsappNumeros'),
   };
 

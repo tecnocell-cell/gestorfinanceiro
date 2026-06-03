@@ -7,15 +7,20 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser]     = useState(() => tokenStorage.getUser());
+  const [empresa, setEmpresa] = useState(() => tokenStorage.getUser()?.empresa || null);
   const [token, setToken]   = useState(() => tokenStorage.get());
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState(null);
   const [profileReady, setProfileReady] = useState(() => !tokenStorage.get());
 
-  const applyUser = useCallback((fresh) => {
+  const applyUser = useCallback((fresh, empresaCtx) => {
     if (!fresh) return;
     const cached = tokenStorage.getUser();
     const merged = { ...cached, ...fresh };
+    if (empresaCtx !== undefined) {
+      merged.empresa = empresaCtx;
+      setEmpresa(empresaCtx);
+    }
     tokenStorage.setUser(merged);
     setUser(merged);
   }, []);
@@ -68,11 +73,12 @@ export function AuthProvider({ children }) {
     }
     setProfileReady(false);
     authApi.me()
-      .then(({ user: fresh }) => applyUser(fresh))
+      .then(({ user: fresh, empresa: empresaCtx }) => applyUser(fresh, empresaCtx))
       .catch(() => {
         tokenStorage.clear();
         setToken(null);
         setUser(null);
+        setEmpresa(null);
       })
       .finally(() => setProfileReady(true));
   }, [token, applyUser]);
@@ -82,7 +88,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading, error, profileReady,
+      user, empresa, token, loading, error, profileReady,
       login, logout, setSession, clearError, isAdmin, isSuperAdmin,
     }}>
       {children}
