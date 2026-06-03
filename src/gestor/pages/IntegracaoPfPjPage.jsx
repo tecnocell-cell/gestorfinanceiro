@@ -6,15 +6,15 @@ import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { isPessoaJuridica } from "../profileLabels.js";
 import { integracaoPfPjApi } from "../api.js";
-import { fmtBRL, fmtDate } from "../finance.js";
+import { fmtBRL, fmtDate, fmtDateTime } from "../finance.js";
 import { INTEGRACAO_TIPO_OPERACAO_LABELS } from "../integracaoPfPjLabels.js";
 import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
-  CircleDollarSign, ArrowRight, ArrowDownRight, Lock,
+  CircleDollarSign, ArrowRight, ArrowDownRight, Lock, CalendarDays, PenLine, Trash2, Pause, Play,
 } from "../components/icons.jsx";
 
 const TAB_VINCULO = "vinculo";
-const TABS_FINANCEIRAS = ["prolabore", "lucros", "salario", "transferencia", "historico"];
+const TABS_FINANCEIRAS = ["prolabore", "lucros", "salario", "transferencia", "agendamentos", "historico"];
 
 const TABS = [
   { id: TAB_VINCULO, label: "Vínculo" },
@@ -22,8 +22,31 @@ const TABS = [
   { id: "lucros", label: "Distribuição de Lucros" },
   { id: "salario", label: "Salário" },
   { id: "transferencia", label: "Transferência PJ → PF" },
+  { id: "agendamentos", label: "Agendamentos" },
   { id: "historico", label: "Histórico" },
 ];
+
+const TIPO_AGENDAMENTO_OPTIONS = Object.entries(INTEGRACAO_TIPO_OPERACAO_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
+const AGENDAMENTO_STATUS_LABEL = {
+  ativa: "Ativo",
+  pausada: "Pausado",
+  encerrada: "Encerrado",
+};
+
+function mesAtualInput() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function labelMesRef(mes) {
+  if (!mes || !/^\d{4}-\d{2}$/.test(mes)) return mes || "—";
+  const [y, m] = mes.split("-");
+  const names = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${names[Number(m) - 1]}/${y}`;
+}
 
 const TIPO_OP_LABEL = INTEGRACAO_TIPO_OPERACAO_LABELS;
 
@@ -229,6 +252,248 @@ function PreviewLancamento({ titulo, lado, lanc }) {
   );
 }
 
+const VAZIO_AGENDAMENTO = {
+  tipoOperacao: "pro_labore",
+  valor: "",
+  diaMes: "5",
+  observacao: "",
+  status: "ativa",
+};
+
+function AgendamentosPanel({
+  agendamentos,
+  loading,
+  viewOnly,
+  mesGeracao,
+  setMesGeracao,
+  form,
+  setForm,
+  editId,
+  setEditId,
+  salvandoAg,
+  gerandoMes,
+  onRefresh,
+  onSubmit,
+  onCancelEdit,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onGerarMes,
+}) {
+  const ativos = agendamentos.filter((a) => a.status === "ativa").length;
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
+        Cadastre repasses <strong>recorrentes</strong> (dia do mês, valor e tipo). Nada é lançado automaticamente —
+        use <strong>Gerar repasses do mês</strong> quando quiser criar as operações na PJ e na PF (com histórico e auditoria).
+      </p>
+
+      {!viewOnly && (
+        <div className="card" style={{ marginBottom: 16, padding: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
+            {editId ? "Editar agendamento" : "Novo agendamento"}
+          </div>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+            <label style={{ fontSize: 12 }}>
+              <span style={{ color: "var(--muted-foreground)" }}>Tipo</span>
+              <select
+                className="input"
+                value={form.tipoOperacao}
+                onChange={(e) => setForm((f) => ({ ...f, tipoOperacao: e.target.value }))}
+              >
+                {TIPO_AGENDAMENTO_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 12 }}>
+              <span style={{ color: "var(--muted-foreground)" }}>Valor (R$)</span>
+              <input
+                className="input"
+                type="text"
+                inputMode="decimal"
+                value={form.valor}
+                onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
+                placeholder="0,00"
+              />
+            </label>
+            <label style={{ fontSize: 12 }}>
+              <span style={{ color: "var(--muted-foreground)" }}>Dia do mês</span>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={31}
+                value={form.diaMes}
+                onChange={(e) => setForm((f) => ({ ...f, diaMes: e.target.value }))}
+              />
+            </label>
+            {editId && (
+              <label style={{ fontSize: 12 }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Status</span>
+                <select
+                  className="input"
+                  value={form.status}
+                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="ativa">Ativo</option>
+                  <option value="pausada">Pausado</option>
+                  <option value="encerrada">Encerrado</option>
+                </select>
+              </label>
+            )}
+            <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>
+              <span style={{ color: "var(--muted-foreground)" }}>Observação (opcional)</span>
+              <input
+                className="input"
+                value={form.observacao}
+                onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+                placeholder="Ex.: repasse mensal sócio"
+              />
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-primary btn-sm" disabled={salvandoAg} onClick={onSubmit}>
+              {salvandoAg ? "Salvando..." : editId ? "Salvar alterações" : "Cadastrar"}
+            </button>
+            {editId && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onCancelEdit}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!viewOnly && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            padding: 14,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "flex-end",
+          }}
+        >
+          <label style={{ fontSize: 12 }}>
+            <span style={{ color: "var(--muted-foreground)" }}>Mês de referência</span>
+            <input
+              className="input"
+              type="month"
+              value={mesGeracao}
+              onChange={(e) => setMesGeracao(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={gerandoMes || !agendamentos.length}
+            onClick={onGerarMes}
+          >
+            {gerandoMes ? "Gerando..." : "Gerar repasses do mês"}
+          </button>
+          <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            {ativos} agendamento(s) ativo(s) · ignora os já gerados em {labelMesRef(mesGeracao)}
+          </span>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>Carregando agendamentos...</div>
+      ) : !agendamentos.length ? (
+        <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>
+          Nenhum agendamento. Cadastre pró-labore, lucros, salário ou transferência com dia fixo do mês.
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th style={{ textAlign: "right" }}>Valor</th>
+                <th>Dia</th>
+                <th>Status</th>
+                <th>Último mês gerado</th>
+                <th>Observação</th>
+                {!viewOnly && <th>Ações</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {agendamentos.map((ag) => {
+                const tipoLabel = TIPO_OP_LABEL[ag.tipoOperacao] || ag.tipoOperacao;
+                const valorExibir =
+                  ag.valorCentavos != null ? ag.valorCentavos / 100 : ag.valor;
+                return (
+                  <tr key={ag.id}>
+                    <td style={{ fontWeight: 600, fontSize: 13 }}>{tipoLabel}</td>
+                    <td className="td-mono" style={{ textAlign: "right", fontWeight: 600 }}>
+                      {fmtBRL(valorExibir)}
+                    </td>
+                    <td className="td-mono" style={{ fontSize: 12 }}>dia {ag.diaMes}</td>
+                    <td style={{ fontSize: 12 }}>{AGENDAMENTO_STATUS_LABEL[ag.status] || ag.status}</td>
+                    <td style={{ fontSize: 12 }}>{ag.ultimoGeradoMes ? labelMesRef(ag.ultimoGeradoMes) : "—"}</td>
+                    <td style={{ fontSize: 12, maxWidth: 200 }} title={ag.observacao}>
+                      {ag.observacao || "—"}
+                    </td>
+                    {!viewOnly && (
+                      <td>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            title="Editar"
+                            onClick={() => onEdit(ag)}
+                          >
+                            <PenLine size={12} strokeWidth={2} aria-hidden />
+                          </button>
+                          {ag.status === "ativa" ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              title="Pausar"
+                              onClick={() => onToggleStatus(ag, "pausada")}
+                            >
+                              <Pause size={12} strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : ag.status === "pausada" ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              title="Reativar"
+                              onClick={() => onToggleStatus(ag, "ativa")}
+                            >
+                              <Play size={12} strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            title="Excluir"
+                            onClick={() => onDelete(ag)}
+                          >
+                            <Trash2 size={12} strokeWidth={2} aria-hidden />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={onRefresh}>
+        Atualizar lista
+      </button>
+    </div>
+  );
+}
+
 function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRollback }) {
   if (loading) {
     return (
@@ -250,6 +515,8 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
             <th>Data</th>
             <th>Operação</th>
             <th style={{ textAlign: "right" }}>Valor</th>
+            <th>Criado em</th>
+            <th>Desfeito em</th>
             <th>Status</th>
             <th>Lançamentos</th>
             <th>Ações</th>
@@ -259,11 +526,21 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
           {operacoes.map((op) => {
             const b = statusBadgeOperacao(op.status);
             const tipoLabel = TIPO_OP_LABEL[op.tipoOperacao] || op.tipoOperacao;
+            const valorExibir =
+              op.valorCentavos != null && Number.isFinite(op.valorCentavos)
+                ? op.valorCentavos / 100
+                : op.valor;
             return (
               <tr key={op.id}>
                 <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(op.data)}</td>
                 <td style={{ fontSize: 13, fontWeight: 600 }}>{tipoLabel}</td>
-                <td className="td-mono" style={{ textAlign: "right", fontWeight: 600 }}>{fmtBRL(op.valor)}</td>
+                <td className="td-mono" style={{ textAlign: "right", fontWeight: 600 }}>{fmtBRL(valorExibir)}</td>
+                <td className="lanc-cell-quiet" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                  {op.criadoEm ? fmtDateTime(op.criadoEm) : "—"}
+                </td>
+                <td className="lanc-cell-quiet" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                  {op.desfeitoEm ? fmtDateTime(op.desfeitoEm) : "—"}
+                </td>
                 <td>
                   <span className={`badge ${b.cls}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <b.Icon size={12} strokeWidth={2} aria-hidden />
@@ -351,6 +628,14 @@ export default function IntegracaoPfPjPage() {
   const [loadingOps, setLoadingOps] = useState(false);
   const [desfazendoId, setDesfazendoId] = useState(null);
 
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [loadingAg, setLoadingAg] = useState(false);
+  const [agForm, setAgForm] = useState({ ...VAZIO_AGENDAMENTO });
+  const [agEditId, setAgEditId] = useState(null);
+  const [salvandoAg, setSalvandoAg] = useState(false);
+  const [gerandoMes, setGerandoMes] = useState(false);
+  const [mesGeracao, setMesGeracao] = useState(mesAtualInput());
+
   const vinculoAtivo = vinculo?.status === "ativo";
   const vinculoPendente = vinculo?.status === "pendente";
   const temVinculo = vinculo && vinculo.status !== "revogado";
@@ -382,10 +667,26 @@ export default function IntegracaoPfPjPage() {
     }
   }, [vinculoAtivo]);
 
+  const loadAgendamentos = useCallback(async () => {
+    if (!vinculoAtivo) return;
+    setLoadingAg(true);
+    try {
+      const res = await integracaoPfPjApi.listAgendamentos();
+      setAgendamentos(res.agendamentos || []);
+    } catch (err) {
+      setErro(err.message || "Erro ao carregar agendamentos.");
+    } finally {
+      setLoadingAg(false);
+    }
+  }, [vinculoAtivo]);
+
   useEffect(() => { loadVinculo(); }, [loadVinculo]);
   useEffect(() => {
     if (tab === "historico" && vinculoAtivo) loadOperacoes();
   }, [tab, vinculoAtivo, loadOperacoes]);
+  useEffect(() => {
+    if (tab === "agendamentos" && vinculoAtivo) loadAgendamentos();
+  }, [tab, vinculoAtivo, loadAgendamentos]);
 
   useEffect(() => {
     if (!vinculoAtivo && abaFinanceira && tab !== TAB_VINCULO) {
@@ -607,6 +908,113 @@ export default function IntegracaoPfPjPage() {
       setErro(err.message || "Erro ao desfazer.");
     } finally {
       setDesfazendoId(null);
+    }
+  };
+
+  const resetAgForm = () => {
+    setAgEditId(null);
+    setAgForm({ ...VAZIO_AGENDAMENTO });
+  };
+
+  const handleSubmitAgendamento = async () => {
+    setSalvandoAg(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      const diaMes = Number(agForm.diaMes);
+      if (!Number.isFinite(diaMes) || diaMes < 1 || diaMes > 31) {
+        throw new Error("Dia do mês deve ser entre 1 e 31.");
+      }
+      if (agEditId) {
+        await integracaoPfPjApi.updateAgendamento(agEditId, {
+          tipoOperacao: agForm.tipoOperacao,
+          valor: agForm.valor,
+          diaMes,
+          observacao: agForm.observacao,
+          status: agForm.status,
+        });
+        setMsg("Agendamento atualizado.");
+      } else {
+        await integracaoPfPjApi.createAgendamento({
+          tipoOperacao: agForm.tipoOperacao,
+          valor: agForm.valor,
+          diaMes,
+          observacao: agForm.observacao,
+        });
+        setMsg("Agendamento cadastrado.");
+      }
+      resetAgForm();
+      loadAgendamentos();
+    } catch (err) {
+      setErro(err.message || "Erro ao salvar agendamento.");
+    } finally {
+      setSalvandoAg(false);
+    }
+  };
+
+  const handleEditAgendamento = (ag) => {
+    setAgEditId(ag.id);
+    setAgForm({
+      tipoOperacao: ag.tipoOperacao,
+      valor: String(ag.valor ?? ag.valorCentavos / 100),
+      diaMes: String(ag.diaMes),
+      observacao: ag.observacao || "",
+      status: ag.status,
+    });
+  };
+
+  const handleDeleteAgendamento = async (ag) => {
+    const tipoOp = TIPO_OP_LABEL[ag.tipoOperacao] || "agendamento";
+    if (!window.confirm(`Excluir agendamento de ${tipoOp} (dia ${ag.diaMes})?`)) return;
+    setErro(null);
+    try {
+      await integracaoPfPjApi.deleteAgendamento(ag.id);
+      if (agEditId === ag.id) resetAgForm();
+      setMsg("Agendamento excluído.");
+      loadAgendamentos();
+    } catch (err) {
+      setErro(err.message || "Erro ao excluir agendamento.");
+    }
+  };
+
+  const handleToggleStatusAg = async (ag, status) => {
+    setErro(null);
+    try {
+      await integracaoPfPjApi.updateAgendamento(ag.id, { status });
+      loadAgendamentos();
+    } catch (err) {
+      setErro(err.message || "Erro ao alterar status.");
+    }
+  };
+
+  const handleGerarRepassesMes = async () => {
+    const ativos = agendamentos.filter((a) => a.status === "ativa").length;
+    if (
+      !window.confirm(
+        `Gerar repasses de ${labelMesRef(mesGeracao)}?\n\n` +
+          `Serão confirmadas as operações dos agendamentos ativos que ainda não foram gerados neste mês (${ativos} ativo(s)).`
+      )
+    ) {
+      return;
+    }
+    setGerandoMes(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      const res = await integracaoPfPjApi.gerarRepassesMes(mesGeracao);
+      const n = res.totalGerados ?? res.gerados?.length ?? 0;
+      const ign = res.totalIgnorados ?? res.ignorados?.length ?? 0;
+      setMsg(
+        `Repasses de ${labelMesRef(mesGeracao)}: ${n} gerado(s), ${ign} ignorado(s). ` +
+          "Confira o histórico e os lançamentos na PJ e na PF."
+      );
+      if (reloadAppState) reloadAppState({ skipFlush: true });
+      loadAgendamentos();
+      loadOperacoes();
+    } catch (err) {
+      setErro(err.message || "Erro ao gerar repasses do mês.");
+    } finally {
+      setGerandoMes(false);
     }
   };
 
@@ -861,6 +1269,35 @@ export default function IntegracaoPfPjPage() {
               previewBtnLabel="Ver preview"
               confirmBtnLabel="Confirmar Transferência PJ → PF"
               description={descTransf}
+            />
+          </div>
+        )}
+
+        {vinculoAtivo && tab === "agendamentos" && (
+          <div className="card">
+            <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CalendarDays size={18} strokeWidth={2} aria-hidden />
+              Agendamentos (repasses recorrentes)
+            </div>
+            <AgendamentosPanel
+              agendamentos={agendamentos}
+              loading={loadingAg}
+              viewOnly={viewOnly}
+              mesGeracao={mesGeracao}
+              setMesGeracao={setMesGeracao}
+              form={agForm}
+              setForm={setAgForm}
+              editId={agEditId}
+              setEditId={setAgEditId}
+              salvandoAg={salvandoAg}
+              gerandoMes={gerandoMes}
+              onRefresh={loadAgendamentos}
+              onSubmit={handleSubmitAgendamento}
+              onCancelEdit={resetAgForm}
+              onEdit={handleEditAgendamento}
+              onDelete={handleDeleteAgendamento}
+              onToggleStatus={handleToggleStatusAg}
+              onGerarMes={handleGerarRepassesMes}
             />
           </div>
         )}

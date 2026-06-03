@@ -28,6 +28,7 @@ import {
   reaisToCentavos,
   resolveValorCentavos,
 } from '../utils/money.js';
+import { AUDIT_ACAO, insertIntegracaoAuditoria } from './auditoria.js';
 
 function parseCentavosFromRow(raw) {
   return parseCentavosInteiro(raw) ?? 0;
@@ -406,6 +407,22 @@ export async function confirmOperacao(client, tipoOperacao, {
     ]
   );
 
+  await insertIntegracaoAuditoria(client, {
+    operacaoId,
+    vinculoId: vinculo.id,
+    usuarioPjId,
+    usuarioPfId: vinculo.usuario_pf_id,
+    acao: AUDIT_ACAO.CONFIRMAR,
+    tipoOperacao,
+    valorCentavos: centsOperacao,
+    payload: {
+      data: dataStr,
+      lancamentoPjId,
+      lancamentoPfId,
+      observacao: observacao || '',
+    },
+  });
+
   return {
     operacao: mapOperacao(opRows[0]),
     lancamentoPjId,
@@ -510,6 +527,22 @@ export async function rollbackOperacao(client, {
     `UPDATE integracao_pf_pj_operacoes SET status = 'rollback' WHERE id = $1`,
     [operacaoId]
   );
+
+  await insertIntegracaoAuditoria(client, {
+    operacaoId: op.id,
+    vinculoId: op.vinculo_id,
+    usuarioPjId: op.usuario_pj_id,
+    usuarioPfId: op.usuario_pf_id,
+    acao: AUDIT_ACAO.ROLLBACK,
+    tipoOperacao: op.tipo_operacao,
+    valorCentavos: parseCentavosFromRow(op.valor_centavos),
+    payload: {
+      removidosPj: remPj,
+      removidosPf: remPf,
+      lancamentoPjId: op.lancamento_pj_id,
+      lancamentoPfId: op.lancamento_pf_id,
+    },
+  });
 
   return {
     ok: true,

@@ -283,6 +283,42 @@ export const integracaoPfPjApi = {
 
   rollbackOperacao: (id) =>
     request(`/integracao-pf-pj/operacoes/${id}/rollback`, { method: "POST" }),
+
+  listAgendamentos: () => request("/integracao-pf-pj/agendamentos"),
+
+  createAgendamento: ({ tipoOperacao, valor, valorCentavos, diaMes, observacao }) => {
+    const cents = valorCentavos ?? parseMoneyInputToCentavos(valor);
+    if (!cents) throw new Error("Valor inválido. Informe um valor maior que zero.");
+    return request("/integracao-pf-pj/agendamentos", {
+      method: "POST",
+      body: {
+        tipoOperacao,
+        valorCentavos: Math.trunc(cents),
+        diaMes,
+        observacao: observacao || "",
+      },
+    });
+  },
+
+  updateAgendamento: (id, patch) => {
+    const body = { ...patch };
+    if (patch.valor != null && patch.valorCentavos == null) {
+      const cents = parseMoneyInputToCentavos(patch.valor);
+      if (!cents) throw new Error("Valor inválido.");
+      body.valorCentavos = Math.trunc(cents);
+      delete body.valor;
+    }
+    return request(`/integracao-pf-pj/agendamentos/${id}`, { method: "PATCH", body });
+  },
+
+  deleteAgendamento: (id) =>
+    request(`/integracao-pf-pj/agendamentos/${id}`, { method: "DELETE" }),
+
+  gerarRepassesMes: (mes, { forcar = false } = {}) =>
+    request("/integracao-pf-pj/agendamentos/gerar-mes", {
+      method: "POST",
+      body: { ...(mes ? { mes } : {}), ...(forcar ? { forcar: true } : {}) },
+    }),
 };
 
 

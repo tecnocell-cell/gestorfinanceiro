@@ -145,7 +145,7 @@ async function main() {
   assert(lPj?.integracaoPfPj?.lancamentoParId === lPf.id, 'lancamentoParId cruzado');
   assert(lPf?.integracaoPfPj?.lancamentoParId === lPj.id, 'lancamentoParId PF→PJ');
   assert(lPj?.historico?.includes('Distribuição de lucros'), 'Histórico PJ');
-  assert(lPf?.historico?.includes('Lucros recebidos'), 'Histórico PF');
+  assert(lPf?.historico?.includes('Distribuição de Lucros recebida'), 'Histórico PF');
 
   console.log('--- Histórico ---');
 

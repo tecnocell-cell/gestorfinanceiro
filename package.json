@@ -17,6 +17,7 @@
     "test:52": "node server/test52.js",
     "test:53": "node server/test53.js",
     "test:54": "node server/test54.js",
+    "test:56": "node server/test56.js",
     "test:money": "node server/testFinanceMoney.js",
     "test:money-full": "node server/testMoneyFull.js",
     "test:categorias-pf": "node server/testCategoriasPf.js",

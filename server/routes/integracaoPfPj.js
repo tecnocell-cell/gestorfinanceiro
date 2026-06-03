@@ -14,6 +14,11 @@
  *   POST   /api/integracao-pf-pj/transferencia/preview | /transferencia
  *   GET    /api/integracao-pf-pj/operacoes
  *   POST   /api/integracao-pf-pj/operacoes/:id/rollback
+ *   GET    /api/integracao-pf-pj/agendamentos
+ *   POST   /api/integracao-pf-pj/agendamentos
+ *   PATCH  /api/integracao-pf-pj/agendamentos/:id
+ *   DELETE /api/integracao-pf-pj/agendamentos/:id
+ *   POST   /api/integracao-pf-pj/agendamentos/gerar-mes
  */
 
 import { Router } from 'express';
@@ -29,6 +34,20 @@ import {
   rollbackOperacao,
   mapOperacao,
 } from '../integracaoPfPj/operacaoWriter.js';
+import {
+  AUDIT_ACAO,
+  attachAuditoriaToOperacoes,
+  insertIntegracaoAuditoria,
+} from '../integracaoPfPj/auditoria.js';
+import {
+  AGENDAMENTO_STATUS,
+  assertTipoAgendamento,
+  centavosFromAgendamentoBody,
+  gerarRepassesDoMes,
+  mapAgendamento,
+  parseDiaMes,
+  parseMesReferencia,
+} from '../integracaoPfPj/agendamentos.js';
 import { isPessoaFisica, isPessoaJuridica, normalizeTipoPerfil } from '../profileTipo.js';
 import { reaisFromCentavos, resolveValorCentavos } from '../utils/money.js';
 
@@ -155,6 +174,17 @@ function registerOperacaoPjPfRoutes(router, {
         valor: reaisFromCentavos(cents),
         data,
         observacao,
+      });
+
+      await insertIntegracaoAuditoria(null, {
+        operacaoId: preview.operacaoId,
+        vinculoId: vinculo.id,
+        usuarioPjId: req.user.id,
+        usuarioPfId: vinculo.usuario_pf_id,
+        acao: AUDIT_ACAO.PREVIEW,
+        tipoOperacao,
+        valorCentavos: cents,
+        payload: { data, observacao: observacao || '', path },
       });
 
       return res.json(preview);
@@ -521,6 +551,17 @@ router.post('/pro-labore/preview', async (req, res) => {
       observacao,
     });
 
+    await insertIntegracaoAuditoria(null, {
+      operacaoId: preview.operacaoId,
+      vinculoId: vinculo.id,
+      usuarioPjId: req.user.id,
+      usuarioPfId: vinculo.usuario_pf_id,
+      acao: AUDIT_ACAO.PREVIEW,
+      tipoOperacao: 'pro_labore',
+      valorCentavos: cents,
+      payload: { data, observacao: observacao || '', path: 'pro-labore' },
+    });
+
     return res.json(preview);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
@@ -613,6 +654,17 @@ router.post('/lucros/preview', async (req, res) => {
       valor: reaisFromCentavos(cents),
       data,
       observacao,
+    });
+
+    await insertIntegracaoAuditoria(null, {
+      operacaoId: preview.operacaoId,
+      vinculoId: vinculo.id,
+      usuarioPjId: req.user.id,
+      usuarioPfId: vinculo.usuario_pf_id,
+      acao: AUDIT_ACAO.PREVIEW,
+      tipoOperacao: 'distribuicao_lucros',
+      valorCentavos: cents,
+      payload: { data, observacao: observacao || '', path: 'lucros' },
     });
 
     return res.json(preview);
@@ -711,13 +763,239 @@ router.get('/operacoes', async (req, res) => {
       [req.user.id]
     );
 
+    const operacoes = await attachAuditoriaToOperacoes(rows.map(mapOperacao));
     return res.json({
-      operacoes: rows.map(mapOperacao),
-      total: rows.length,
+      operacoes,
+      total: operacoes.length,
     });
   } catch (err) {
     console.error('integracao-pf-pj GET /operacoes:', err.message);
     res.status(500).json({ error: 'Erro ao listar operações.' });
+  }
+});
+
+// ─── Agendamentos (Etapa 5.7 — geração manual) ────────────────────────────────
+
+async function findAgendamentoOwned(clientOrQuery, id, usuarioPjId) {
+  const q = clientOrQuery?.query ? clientOrQuery : { query };
+  const { rows } = await q.query(
+    `SELECT a.*
+     FROM integracao_pf_pj_agendamentos a
+     JOIN integracao_pf_pj_vinculo v ON v.id = a.vinculo_id
+     WHERE a.id = $1 AND v.usuario_pj_id = $2`,
+    [id, usuarioPjId]
+  );
+  return rows[0] || null;
+}
+
+router.get('/agendamentos', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const { rows } = await query(
+      `SELECT a.*
+       FROM integracao_pf_pj_agendamentos a
+       JOIN integracao_pf_pj_vinculo v ON v.id = a.vinculo_id
+       WHERE v.usuario_pj_id = $1
+       ORDER BY a.status ASC, a.dia_mes ASC, a.created_at DESC`,
+      [req.user.id]
+    );
+
+    return res.json({
+      agendamentos: rows.map(mapAgendamento),
+      total: rows.length,
+    });
+  } catch (err) {
+    console.error('integracao-pf-pj GET /agendamentos:', err.message);
+    res.status(500).json({ error: 'Erro ao listar agendamentos.' });
+  }
+});
+
+router.post('/agendamentos', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const vinculo = await findVinculoAtivoConfirmado(req.user.id);
+    if (!vinculo) {
+      return res.status(422).json({ error: 'Vínculo PF ativo necessário para cadastrar agendamentos.' });
+    }
+
+    const body = req.body || {};
+    const tipoOperacao = body.tipoOperacao || body.tipo_operacao;
+    assertTipoAgendamento(tipoOperacao);
+    const cents = centavosFromAgendamentoBody(body);
+    const diaMes = parseDiaMes(body.diaMes ?? body.dia_mes);
+    const observacao = String(body.observacao || '').trim();
+
+    const { rows } = await query(
+      `INSERT INTO integracao_pf_pj_agendamentos (
+         vinculo_id, usuario_pj_id, tipo_operacao, valor_centavos, dia_mes, observacao, status
+       ) VALUES ($1,$2,$3,$4,$5,$6,'ativa')
+       RETURNING *`,
+      [vinculo.id, req.user.id, tipoOperacao, cents, diaMes, observacao]
+    );
+
+    return res.status(201).json({ agendamento: mapAgendamento(rows[0]) });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /agendamentos:', err.message);
+    res.status(500).json({ error: 'Erro ao criar agendamento.' });
+  }
+});
+
+router.post('/agendamentos/gerar-mes', async (req, res) => {
+  if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+  const client = await pool.connect();
+  try {
+    const mesRef = parseMesReferencia(req.body?.mes);
+    const forcar = Boolean(req.body?.forcar);
+
+    await client.query('BEGIN');
+
+    const { rows: vincRows } = await client.query(
+      `SELECT ${VINCULO_COLS}
+       FROM integracao_pf_pj_vinculo
+       WHERE usuario_pj_id = $1 AND status = 'ativo'
+       FOR UPDATE`,
+      [req.user.id]
+    );
+
+    if (!vincRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Vínculo PF ativo necessário para gerar repasses.' });
+    }
+
+    const vinculo = vincRows[0];
+    const { rows: agRows } = await client.query(
+      `SELECT a.*
+       FROM integracao_pf_pj_agendamentos a
+       WHERE a.vinculo_id = $1
+       ORDER BY a.dia_mes ASC, a.created_at ASC`,
+      [vinculo.id]
+    );
+
+    if (!agRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Nenhum agendamento cadastrado.' });
+    }
+
+    const uPj = await getTipoPerfil(req.user.id);
+    const uPf = await getTipoPerfil(vinculo.usuario_pf_id);
+
+    const result = await gerarRepassesDoMes(client, {
+      usuarioPjId: req.user.id,
+      vinculo,
+      nomePj: uPj?.nome_perfil || uPj?.nome,
+      pjProfile: uPj,
+      pfProfile: uPf,
+      mesRef,
+      agendamentos: agRows,
+      forcar,
+    });
+
+    await client.query('COMMIT');
+
+    return res.json({
+      ...result,
+      totalGerados: result.gerados.length,
+      totalIgnorados: result.ignorados.length,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /agendamentos/gerar-mes:', err.message);
+    res.status(500).json({ error: 'Erro ao gerar repasses do mês.' });
+  } finally {
+    client.release();
+  }
+});
+
+router.patch('/agendamentos/:id', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const existing = await findAgendamentoOwned(query, req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Agendamento não encontrado.' });
+    }
+
+    const body = req.body || {};
+    const sets = [];
+    const params = [];
+    let i = 1;
+
+    if (body.tipoOperacao != null || body.tipo_operacao != null) {
+      const tipo = body.tipoOperacao || body.tipo_operacao;
+      assertTipoAgendamento(tipo);
+      sets.push(`tipo_operacao = $${i++}`);
+      params.push(tipo);
+    }
+    if (
+      body.valorCentavos != null ||
+      body.valor_centavos != null ||
+      body.valor != null
+    ) {
+      const cents = centavosFromAgendamentoBody(body);
+      sets.push(`valor_centavos = $${i++}`);
+      params.push(cents);
+    }
+    if (body.diaMes != null || body.dia_mes != null) {
+      sets.push(`dia_mes = $${i++}`);
+      params.push(parseDiaMes(body.diaMes ?? body.dia_mes));
+    }
+    if (body.observacao != null) {
+      sets.push(`observacao = $${i++}`);
+      params.push(String(body.observacao || '').trim());
+    }
+    if (body.status != null) {
+      const st = String(body.status);
+      if (!AGENDAMENTO_STATUS.includes(st)) {
+        return res.status(400).json({ error: 'Status inválido.' });
+      }
+      sets.push(`status = $${i++}`);
+      params.push(st);
+    }
+
+    if (!sets.length) {
+      return res.json({ agendamento: mapAgendamento(existing) });
+    }
+
+    params.push(req.params.id);
+    const { rows } = await query(
+      `UPDATE integracao_pf_pj_agendamentos SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${i} RETURNING *`,
+      params
+    );
+
+    return res.json({ agendamento: mapAgendamento(rows[0]) });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj PATCH /agendamentos/:id:', err.message);
+    res.status(500).json({ error: 'Erro ao atualizar agendamento.' });
+  }
+});
+
+router.delete('/agendamentos/:id', async (req, res) => {
+  try {
+    if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+    const { rows } = await query(
+      `DELETE FROM integracao_pf_pj_agendamentos a
+       USING integracao_pf_pj_vinculo v
+       WHERE a.vinculo_id = v.id AND a.id = $1 AND v.usuario_pj_id = $2
+       RETURNING a.id`,
+      [req.params.id, req.user.id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Agendamento não encontrado.' });
+    }
+
+    return res.json({ ok: true, id: rows[0].id });
+  } catch (err) {
+    console.error('integracao-pf-pj DELETE /agendamentos/:id:', err.message);
+    res.status(500).json({ error: 'Erro ao excluir agendamento.' });
   }
 });
 
