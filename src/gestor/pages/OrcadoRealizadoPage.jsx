@@ -5,16 +5,11 @@ import { useMemo, useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { isPessoaFisica } from "../profileLabels.js";
 import { MESES } from "../constants.js";
-import { safeNum } from "../finance.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { GitCompare } from "../components/icons.jsx";
 import { PeriodoHint } from "../components/ResultadoFinanceiroTable.jsx";
 import { OrcadoRealizadoTable } from "../components/OrcadoRealizadoTable.jsx";
-import { centrosCustoAtivos } from "../centroCusto.js";
-import { projetosAtivos } from "../projetoFinanceiro.js";
 import {
-  createOrcamentoMensal,
-  findOrcamentoMensal,
   getOrcadoRealizadoPorCentro,
   getOrcadoRealizadoPorCliente,
   getOrcadoRealizadoPorProjeto,
@@ -59,163 +54,6 @@ function PeriodToolbar() {
   );
 }
 
-function CadastroOrcamento({
-  tipoCadastro,
-  filterPeriodo,
-  viewOnly,
-  centroCustos,
-  projetos,
-  orcamentosCentros,
-  orcamentosProjetos,
-  orcamentoCentroCrud,
-  orcamentoProjetoCrud,
-  onMsg,
-  onErro,
-}) {
-  const [refId, setRefId] = useState("");
-  const [receita, setReceita] = useState("");
-  const [despesa, setDespesa] = useState("");
-  const [salvando, setSalvando] = useState(false);
-
-  const lista = tipoCadastro === "centro" ? centrosCustoAtivos(centroCustos) : projetosAtivos(projetos);
-  const orcList = tipoCadastro === "centro" ? orcamentosCentros : orcamentosProjetos;
-  const crud = tipoCadastro === "centro" ? orcamentoCentroCrud : orcamentoProjetoCrud;
-
-  const existente = refId && filterPeriodo.mes
-    ? findOrcamentoMensal(orcList, refId, filterPeriodo.ano, filterPeriodo.mes)
-    : null;
-
-  const carregarRef = (id) => {
-    setRefId(id);
-    if (!id || !filterPeriodo.mes) {
-      setReceita("");
-      setDespesa("");
-      return;
-    }
-    const o = findOrcamentoMensal(orcList, id, filterPeriodo.ano, filterPeriodo.mes);
-    setReceita(o ? String(o.valorReceitaPrevista) : "");
-    setDespesa(o ? String(o.valorDespesaPrevista) : "");
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (viewOnly) return;
-    if (!filterPeriodo.mes) {
-      onErro("Selecione um mês no filtro para cadastrar orçamento mensal.");
-      return;
-    }
-    if (!refId) {
-      onErro(`Selecione um ${tipoCadastro === "centro" ? "centro de custo" : "projeto"}.`);
-      return;
-    }
-    setSalvando(true);
-    onErro(null);
-    try {
-      const payload = {
-        valorReceitaPrevista: safeNum(receita),
-        valorDespesaPrevista: safeNum(despesa),
-      };
-      if (existente) {
-        crud.update(existente.id, payload);
-        onMsg("Orçamento atualizado.");
-      } else {
-        crud.add(
-          createOrcamentoMensal({
-            referenciaId: refId,
-            ano: filterPeriodo.ano,
-            mes: filterPeriodo.mes,
-            ...payload,
-          })
-        );
-        onMsg("Orçamento cadastrado.");
-      }
-    } catch (err) {
-      onErro(err.message || "Erro ao salvar.");
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const handleExcluir = () => {
-    if (viewOnly || !existente) return;
-    if (!window.confirm("Excluir orçamento deste mês?")) return;
-    crud.remove(existente.id);
-    setReceita("");
-    setDespesa("");
-    onMsg("Orçamento removido.");
-  };
-
-  if (!lista.length) {
-    return (
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
-        Cadastre {tipoCadastro === "centro" ? "centros de custo" : "projetos"} antes de definir orçamento.
-      </p>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <div
-        style={{
-          display: "grid",
-          gap: 10,
-          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-        }}
-      >
-        <label style={{ fontSize: 12 }}>
-          <span style={{ color: "var(--muted-foreground)" }}>
-            {tipoCadastro === "centro" ? "Centro de custo" : "Projeto"} *
-          </span>
-          <select className="form-select" value={refId} onChange={(e) => carregarRef(e.target.value)}>
-            <option value="">— Selecione —</option>
-            {lista.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.nome}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ fontSize: 12 }}>
-          <span style={{ color: "var(--muted-foreground)" }}>Receita prevista (R$)</span>
-          <input
-            className="input"
-            type="number"
-            min="0"
-            step="0.01"
-            value={receita}
-            onChange={(e) => setReceita(e.target.value)}
-            placeholder="0,00"
-          />
-        </label>
-        <label style={{ fontSize: 12 }}>
-          <span style={{ color: "var(--muted-foreground)" }}>Despesa prevista (R$)</span>
-          <input
-            className="input"
-            type="number"
-            min="0"
-            step="0.01"
-            value={despesa}
-            onChange={(e) => setDespesa(e.target.value)}
-            placeholder="0,00"
-          />
-        </label>
-      </div>
-      {!viewOnly && (
-        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          <button type="submit" className="btn btn-primary btn-sm" disabled={salvando || !filterPeriodo.mes}>
-            {salvando ? "Salvando..." : existente ? "Atualizar orçamento" : "Salvar orçamento"}
-          </button>
-          {existente && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={handleExcluir}>
-              Excluir
-            </button>
-          )}
-        </div>
-      )}
-    </form>
-  );
-}
-
 function Conteudo({ pfMode }) {
   const {
     viewOnly,
@@ -226,10 +64,9 @@ function Conteudo({ pfMode }) {
     clientes,
     orcamentosCentros,
     orcamentosProjetos,
-    orcamentoCentroCrud,
-    orcamentoProjetoCrud,
     filterPeriodo,
     tipo,
+    openModal,
   } = useGestor();
 
   const isPF = pfMode || isPessoaFisica(tipo);
@@ -309,12 +146,28 @@ function Conteudo({ pfMode }) {
       )}
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Orçamento mensal previsto</div>
+        <div
+          className="card-title"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+        >
+          <span>Orçamento mensal previsto</span>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="pp-btn-primary"
+              disabled={!filterPeriodo.mes}
+              title={!filterPeriodo.mes ? "Selecione um mês no filtro acima" : undefined}
+              onClick={() => openModal("orcamento-mensal", { tipoCadastro: tabCad })}
+            >
+              + Definir orçamento
+            </button>
+          )}
+        </div>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 12px", lineHeight: 1.5 }}>
           Cliente usa a soma dos orçamentos dos projetos vinculados. Centro de custo e projeto no lançamento
           continuam opcionais.
         </p>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 0, flexWrap: "wrap" }}>
           {TABS_CADASTRO.map((t) => (
             <button
               key={t.id}
@@ -326,25 +179,6 @@ function Conteudo({ pfMode }) {
             </button>
           ))}
         </div>
-        <CadastroOrcamento
-          tipoCadastro={tabCad}
-          filterPeriodo={filterPeriodo}
-          viewOnly={viewOnly}
-          centroCustos={centroCustos}
-          projetos={projetos}
-          orcamentosCentros={orcamentosCentros}
-          orcamentosProjetos={orcamentosProjetos}
-          orcamentoCentroCrud={orcamentoCentroCrud}
-          orcamentoProjetoCrud={orcamentoProjetoCrud}
-          onMsg={(m) => {
-            setMsg(m);
-            setErro(null);
-          }}
-          onErro={(e) => {
-            setErro(e);
-            setMsg(null);
-          }}
-        />
       </div>
 
       <div className="card">

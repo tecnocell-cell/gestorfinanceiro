@@ -4,24 +4,13 @@
 import { useMemo, useState } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { isPessoaJuridica } from "../profileLabels.js";
-import { createProjeto, PROJETO_STATUS } from "../projetoFinanceiro.js";
+import { PROJETO_STATUS } from "../projetoFinanceiro.js";
 import { fmtDate } from "../finance.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { Briefcase, PenLine, Pause } from "../components/icons.jsx";
 
-const VAZIO = {
-  nome: "",
-  clienteId: "",
-  descricao: "",
-  dataInicio: "",
-  dataFim: "",
-  status: PROJETO_STATUS.ATIVO,
-};
-
 function Conteudo() {
-  const { viewOnly, projetos, projetoCrud, clientes } = useGestor();
-  const [form, setForm] = useState({ ...VAZIO });
-  const [editId, setEditId] = useState(null);
+  const { viewOnly, projetos, projetoCrud, clientes, openModal } = useGestor();
   const [msg, setMsg] = useState(null);
   const [erro, setErro] = useState(null);
 
@@ -32,55 +21,10 @@ function Conteudo() {
 
   const clienteNome = (id) => (clientes || []).find((c) => c.id === id)?.nome || "—";
 
-  const reset = () => {
-    setEditId(null);
-    setForm({ ...VAZIO });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (viewOnly) return;
-    const nome = form.nome.trim();
-    if (!nome) {
-      setErro("Informe o nome do projeto.");
-      return;
-    }
-    setErro(null);
-    const payload = {
-      nome,
-      clienteId: form.clienteId || null,
-      descricao: form.descricao.trim(),
-      dataInicio: form.dataInicio || "",
-      dataFim: form.dataFim || "",
-      ...(editId ? { status: form.status } : {}),
-    };
-    if (editId) {
-      projetoCrud.update(editId, payload);
-      setMsg("Projeto atualizado.");
-    } else {
-      projetoCrud.add(createProjeto(payload));
-      setMsg("Projeto cadastrado.");
-    }
-    reset();
-  };
-
-  const handleEdit = (p) => {
-    setEditId(p.id);
-    setForm({
-      nome: p.nome,
-      clienteId: p.clienteId || "",
-      descricao: p.descricao || "",
-      dataInicio: p.dataInicio || "",
-      dataFim: p.dataFim || "",
-      status: p.status,
-    });
-  };
-
   const handleInativar = (p) => {
     if (viewOnly || p.status === PROJETO_STATUS.INATIVO) return;
     if (!window.confirm(`Inativar projeto "${p.nome}"?`)) return;
     projetoCrud.update(p.id, { status: PROJETO_STATUS.INATIVO });
-    if (editId === p.id) reset();
     setMsg("Projeto inativado.");
   };
 
@@ -96,65 +40,36 @@ function Conteudo() {
         Projetos podem ser vinculados a um cliente e referenciados opcionalmente nos lançamentos.
       </p>
 
-      {!viewOnly && (
-        <div className="card" style={{ marginBottom: 16, padding: 14 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
-            {editId ? "Editar projeto" : "Novo projeto"}
-          </div>
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
-              <label style={{ fontSize: 12 }}>
-                <span style={{ color: "var(--muted-foreground)" }}>Nome *</span>
-                <input className="input" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
-              </label>
-              <label style={{ fontSize: 12 }}>
-                <span style={{ color: "var(--muted-foreground)" }}>Cliente</span>
-                <select className="input" value={form.clienteId} onChange={(e) => setForm((f) => ({ ...f, clienteId: e.target.value }))}>
-                  <option value="">— Nenhum —</option>
-                  {(clientes || []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ fontSize: 12 }}>
-                <span style={{ color: "var(--muted-foreground)" }}>Início</span>
-                <input className="input" type="date" value={form.dataInicio} onChange={(e) => setForm((f) => ({ ...f, dataInicio: e.target.value }))} />
-              </label>
-              <label style={{ fontSize: 12 }}>
-                <span style={{ color: "var(--muted-foreground)" }}>Fim</span>
-                <input className="input" type="date" value={form.dataFim} onChange={(e) => setForm((f) => ({ ...f, dataFim: e.target.value }))} />
-              </label>
-              {editId && (
-                <label style={{ fontSize: 12 }}>
-                  <span style={{ color: "var(--muted-foreground)" }}>Status</span>
-                  <select className="input" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                    <option value={PROJETO_STATUS.ATIVO}>Ativo</option>
-                    <option value={PROJETO_STATUS.INATIVO}>Inativo</option>
-                  </select>
-                </label>
-              )}
-              <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>
-                <span style={{ color: "var(--muted-foreground)" }}>Descrição</span>
-                <input className="input" value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} />
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button type="submit" className="btn btn-primary btn-sm">{editId ? "Salvar" : "Cadastrar"}</button>
-              {editId && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={reset}>Cancelar</button>
-              )}
-            </div>
-          </form>
-        </div>
-      )}
-
       <div className="card">
-        <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Briefcase size={18} strokeWidth={2} aria-hidden />
-          Projetos cadastrados ({sorted.length})
+        <div
+          className="card-title"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Briefcase size={18} strokeWidth={2} aria-hidden />
+            Projetos cadastrados ({sorted.length})
+          </span>
+          {!viewOnly && (
+            <button type="button" className="pp-btn-primary" onClick={() => openModal("projeto-financeiro")}>
+              + Novo projeto
+            </button>
+          )}
         </div>
+
         {!sorted.length ? (
-          <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhum projeto cadastrado.</p>
+          <div className="pp-empty" style={{ padding: "24px 16px" }}>
+            <div className="pp-empty-text">Nenhum projeto cadastrado.</div>
+            {!viewOnly && (
+              <button
+                type="button"
+                className="pp-btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={() => openModal("projeto-financeiro")}
+              >
+                Cadastrar primeiro projeto
+              </button>
+            )}
+          </div>
         ) : (
           <div className="table-wrap">
             <table>
@@ -184,12 +99,22 @@ function Conteudo() {
                     {!viewOnly && (
                       <td>
                         <div style={{ display: "flex", gap: 4 }}>
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleEdit(p)}>
-                            <PenLine size={12} strokeWidth={2} aria-hidden />
+                          <button
+                            type="button"
+                            className="pp-icon-btn"
+                            title="Editar"
+                            onClick={() => openModal("projeto-financeiro", p)}
+                          >
+                            <PenLine size={14} strokeWidth={2} aria-hidden />
                           </button>
                           {p.status === PROJETO_STATUS.ATIVO ? (
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleInativar(p)}>
-                              <Pause size={12} strokeWidth={2} aria-hidden />
+                            <button
+                              type="button"
+                              className="pp-icon-btn"
+                              title="Inativar"
+                              onClick={() => handleInativar(p)}
+                            >
+                              <Pause size={14} strokeWidth={2} aria-hidden />
                             </button>
                           ) : (
                             <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReativar(p)}>

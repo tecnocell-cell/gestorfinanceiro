@@ -7,13 +7,10 @@ import { isPessoaFisica } from "../profileLabels.js";
 import { fmtBRL } from "../finance.js";
 import {
   CENTRO_CUSTO_STATUS,
-  createCentroCusto,
   getResultadoPorCentroCusto,
 } from "../centroCusto.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { Layers, PenLine, Pause } from "../components/icons.jsx";
-
-const VAZIO_FORM = { nome: "", descricao: "" };
 
 function PeriodoHint({ filterPeriodo }) {
   const { ano, mes } = filterPeriodo || {};
@@ -25,55 +22,11 @@ function PeriodoHint({ filterPeriodo }) {
   );
 }
 
-function CadastroCentros({ viewOnly, centroCustos, centroCustoCrud, onMsg, onErro }) {
-  const [form, setForm] = useState({ ...VAZIO_FORM });
-  const [editId, setEditId] = useState(null);
-  const [salvando, setSalvando] = useState(false);
-
-  const reset = () => {
-    setEditId(null);
-    setForm({ ...VAZIO_FORM });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (viewOnly) return;
-    const nome = form.nome.trim();
-    if (!nome) {
-      onErro("Informe o nome do centro de custo / projeto.");
-      return;
-    }
-    setSalvando(true);
-    onErro(null);
-    try {
-      if (editId) {
-        centroCustoCrud.update(editId, {
-          nome,
-          descricao: form.descricao.trim(),
-        });
-        onMsg("Centro de custo atualizado.");
-      } else {
-        centroCustoCrud.add(createCentroCusto({ nome, descricao: form.descricao }));
-        onMsg("Centro de custo cadastrado.");
-      }
-      reset();
-    } catch (err) {
-      onErro(err.message || "Erro ao salvar.");
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const handleEdit = (cc) => {
-    setEditId(cc.id);
-    setForm({ nome: cc.nome, descricao: cc.descricao || "" });
-  };
-
+function CadastroCentros({ viewOnly, centroCustos, centroCustoCrud, openModal, onMsg }) {
   const handleInativar = (cc) => {
     if (viewOnly || cc.status === CENTRO_CUSTO_STATUS.INATIVO) return;
     if (!window.confirm(`Inativar "${cc.nome}"? Lançamentos antigos mantêm a referência.`)) return;
     centroCustoCrud.update(cc.id, { status: CENTRO_CUSTO_STATUS.INATIVO });
-    if (editId === cc.id) reset();
     onMsg("Centro de custo inativado.");
   };
 
@@ -85,50 +38,35 @@ function CadastroCentros({ viewOnly, centroCustos, centroCustoCrud, onMsg, onErr
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Layers size={18} strokeWidth={2} aria-hidden />
-        Centros de custo / projetos
+      <div
+        className="card-title"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Layers size={18} strokeWidth={2} aria-hidden />
+          Centros de custo / projetos
+        </span>
+        {!viewOnly && (
+          <button type="button" className="pp-btn-primary" onClick={() => openModal("centro-custo")}>
+            + Novo centro de custo
+          </button>
+        )}
       </div>
 
-      {!viewOnly && (
-        <form onSubmit={handleSubmit} style={{ marginBottom: 16 }}>
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
-            <label style={{ fontSize: 12 }}>
-              <span style={{ color: "var(--muted-foreground)" }}>Nome *</span>
-              <input
-                className="input"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                placeholder="Ex.: Projeto Alpha"
-              />
-            </label>
-            <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>
-              <span style={{ color: "var(--muted-foreground)" }}>Descrição</span>
-              <input
-                className="input"
-                value={form.descricao}
-                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-                placeholder="Opcional"
-              />
-            </label>
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={salvando}>
-              {salvando ? "Salvando..." : editId ? "Salvar alterações" : "Cadastrar"}
-            </button>
-            {editId && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={reset}>
-                Cancelar
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-
       {!centroCustos.length ? (
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
-          Nenhum centro cadastrado. Crie um para classificar lançamentos e ver o resultado abaixo.
-        </p>
+        <div className="pp-empty" style={{ padding: "24px 16px" }}>
+          <div className="pp-empty-text">Nenhum centro cadastrado.</div>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="pp-btn-primary"
+              style={{ marginTop: 12 }}
+              onClick={() => openModal("centro-custo")}
+            >
+              Cadastrar primeiro centro
+            </button>
+          )}
+        </div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -153,12 +91,22 @@ function CadastroCentros({ viewOnly, centroCustos, centroCustoCrud, onMsg, onErr
                   {!viewOnly && (
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button type="button" className="btn btn-secondary btn-sm" title="Editar" onClick={() => handleEdit(cc)}>
-                          <PenLine size={12} strokeWidth={2} aria-hidden />
+                        <button
+                          type="button"
+                          className="pp-icon-btn"
+                          title="Editar"
+                          onClick={() => openModal("centro-custo", cc)}
+                        >
+                          <PenLine size={14} strokeWidth={2} aria-hidden />
                         </button>
                         {cc.status === CENTRO_CUSTO_STATUS.ATIVO ? (
-                          <button type="button" className="btn btn-secondary btn-sm" title="Inativar" onClick={() => handleInativar(cc)}>
-                            <Pause size={12} strokeWidth={2} aria-hidden />
+                          <button
+                            type="button"
+                            className="pp-icon-btn"
+                            title="Inativar"
+                            onClick={() => handleInativar(cc)}
+                          >
+                            <Pause size={14} strokeWidth={2} aria-hidden />
                           </button>
                         ) : (
                           <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleReativar(cc)}>
@@ -238,6 +186,7 @@ function Conteudo({ pfMode = false }) {
     centroCustos,
     centroCustoCrud,
     filterPeriodo,
+    openModal,
   } = useGestor();
   const [msg, setMsg] = useState(null);
   const [erro, setErro] = useState(null);
@@ -265,8 +214,8 @@ function Conteudo({ pfMode = false }) {
         viewOnly={viewOnly}
         centroCustos={sortedCentros}
         centroCustoCrud={centroCustoCrud}
+        openModal={openModal}
         onMsg={setMsg}
-        onErro={setErro}
       />
       <div className="card">
         <div className="card-title">Resultado por Centro de Custo</div>

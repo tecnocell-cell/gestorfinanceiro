@@ -502,32 +502,98 @@ export function CategoriasPFPage() {
 // ─── Orçamento ────────────────────────────────────────────────────────────────
 
 export function OrcamentoPage() {
-  const { planoContas, lancamentos, filterPeriodo, setFilterPeriodo, orcamentos, orcamentoCrud } = useGestor();
+  const {
+    planoContas,
+    lancamentos,
+    filterPeriodo,
+    setFilterPeriodo,
+    orcamentos,
+    orcamentoCrud,
+    viewOnly,
+  } = useGestor();
 
-  const despesas = planoContas.filter((p) => !p.inativo && p.tipo === "Despesa");
+  const despesas = useMemo(
+    () => planoContas.filter((p) => !p.inativo && p.tipo === "Despesa"),
+    [planoContas]
+  );
 
-  const getOrcado = (catId) => {
+  const mesAtivo = filterPeriodo.mes;
+  const [drafts, setDrafts] = useState({});
+  const [dirty, setDirty] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  useEffect(() => {
+    if (!filterPeriodo.mes) {
+      const m = String(new Date().getMonth() + 1).padStart(2, "0");
+      setFilterPeriodo((p) => ({ ...p, mes: m }));
+    }
+  }, [filterPeriodo.mes, setFilterPeriodo]);
+
+  useEffect(() => {
+    if (!mesAtivo) return;
+    const next = {};
+    for (const p of despesas) {
+      const orc = orcamentos.find(
+        (o) => o.categoriaId === p.id && o.ano === filterPeriodo.ano && o.mes === mesAtivo
+      );
+      next[p.id] = orc?.valor != null && orc.valor !== 0 ? String(orc.valor) : "";
+    }
+    setDrafts(next);
+    setDirty(false);
+  }, [mesAtivo, filterPeriodo.ano, orcamentos, despesas]);
+
+  const getOrcadoSalvo = (catId) => {
     const orc = orcamentos.find(
-      (o) => o.categoriaId === catId && o.ano === filterPeriodo.ano && o.mes === filterPeriodo.mes
+      (o) => o.categoriaId === catId && o.ano === filterPeriodo.ano && o.mes === mesAtivo
     );
     return orc?.valor || 0;
   };
 
-  const setOrcado = (catId, valor) => {
-    const existing = orcamentos.find(
-      (o) => o.categoriaId === catId && o.ano === filterPeriodo.ano && o.mes === filterPeriodo.mes
-    );
-    if (existing) {
-      orcamentoCrud.update(existing.id, { valor: safeNum(valor) });
-    } else {
-      orcamentoCrud.add({
-        id: generateId(),
-        categoriaId: catId,
-        ano: filterPeriodo.ano,
-        mes: filterPeriodo.mes,
-        valor: safeNum(valor),
-      });
+  const getOrcadoLinha = (catId) => {
+    if (dirty && Object.prototype.hasOwnProperty.call(drafts, catId)) {
+      return safeNum(drafts[catId]);
     }
+    return getOrcadoSalvo(catId);
+  };
+
+  const handleDraftChange = (catId, valor) => {
+    setDrafts((d) => ({ ...d, [catId]: valor }));
+    setDirty(true);
+    setSaveMsg("");
+  };
+
+  const handleSaveAll = () => {
+    if (viewOnly || !mesAtivo) return;
+    for (const p of despesas) {
+      const valor = safeNum(drafts[p.id] ?? 0);
+      const existing = orcamentos.find(
+        (o) => o.categoriaId === p.id && o.ano === filterPeriodo.ano && o.mes === mesAtivo
+      );
+      if (existing) {
+        orcamentoCrud.update(existing.id, { valor });
+      } else if (valor > 0) {
+        orcamentoCrud.add({
+          id: generateId(),
+          categoriaId: p.id,
+          ano: filterPeriodo.ano,
+          mes: mesAtivo,
+          valor,
+        });
+      }
+    }
+    setDirty(false);
+    setSaveMsg("Orçamento do mês salvo com sucesso.");
+  };
+
+  const handleDiscard = () => {
+    const next = {};
+    for (const p of despesas) {
+      const v = getOrcadoSalvo(p.id);
+      next[p.id] = v > 0 ? String(v) : "";
+    }
+    setDrafts(next);
+    setDirty(false);
+    setSaveMsg("");
   };
 
   const getRealizado = (catId) => {
@@ -543,7 +609,7 @@ export function OrcamentoPage() {
   };
 
   const linhas = despesas.map((p) => {
-    const orcado = getOrcado(p.id);
+    const orcado = getOrcadoLinha(p.id);
     const realizado = getRealizado(p.id);
     const diff = subMoney(orcado, realizado);
     const pct = orcado > 0 ? Math.min((realizado / orcado) * 100, 100) : 0;
@@ -567,13 +633,37 @@ export function OrcamentoPage() {
         </div>
       </div>
 
-      <div className="pp-toolbar">
+      <div className="pp-toolbar" style={{ flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         <PeriodToolbar />
+        {!viewOnly && mesAtivo && (
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+            {dirty && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={handleDiscard}>
+                Descartar
+              </button>
+            )}
+            <button
+              type="button"
+              className="pp-btn-primary"
+              onClick={handleSaveAll}
+              disabled={!dirty}
+              title={!dirty ? "Nenhuma alteração pendente" : "Salvar valores orçados"}
+            >
+              Salvar orçamento
+            </button>
+          </div>
+        )}
       </div>
 
-      {!filterPeriodo.mes && (
+      {saveMsg && (
+        <div className="alert alert-success" style={{ marginBottom: 14 }}>
+          {saveMsg}
+        </div>
+      )}
+
+      {!mesAtivo && (
         <div className="alert alert-warn" style={{ marginBottom: 14 }}>
-          Selecione um mês específico para editar o orçamento.
+          Selecione o <strong>mês</strong> no filtro Período para editar o orçamento por categoria.
         </div>
       )}
 
@@ -612,14 +702,16 @@ export function OrcamentoPage() {
             <span style={{ fontWeight: 500 }}>{l.descricao}</span>
             <span>
               <input
-                className="orcamento-input"
+                className="form-input orcamento-input"
                 type="number"
                 min="0"
-                step="10"
-                value={l.orcado || ""}
+                step="0.01"
+                value={drafts[l.id] ?? ""}
                 placeholder="0,00"
-                onChange={(e) => setOrcado(l.id, e.target.value)}
-                disabled={!filterPeriodo.mes}
+                onChange={(e) => handleDraftChange(l.id, e.target.value)}
+                disabled={!mesAtivo || viewOnly}
+                readOnly={viewOnly}
+                aria-label={`Orçado ${l.descricao}`}
               />
             </span>
             <span className="td-mono" style={{ textAlign: "right" }}>{fmtBRL(l.realizado)}</span>

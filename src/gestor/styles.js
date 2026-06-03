@@ -1954,6 +1954,15 @@ export const css = `
     outline: none;
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--forest-600) 15%, transparent);
   }
+  .orcamento-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--muted);
+  }
+  .orcamento-input:not(:disabled) {
+    pointer-events: auto;
+    cursor: text;
+  }
 
   /* ─── LOGIN (RuralNext auth.css) ─── */
   .login-page {

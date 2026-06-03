@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { generateId, safeNum } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
 import { isLancamentoPago } from "../pfDueDates.js";
@@ -8,8 +8,10 @@ import {
   labelLancamentoTipo,
   isPerfilFisica,
 } from "../profileLabels.js";
-import { centrosCustoAtivos } from "../centroCusto.js";
-import { projetosAtivos } from "../projetoFinanceiro.js";
+import { centrosCustoAtivos, createCentroCusto } from "../centroCusto.js";
+import { projetosAtivos, createProjeto, PROJETO_STATUS } from "../projetoFinanceiro.js";
+import { createOrcamentoMensal, findOrcamentoMensal } from "../orcamentoRealizado.js";
+import { MESES } from "../constants.js";
 import {
   ModalShell,
   ModalSection,
@@ -1166,6 +1168,349 @@ export function ModalMeta() {
             <div className={`progress-fill ${pct >= 100 ? "green" : pct >= 50 ? "blue" : "purple"}`} style={{ width: `${pct}%` }} />
           </div>
         </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ─── Centro de custo / Projeto financeiro / Orçamento mensal ─────────────────
+
+export function ModalCentroCusto() {
+  const { editingItem, closeModal, centroCustoCrud } = useGestor();
+  const item = editingItem;
+
+  const [form, setForm] = useState({
+    nome: item?.nome || "",
+    descricao: item?.descricao || "",
+  });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.nome.trim()) return alert("Informe o nome do centro de custo / projeto.");
+    if (item?.id) {
+      centroCustoCrud.update(item.id, {
+        nome: form.nome.trim(),
+        descricao: form.descricao.trim(),
+      });
+    } else {
+      centroCustoCrud.add(createCentroCusto({ nome: form.nome, descricao: form.descricao }));
+    }
+    closeModal();
+  };
+
+  return (
+    <ModalShell
+      onClose={closeModal}
+      title={item?.id ? "Editar centro de custo" : "Novo centro de custo"}
+      subtitle="Classifique lançamentos e acompanhe resultado por centro ou projeto interno."
+      tone="neutral"
+      size="md"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Cadastrar"}
+        />
+      }
+    >
+      <ModalSection label="Identificação">
+        <ModalField label="Nome" required>
+          <input
+            className="form-input"
+            value={form.nome}
+            onChange={(e) => set("nome", e.target.value)}
+            placeholder="Ex.: Projeto Alpha, Administrativo"
+            autoFocus
+          />
+        </ModalField>
+        <ModalField label="Descrição" className="modal-field--full">
+          <input
+            className="form-input"
+            value={form.descricao}
+            onChange={(e) => set("descricao", e.target.value)}
+            placeholder="Opcional"
+          />
+        </ModalField>
+      </ModalSection>
+    </ModalShell>
+  );
+}
+
+export function ModalProjetoFinanceiro() {
+  const { editingItem, closeModal, projetoCrud, clientes } = useGestor();
+  const item = editingItem;
+
+  const [form, setForm] = useState({
+    nome: item?.nome || "",
+    clienteId: item?.clienteId || "",
+    descricao: item?.descricao || "",
+    dataInicio: item?.dataInicio || "",
+    dataFim: item?.dataFim || "",
+    status: item?.status || PROJETO_STATUS.ATIVO,
+  });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.nome.trim()) return alert("Informe o nome do projeto.");
+    const payload = {
+      nome: form.nome.trim(),
+      clienteId: form.clienteId || null,
+      descricao: form.descricao.trim(),
+      dataInicio: form.dataInicio || "",
+      dataFim: form.dataFim || "",
+      ...(item?.id ? { status: form.status } : {}),
+    };
+    if (item?.id) projetoCrud.update(item.id, payload);
+    else projetoCrud.add(createProjeto(payload));
+    closeModal();
+  };
+
+  return (
+    <ModalShell
+      onClose={closeModal}
+      title={item?.id ? "Editar projeto" : "Novo projeto"}
+      subtitle="Vincule a um cliente e use o projeto opcionalmente nos lançamentos."
+      tone="neutral"
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Cadastrar"}
+        />
+      }
+    >
+      <ModalSection label="Dados do projeto">
+        <ModalField label="Nome" required>
+          <input
+            className="form-input"
+            value={form.nome}
+            onChange={(e) => set("nome", e.target.value)}
+            placeholder="Ex.: Implantação ERP"
+            autoFocus
+          />
+        </ModalField>
+        <ModalGrid cols={2}>
+          <ModalField label="Cliente">
+            <select
+              className="form-input"
+              value={form.clienteId}
+              onChange={(e) => set("clienteId", e.target.value)}
+            >
+              <option value="">— Nenhum —</option>
+              {(clientes || []).map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </ModalField>
+          {item?.id && (
+            <ModalField label="Status">
+              <select
+                className="form-input"
+                value={form.status}
+                onChange={(e) => set("status", e.target.value)}
+              >
+                <option value={PROJETO_STATUS.ATIVO}>Ativo</option>
+                <option value={PROJETO_STATUS.INATIVO}>Inativo</option>
+              </select>
+            </ModalField>
+          )}
+          <ModalField label="Data início">
+            <input
+              className="form-input"
+              type="date"
+              value={form.dataInicio}
+              onChange={(e) => set("dataInicio", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Data fim">
+            <input
+              className="form-input"
+              type="date"
+              value={form.dataFim}
+              onChange={(e) => set("dataFim", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Descrição" className="modal-field--full">
+            <input
+              className="form-input"
+              value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              placeholder="Opcional"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
+    </ModalShell>
+  );
+}
+
+export function ModalOrcamentoMensal() {
+  const {
+    editingItem,
+    closeModal,
+    filterPeriodo,
+    centroCustos,
+    projetos,
+    orcamentosCentros,
+    orcamentosProjetos,
+    orcamentoCentroCrud,
+    orcamentoProjetoCrud,
+  } = useGestor();
+
+  const tipoCadastro = editingItem?.tipoCadastro || "centro";
+  const preRefId = editingItem?.refId || "";
+
+  const lista =
+    tipoCadastro === "centro"
+      ? centrosCustoAtivos(centroCustos)
+      : projetosAtivos(projetos);
+  const orcList = tipoCadastro === "centro" ? orcamentosCentros : orcamentosProjetos;
+  const crud = tipoCadastro === "centro" ? orcamentoCentroCrud : orcamentoProjetoCrud;
+
+  const [refId, setRefId] = useState(preRefId);
+  const [receita, setReceita] = useState("");
+  const [despesa, setDespesa] = useState("");
+
+  const mesLabel = filterPeriodo.mes
+    ? MESES[parseInt(filterPeriodo.mes, 10) - 1]
+    : null;
+
+  const existente =
+    refId && filterPeriodo.mes
+      ? findOrcamentoMensal(orcList, refId, filterPeriodo.ano, filterPeriodo.mes)
+      : null;
+
+  const carregarRef = (id) => {
+    setRefId(id);
+    if (!id || !filterPeriodo.mes) {
+      setReceita("");
+      setDespesa("");
+      return;
+    }
+    const o = findOrcamentoMensal(orcList, id, filterPeriodo.ano, filterPeriodo.mes);
+    setReceita(o ? String(o.valorReceitaPrevista) : "");
+    setDespesa(o ? String(o.valorDespesaPrevista) : "");
+  };
+
+  useEffect(() => {
+    if (preRefId) carregarRef(preRefId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- abre com ref do item em edição
+  }, [preRefId]);
+
+  const handleSave = () => {
+    if (!filterPeriodo.mes) return alert("Selecione um mês no filtro da página.");
+    if (!refId) {
+      return alert(`Selecione um ${tipoCadastro === "centro" ? "centro de custo" : "projeto"}.`);
+    }
+    const payload = {
+      valorReceitaPrevista: safeNum(receita),
+      valorDespesaPrevista: safeNum(despesa),
+    };
+    if (existente) crud.update(existente.id, payload);
+    else {
+      crud.add(
+        createOrcamentoMensal({
+          referenciaId: refId,
+          ano: filterPeriodo.ano,
+          mes: filterPeriodo.mes,
+          ...payload,
+        })
+      );
+    }
+    closeModal();
+  };
+
+  const handleExcluir = () => {
+    if (!existente) return;
+    if (!window.confirm("Excluir orçamento deste mês?")) return;
+    crud.remove(existente.id);
+    closeModal();
+  };
+
+  return (
+    <ModalShell
+      onClose={closeModal}
+      title="Orçamento mensal previsto"
+      subtitle={
+        mesLabel
+          ? `${mesLabel}/${filterPeriodo.ano} — ${tipoCadastro === "centro" ? "centro de custo" : "projeto"}`
+          : "Selecione um mês no filtro da página antes de salvar."
+      }
+      tone="neutral"
+      size="md"
+      footer={
+        <div className="modal-footer modal-footer--premium" style={{ width: "100%", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {existente && (
+            <button
+              type="button"
+              className="modal-btn modal-btn--ghost"
+              style={{ marginRight: "auto", color: "var(--destructive, #b91c1c)" }}
+              onClick={handleExcluir}
+            >
+              Excluir
+            </button>
+          )}
+          <button type="button" className="modal-btn modal-btn--ghost" onClick={closeModal}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="modal-btn modal-btn--primary"
+            onClick={handleSave}
+            disabled={!filterPeriodo.mes || !lista.length}
+          >
+            {existente ? "Atualizar orçamento" : "Salvar orçamento"}
+          </button>
+        </div>
+      }
+    >
+      {!lista.length ? (
+        <p className="modal-field-hint">
+          Cadastre {tipoCadastro === "centro" ? "centros de custo" : "projetos"} antes de definir o orçamento.
+        </p>
+      ) : (
+        <ModalSection label="Valores previstos">
+          <ModalField
+            label={tipoCadastro === "centro" ? "Centro de custo" : "Projeto"}
+            required
+          >
+            <select
+              className="form-input"
+              value={refId}
+              onChange={(e) => carregarRef(e.target.value)}
+            >
+              <option value="">— Selecione —</option>
+              {lista.map((x) => (
+                <option key={x.id} value={x.id}>{x.nome}</option>
+              ))}
+            </select>
+          </ModalField>
+          <ModalGrid cols={2}>
+            <ModalField label="Receita prevista (R$)">
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={receita}
+                onChange={(e) => setReceita(e.target.value)}
+                placeholder="0,00"
+              />
+            </ModalField>
+            <ModalField label="Despesa prevista (R$)">
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={despesa}
+                onChange={(e) => setDespesa(e.target.value)}
+                placeholder="0,00"
+              />
+            </ModalField>
+          </ModalGrid>
+        </ModalSection>
       )}
     </ModalShell>
   );
