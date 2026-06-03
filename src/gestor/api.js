@@ -36,6 +36,10 @@ async function request(path, options = {}) {
 
   const data = await res.json().catch(() => ({}));
 
+  if (options.rawResponse) {
+    return { status: res.status, data, ok: res.ok };
+  }
+
   const apiError = (() => {
     const raw = data.error ?? data.message ?? "";
     if (raw === "invalid_credentials") {
@@ -69,8 +73,29 @@ async function request(path, options = {}) {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
-  login: (email, senha) =>
-    request("/auth/login", { method: "POST", body: { email, senha } }),
+  login: async (email, senha) => {
+    const { status, data } = await request("/auth/login", {
+      method: "POST",
+      body: { email, senha },
+      rawResponse: true,
+    });
+    if (status === 403 && data.requires_otp) {
+      return { requires_otp: true, ...data };
+    }
+    if (status === 403 && data.needs_verification) {
+      throw new Error(data.error || "Confirme seu cadastro.");
+    }
+    if (status === 401) {
+      throw new Error(data.error || "E-mail ou senha incorretos.");
+    }
+    if (status === 429) {
+      throw new Error(data.error || "Muitas tentativas.");
+    }
+    if (status !== 200 || !data?.token) {
+      throw new Error(data.error || `HTTP ${status}`);
+    }
+    return data;
+  },
 
   me: () => request("/auth/me"),
 
@@ -83,8 +108,15 @@ export const authApi = {
   resendCode: (data) =>
     request("/auth/resend-code", { method: "POST", body: data }),
 
-  changePassword: (senha_atual, nova_senha) =>
-    request("/auth/change-password", { method: "PATCH", body: { senha_atual, nova_senha } }),
+  changePassword: (senha_atual, nova_senha, otp_id, codigo) =>
+    request("/auth/change-password", {
+      method: "PATCH",
+      body: { senha_atual, nova_senha, otp_id, codigo },
+    }),
+
+  otpSend: (body) => request("/auth/otp/send", { method: "POST", body }),
+
+  otpVerify: (body) => request("/auth/otp/verify", { method: "POST", body }),
 
   security: () => request("/auth/security"),
 
@@ -97,8 +129,11 @@ export const authApi = {
   forgotPassword: (email) =>
     request("/auth/forgot-password", { method: "POST", body: { email } }),
 
-  resetPassword: (token, nova_senha) =>
-    request("/auth/reset-password", { method: "POST", body: { token, nova_senha } }),
+  resetPassword: (token, nova_senha, otp_id, codigo, email) =>
+    request("/auth/reset-password", {
+      method: "POST",
+      body: { token, nova_senha, otp_id, codigo, email },
+    }),
 };
 
 // ─── Billing (planos e assinatura) ───────────────────────────────────────────

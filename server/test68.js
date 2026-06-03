@@ -1,5 +1,5 @@
 /**
- * Testes correção assinatura PJ x PF (migration 027)
+ * Testes Etapa 6.8 — OTP e-mail/WhatsApp
  * npm run test:68
  */
 import { config } from 'dotenv';
@@ -9,7 +9,12 @@ import bcrypt from 'bcryptjs';
 import { query, pool } from './db.js';
 import { createInitialState } from './initialState.js';
 import { runMigrations } from './migrate.js';
-import { corrigirAssinaturaSegmento } from './billing/planoCorrecao.js';
+import {
+  gerarOtp,
+  criarEnviarOtp,
+  validarOtp,
+  isWhatsappGatewayConfigured,
+} from './authSecurity/otp.js';
 
 const BASE = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 const TS = Date.now();
@@ -35,17 +40,19 @@ function assert(cond, msg) {
   console.log(`  ✓ ${msg}`);
 }
 
-async function createUser({ email, senha, tipo, nomePerfil }) {
+async function createUser({ email, senha, telefone = '' }) {
   const hash = await bcrypt.hash(senha, 12);
   const ins = await query(
     `INSERT INTO usuarios (
-       email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil, email_verificado
-     ) VALUES ($1,$2,$3,'user',true,$4,$5,true) RETURNING id`,
-    [email, hash, nomePerfil, tipo, nomePerfil]
+       email, senha_hash, nome, role, ativo, tipo_perfil, nome_perfil,
+       email_verificado, telefone_verificado, telefone
+     ) VALUES ($1,$2,'OTP Test','user',true,'fisica','OTP Test',true,false,$3)
+     RETURNING id, email`,
+    [email, hash, telefone]
   );
   await query('INSERT INTO estados (usuario_id, dados) VALUES ($1,$2)', [
     ins.rows[0].id,
-    JSON.stringify(createInitialState(tipo, nomePerfil)),
+    JSON.stringify(createInitialState('fisica', 'OTP Test')),
   ]);
   return ins.rows[0];
 }
@@ -59,75 +66,137 @@ async function cleanup(email) {
   const { rows } = await query('SELECT id FROM usuarios WHERE email = $1', [email]);
   if (!rows.length) return;
   const id = rows[0].id;
-  await query('DELETE FROM assinaturas WHERE usuario_id = $1', [id]);
+  await query('DELETE FROM otps WHERE usuario_id = $1', [id]);
+  await query('DELETE FROM login_audits WHERE usuario_id = $1', [id]);
   await query('DELETE FROM estados WHERE usuario_id = $1', [id]);
   await query('DELETE FROM usuarios WHERE id = $1', [id]);
 }
 
 async function main() {
-  console.log('=== Testes correção plano PJ (027) ===\n');
+  console.log('=== Testes Etapa 6.8 — OTP ===\n');
   await runMigrations();
 
-  const email = `test_68_pj_${TS}@test.local`;
+  const email = `test_68_otp_${TS}@test.local`;
   const pass = 'test123456';
   await cleanup(email);
+  const user = await createUser({ email, senha: pass, telefone: '5599999887766' });
 
-  const user = await createUser({
-    email,
-    senha: pass,
-    tipo: 'juridica',
-    nomePerfil: 'PJ Legado 68',
+  console.log('--- gerarOtp (hash, nunca código puro persistido) ---');
+  const gen = await gerarOtp();
+  assert(/^\d{6}$/.test(gen.codigo), 'código tem 6 dígitos');
+  assert(gen.codigoHash !== gen.codigo, 'hash difere do código');
+  assert(gen.codigoHash.startsWith('$2'), 'hash bcrypt');
+
+  console.log('\n--- criarEnviarOtp + validar OTP correto ---');
+  const sent = await criarEnviarOtp({
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    canalPreferido: 'email',
   });
+  assert(sent.otp_id, 'otp_id retornado');
+  assert(sent.dev_codigo, 'dev_codigo em ambiente de teste');
 
-  const { rows: freePlan } = await query(`SELECT id FROM planos WHERE slug = 'free'`);
-  assert(freePlan.length, 'plano free existe (legado)');
-
-  await query(
-    `INSERT INTO assinaturas (usuario_id, plano_id, status, inicio_em, trial_ate)
-     VALUES ($1, $2, 'trial', NOW(), NOW() + INTERVAL '14 days')`,
-    [user.id, freePlan[0].id]
+  const { rows: dbOtp } = await query(
+    'SELECT codigo_hash FROM otps WHERE id = $1',
+    [sent.otp_id]
   );
+  assert(dbOtp[0].codigo_hash !== sent.dev_codigo, 'banco não armazena código puro');
 
-  console.log('--- Simula 024: free → pf_basico (bug histórico) ---');
-  const { rows: pfBasico } = await query(`SELECT id FROM planos WHERE slug = 'pf_basico'`);
-  await query(`UPDATE assinaturas SET plano_id = $1 WHERE usuario_id = $2`, [
-    pfBasico[0].id,
-    user.id,
+  const ok = await validarOtp({
+    otpId: sent.otp_id,
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    codigo: sent.dev_codigo,
+  });
+  assert(ok.ok, 'valida OTP correto');
+
+  console.log('\n--- rejeita OTP expirado ---');
+  const sent2 = await criarEnviarOtp({
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    canalPreferido: 'email',
+  });
+  await query(`UPDATE otps SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, [
+    sent2.otp_id,
   ]);
+  const expired = await validarOtp({
+    otpId: sent2.otp_id,
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    codigo: sent2.dev_codigo,
+  });
+  assert(!expired.ok && expired.error.includes('expirado'), 'rejeita OTP expirado');
 
-  const { rows: before } = await query(
-    `SELECT p.slug FROM assinaturas a JOIN planos p ON p.id = a.plano_id WHERE a.usuario_id = $1`,
-    [user.id]
-  );
-  assert(before[0].slug === 'pf_basico', 'PJ legado ficou em pf_basico antes da correção');
+  console.log('\n--- rejeita após tentativas erradas ---');
+  const sent3 = await criarEnviarOtp({
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    canalPreferido: 'email',
+  });
+  for (let i = 0; i < 5; i++) {
+    await validarOtp({
+      otpId: sent3.otp_id,
+      usuarioId: user.id,
+      tipo: 'acao_sensivel',
+      codigo: '000000',
+    });
+  }
+  const blocked = await validarOtp({
+    otpId: sent3.otp_id,
+    usuarioId: user.id,
+    tipo: 'acao_sensivel',
+    codigo: sent3.dev_codigo,
+  });
+  assert(!blocked.ok && blocked.error.includes('tentativas'), 'bloqueia após 5 tentativas');
 
-  console.log('\n--- Runtime / lógica 027 corrige para pj_start ---');
-  const corrected = await corrigirAssinaturaSegmento(user.id);
-  assert(corrected === 'pj_start', 'corrigirAssinaturaSegmento retorna pj_start');
+  console.log('\n--- fallback e-mail se WhatsApp não configurado ---');
+  await query('DELETE FROM otps WHERE usuario_id = $1', [user.id]);
+  const waConfigured = isWhatsappGatewayConfigured();
+  const sentWa = await criarEnviarOtp({
+    usuarioId: user.id,
+    tipo: 'verificar_telefone',
+    canalPreferido: 'whatsapp',
+  });
+  if (!waConfigured) {
+    assert(sentWa.canal === 'email', 'fallback para e-mail sem gateway WhatsApp');
+    assert(sentWa.fallback === true || sentWa.aviso, 'aviso de fallback');
+  } else {
+    assert(['email', 'whatsapp'].includes(sentWa.canal), 'canal válido com gateway');
+  }
 
-  const { rows: afterFix } = await query(
-    `SELECT p.slug FROM assinaturas a JOIN planos p ON p.id = a.plano_id WHERE a.usuario_id = $1`,
-    [user.id]
-  );
-  assert(afterFix[0].slug === 'pj_start', 'após correção: PJ em pj_start (nunca pf_basico)');
-
+  console.log('\n--- API POST /auth/otp/send e /verify ---');
+  await query('DELETE FROM otps WHERE usuario_id = $1', [user.id]);
   const token = await login(email, pass);
-  const { data: sub } = await req('/billing/assinatura', { token });
-  assert(sub.assinatura?.plano?.slug === 'pj_start', 'API assinatura retorna pj_start');
+  const apiSend = await req('/auth/otp/send', {
+    method: 'POST',
+    token,
+    body: { tipo: 'acao_sensivel', canal: 'email' },
+  });
+  assert(apiSend.data.otp_id, 'API send retorna otp_id');
+  assert(apiSend.data.dev_codigo, 'API send dev_codigo');
 
-  const { data: planos } = await req('/billing/planos', { token });
-  const slugs = (planos.planos || []).map((p) => p.slug).sort();
-  assert(slugs.join(',') === 'pj_business,pj_pro,pj_start', 'API planos PJ completos');
-  assert(
-    planos.planos.every((p) => p.recursos?.segmento === 'pj' && p.recursos?.integracaoPfPj),
-    'cards PJ com recursos preenchidos'
-  );
+  const apiVerify = await req('/auth/otp/verify', {
+    method: 'POST',
+    token,
+    body: {
+      otp_id: apiSend.data.otp_id,
+      codigo: apiSend.data.dev_codigo,
+      tipo: 'acao_sensivel',
+    },
+  });
+  assert(apiVerify.data.verified, 'API verify confirma código');
 
-  console.log('\n--- JSON GET /billing/planos (PJ) ---');
-  console.log(JSON.stringify(planos, null, 2));
+  console.log('\n--- change-password exige OTP ---');
+  const noOtp = await req('/auth/change-password', {
+    method: 'PATCH',
+    token,
+    body: { senha_atual: pass, nova_senha: 'nova654321' },
+    allowError: true,
+  });
+  assert(noOtp.status === 400 && noOtp.data.requires_otp, 'change-password exige OTP');
 
   await cleanup(email);
-  console.log('\n=== Testes 68 passaram ===\n');
+  console.log('\n=== Testes 6.8 passaram ===\n');
   await pool.end();
 }
 

@@ -1,8 +1,28 @@
+import jwt from 'jsonwebtoken';
 import { query } from '../db.js';
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
 import { createAndSendEmailVerificationToken, verifyEmailByToken } from './emailVerify.js';
-import { requestPasswordReset, resetPasswordWithToken } from './passwordReset.js';
+import { requestPasswordReset, resetPasswordWithToken, resetPasswordWithOtp } from './passwordReset.js';
 import { getLastSuccessfulLogin } from './loginAudit.js';
+import {
+  criarEnviarOtp,
+  validarOtp,
+  getUsuarioForOtp,
+} from './otp.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_MUDE_ANTES_DE_USAR';
+
+function optionalAuth(req, _res, next) {
+  const header = req.headers.authorization;
+  if (header?.startsWith('Bearer ')) {
+    try {
+      req.user = jwt.verify(header.slice(7), JWT_SECRET);
+    } catch {
+      /* token inválido — rotas públicas seguem sem usuário */
+    }
+  }
+  next();
+}
 
 export function registerSecurityRoutes(app) {
   app.get('/api/auth/security', authMiddleware, activeMiddleware, async (req, res) => {
@@ -96,12 +116,22 @@ export function registerSecurityRoutes(app) {
   });
 
   app.post('/api/auth/reset-password', async (req, res) => {
-    const { token, nova_senha } = req.body || {};
-    if (!token || !nova_senha) {
-      return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
+    const { token, nova_senha, otp_id, codigo, email } = req.body || {};
+    if (!nova_senha) {
+      return res.status(400).json({ error: 'Nova senha é obrigatória.' });
     }
 
     try {
+      if (otp_id && codigo) {
+        const result = await resetPasswordWithOtp({ otpId: otp_id, codigo, novaSenha: nova_senha, email });
+        if (!result.ok) return res.status(400).json({ error: result.error });
+        return res.json({ ok: true, message: 'Senha redefinida com sucesso.' });
+      }
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token ou código OTP é obrigatório.' });
+      }
+
       const result = await resetPasswordWithToken(token, nova_senha);
       if (!result.ok) return res.status(400).json({ error: result.error });
 
@@ -109,6 +139,136 @@ export function registerSecurityRoutes(app) {
     } catch (err) {
       console.error('reset-password:', err.message);
       res.status(500).json({ error: 'Erro ao redefinir senha.' });
+    }
+  });
+
+  app.post('/api/auth/otp/send', optionalAuth, async (req, res) => {
+    const { tipo, canal, email, otp_id } = req.body || {};
+    let usuarioId = req.user?.id;
+
+    try {
+      if (!usuarioId) {
+        if (otp_id) {
+          const u = await getUsuarioForOtp({ otpId: otp_id });
+          if (!u) return res.status(400).json({ error: 'Sessão OTP inválida.' });
+          usuarioId = u.id;
+        } else if (email && tipo === 'reset_senha') {
+          const u = await getUsuarioForOtp({ email });
+          if (!u) {
+            return res.json({
+              ok: true,
+              message: 'Se o e-mail existir, enviaremos um código.',
+            });
+          }
+          usuarioId = u.id;
+        } else {
+          return res.status(401).json({ error: 'Autenticação ou e-mail necessário.' });
+        }
+      }
+
+      if (!tipo) return res.status(400).json({ error: 'tipo é obrigatório.' });
+
+      if (['acao_sensivel', 'verificar_telefone'].includes(tipo) && !req.user?.id) {
+        return res.status(401).json({ error: 'Autenticação necessária.' });
+      }
+
+      const result = await criarEnviarOtp({
+        usuarioId,
+        tipo,
+        canalPreferido: canal === 'whatsapp' ? 'whatsapp' : 'email',
+      });
+
+      res.json({
+        ok: true,
+        message: 'Código enviado.',
+        ...result,
+      });
+    } catch (err) {
+      if (err.code === 'OTP_RATE_LIMIT') {
+        return res.status(429).json({ error: err.message });
+      }
+      console.error('otp/send:', err.message);
+      res.status(500).json({ error: err.message || 'Erro ao enviar código.' });
+    }
+  });
+
+  app.post('/api/auth/otp/verify', optionalAuth, async (req, res) => {
+    const { otp_id, codigo, tipo, email } = req.body || {};
+
+    if (!otp_id || !codigo) {
+      return res.status(400).json({ error: 'otp_id e codigo são obrigatórios.' });
+    }
+
+    try {
+      let usuarioId = req.user?.id;
+      if (!usuarioId && email) {
+        const u = await getUsuarioForOtp({ email });
+        usuarioId = u?.id;
+      }
+
+      const result = await validarOtp({
+        otpId: otp_id,
+        usuarioId: usuarioId || undefined,
+        tipo,
+        codigo,
+      });
+
+      if (!result.ok) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      if (tipo === 'login_suspeito') {
+        const { rows } = await query(
+          `SELECT id, email, nome, role, tipo_perfil, nome_perfil, ativo
+           FROM usuarios WHERE id = $1`,
+          [result.usuario_id]
+        );
+        const user = rows[0];
+        if (!user?.ativo) {
+          return res.status(403).json({ error: 'Conta desativada.' });
+        }
+
+        const { resetLoginAttempts } = await import('./bruteForce.js');
+        const { recordLoginAudit } = await import('./loginAudit.js');
+        const { getRequestMeta } = await import('./requestMeta.js');
+        await resetLoginAttempts(user.id);
+        await recordLoginAudit({
+          usuarioId: user.id,
+          ip: getRequestMeta(req).ip,
+          userAgent: getRequestMeta(req).userAgent,
+          sucesso: true,
+        });
+        await query('UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = $1', [user.id]);
+
+        const { signToken } = await import('../middleware/auth.js');
+        const token = signToken({ id: user.id, email: user.email, role: user.role });
+
+        return res.json({
+          ok: true,
+          verified: true,
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            nome: user.nome,
+            role: user.role,
+            tipo_perfil: user.tipo_perfil || 'juridica',
+            nome_perfil: user.nome_perfil || user.nome,
+          },
+        });
+      }
+
+      if (tipo === 'verificar_telefone') {
+        await query(
+          `UPDATE usuarios SET telefone_verificado = true, updated_at = NOW() WHERE id = $1`,
+          [result.usuario_id]
+        );
+      }
+
+      res.json({ ok: true, verified: true, usuario_id: result.usuario_id });
+    } catch (err) {
+      console.error('otp/verify:', err.message);
+      res.status(500).json({ error: 'Erro ao validar código.' });
     }
   });
 }

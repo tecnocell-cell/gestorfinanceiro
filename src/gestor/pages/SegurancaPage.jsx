@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { authApi } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import { AlertTriangle } from "../components/icons.jsx";
+import OtpModal from "../components/OtpModal.jsx";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -25,6 +26,9 @@ export default function SegurancaPage() {
 
   const [pwd, setPwd] = useState({ atual: "", nova: "", confirma: "" });
   const [changingPwd, setChangingPwd] = useState(false);
+  const [otpModal, setOtpModal] = useState(null);
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [telefone, setTelefone] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -92,14 +96,87 @@ export default function SegurancaPage() {
     }
     setChangingPwd(true);
     try {
-      await authApi.changePassword(pwd.atual, pwd.nova);
-      setMsg("Senha alterada com sucesso.");
-      setPwd({ atual: "", nova: "", confirma: "" });
+      const sent = await authApi.otpSend({ tipo: "acao_sensivel", canal: "email" });
+      setOtpModal({
+        mode: "change_password",
+        otp_id: sent.otp_id,
+        expires_at: sent.expires_at,
+        canal: sent.canal,
+        destino_mascarado: sent.destino_mascarado,
+        aviso: sent.aviso,
+        ttl_minutes: sent.ttl_minutes,
+      });
+      setMsg("Enviamos um código para confirmar a alteração de senha.");
     } catch (err) {
-      setError(err.message || "Não foi possível alterar a senha.");
+      setError(err.message || "Não foi possível enviar o código.");
     } finally {
       setChangingPwd(false);
     }
+  };
+
+  const confirmChangePassword = async ({ otp_id, codigo }) => {
+    setOtpBusy(true);
+    try {
+      await authApi.changePassword(pwd.atual, pwd.nova, otp_id, codigo);
+      setMsg("Senha alterada com sucesso.");
+      setPwd({ atual: "", nova: "", confirma: "" });
+      setOtpModal(null);
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    setMsg("");
+    setError("");
+    if (!telefone.trim()) {
+      setError("Informe o telefone para verificação.");
+      return;
+    }
+    try {
+      const sent = await authApi.otpSend({
+        tipo: "verificar_telefone",
+        canal: "whatsapp",
+      });
+      setOtpModal({
+        mode: "verify_phone",
+        otp_id: sent.otp_id,
+        expires_at: sent.expires_at,
+        canal: sent.canal,
+        destino_mascarado: sent.destino_mascarado,
+        aviso: sent.aviso,
+        ttl_minutes: sent.ttl_minutes,
+      });
+      setMsg("Código enviado para verificação do telefone.");
+    } catch (err) {
+      setError(err.message || "Falha ao enviar código.");
+    }
+  };
+
+  const confirmVerifyPhone = async ({ otp_id, codigo }) => {
+    setOtpBusy(true);
+    try {
+      await authApi.otpVerify({ otp_id, codigo, tipo: "verificar_telefone" });
+      setMsg("Telefone verificado com sucesso.");
+      setOtpModal(null);
+      await load();
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    if (!otpModal) return;
+    const tipo = otpModal.mode === "verify_phone" ? "verificar_telefone" : "acao_sensivel";
+    const data = await authApi.otpSend({ tipo, canal: otpModal.canal || "email" });
+    setOtpModal((prev) => ({
+      ...prev,
+      otp_id: data.otp_id,
+      expires_at: data.expires_at,
+      canal: data.canal,
+      destino_mascarado: data.destino_mascarado,
+      aviso: data.aviso,
+    }));
   };
 
   const verified = Boolean(security?.email_verificado);
@@ -186,6 +263,27 @@ export default function SegurancaPage() {
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">Verificação de telefone / WhatsApp</div>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 12 }}>
+          Confirme seu número para recursos que usam WhatsApp. Se o gateway não estiver
+          configurado, o código será enviado por e-mail.
+        </p>
+        <div className="form-group">
+          <label className="form-label">Telefone (com DDD)</label>
+          <input
+            className="form-input"
+            type="tel"
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+            placeholder="5599999999999"
+          />
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={handleVerifyPhone}>
+          Enviar código de verificação
+        </button>
+      </div>
+
       <div className="card">
         <div className="card-title">Alterar senha</div>
         <form onSubmit={handleChangePassword}>
@@ -228,11 +326,34 @@ export default function SegurancaPage() {
           </div>
           <div style={{ marginTop: 16 }}>
             <button type="submit" className="btn btn-primary" disabled={changingPwd}>
-              {changingPwd ? "Salvando…" : "Atualizar senha"}
+              {changingPwd ? "Enviando código…" : "Solicitar código e alterar senha"}
             </button>
           </div>
         </form>
       </div>
+
+      <OtpModal
+        open={Boolean(otpModal)}
+        title={
+          otpModal?.mode === "verify_phone"
+            ? "Verificar telefone"
+            : "Confirmar alteração de senha"
+        }
+        subtitle="Digite o código de 6 dígitos enviado."
+        otpId={otpModal?.otp_id}
+        expiresAt={otpModal?.expires_at}
+        ttlMinutes={otpModal?.ttl_minutes || 10}
+        aviso={otpModal?.aviso}
+        destinoMascarado={otpModal?.destino_mascarado}
+        canal={otpModal?.canal}
+        tipo={otpModal?.mode === "verify_phone" ? "verificar_telefone" : "acao_sensivel"}
+        busy={otpBusy}
+        onVerify={
+          otpModal?.mode === "verify_phone" ? confirmVerifyPhone : confirmChangePassword
+        }
+        onResend={resendOtp}
+        onClose={() => setOtpModal(null)}
+      />
     </div>
   );
 }
