@@ -13,7 +13,7 @@ import {
 const PAGE_CSS = `
 .plan-page-header { margin-bottom: 20px; }
 .plan-page-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
-.plan-page-sub { font-size: 13px; color: var(--muted); margin: 0; }
+.plan-page-sub { font-size: 13px; color: var(--muted-foreground); margin: 0; }
 
 .plan-summary-grid {
   display: grid;
@@ -33,11 +33,11 @@ const PAGE_CSS = `
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 6px;
 }
 .plan-summary-value { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
-.plan-summary-value--muted { font-size: 13px; font-weight: 600; color: var(--muted); }
+.plan-summary-value--muted { font-size: 13px; font-weight: 600; color: var(--muted-foreground); }
 
 .plan-cards-grid {
   display: grid;
@@ -55,8 +55,17 @@ const PAGE_CSS = `
   overflow: hidden;
   min-height: 420px;
   background: #fff;
+  color: var(--text, #0f172a);
   box-shadow: 0 8px 24px oklch(0.45 0.04 155 / 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.plan-card:not(.plan-card--highlight) .plan-card-title,
+.plan-card:not(.plan-card--highlight) .plan-card-price {
+  color: var(--text, #0f172a);
+}
+.plan-card:not(.plan-card--highlight) .plan-card-tagline,
+.plan-card:not(.plan-card--highlight) .plan-card-interval {
+  color: var(--muted-foreground, #475569);
 }
 .plan-card:hover { transform: translateY(-3px); box-shadow: 0 14px 32px oklch(0.4 0.05 155 / 0.12); }
 .plan-card--current {
@@ -126,8 +135,9 @@ const PAGE_CSS = `
   font-size: 13px;
   line-height: 1.45;
   margin-bottom: 8px;
-  color: var(--muted);
+  color: var(--text);
 }
+.plan-features li span { color: inherit; }
 .plan-card--highlight .plan-features li { color: oklch(0.95 0.02 150); }
 .plan-features li svg { flex-shrink: 0; margin-top: 2px; color: var(--green-dark, #166534); }
 .plan-card--highlight .plan-features li svg { color: #86efac; }
@@ -153,7 +163,7 @@ const PAGE_CSS = `
 .plan-empty-hint {
   padding: 24px;
   text-align: center;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 14px;
   border: 1px dashed oklch(0.85 0.02 150);
   border-radius: 14px;
@@ -219,7 +229,7 @@ function PlanFeatureList({ recursos, highlight }) {
   const items = buildPlanFeatureItems(recursos);
   if (!items.length) {
     return (
-      <p style={{ fontSize: 13, color: "var(--muted)", padding: "0 20px" }}>
+      <p style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "0 20px" }}>
         Recursos do plano indisponíveis. Execute as migrations 024 e 027 no servidor.
       </p>
     );
@@ -336,7 +346,7 @@ function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
 
   return (
     <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 12 }}>
         Resumo · {segmentoLabel}
       </div>
       <div className="plan-summary-grid">
@@ -495,14 +505,14 @@ export default function PlanoAssinaturaPage() {
             <AlertTriangle size={18} strokeWidth={2} aria-hidden />
             Cobrança real não configurada
           </div>
-          <p style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>
+          <p style={{ fontSize: 13, margin: 0, color: "var(--muted-foreground)" }}>
             Configure ASAAS_API_KEY no servidor para PIX e webhooks. A simulação de planos continua
             disponível em ambiente de teste.
           </p>
         </div>
       )}
 
-      {loading && <p style={{ fontSize: 13, color: "var(--muted)" }}>Carregando…</p>}
+      {loading && <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando…</p>}
 
       {error && (
         <div className="login-error" style={{ marginBottom: 12 }}>
@@ -521,7 +531,7 @@ export default function PlanoAssinaturaPage() {
       {pixCheckout?.pix?.copy_paste && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">PIX — pagamento pendente</div>
-          <p style={{ fontSize: 12, color: "var(--muted)" }}>
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
             Plano: {pixCheckout.plano_slug} · Vencimento: {formatDate(pixCheckout.vencimento)}
           </p>
           <textarea
@@ -631,7 +641,7 @@ export default function PlanoAssinaturaPage() {
               Faturas
             </div>
             {faturas.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--muted)" }}>Nenhuma fatura.</p>
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhuma fatura.</p>
             ) : (
               <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
                 <thead>
@@ -658,7 +668,7 @@ export default function PlanoAssinaturaPage() {
               Pagamentos
             </div>
             {pagamentos.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--muted)" }}>Nenhum pagamento.</p>
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhum pagamento.</p>
             ) : (
               <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
                 <thead>
