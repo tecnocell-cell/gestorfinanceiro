@@ -1,5 +1,6 @@
 import { getOpenFinanceConfig } from './config.js';
 import { createConnectionViaProvider, getProviderName } from './providerFactory.js';
+import { startPluggyConnect, buildPluggyConnectionPayload } from './providers/pluggy.js';
 import {
   insertConnection,
   insertAccount,
@@ -9,18 +10,79 @@ import {
 
 export async function getModuleStatus() {
   const config = getOpenFinanceConfig();
+  const providerLabel =
+    config.provider === 'pluggy' ? 'Pluggy'
+      : config.provider === 'belvo' ? 'Belvo'
+        : 'Mock (demo)';
+
+  let message;
+  if (config.demoMode) {
+    message = 'Modo demonstração: use Banco Demo Fluxiva. Para Open Finance real, configure OPENFINANCE_PROVIDER=pluggy e credenciais Pluggy no servidor.';
+  } else if (config.provider === 'pluggy' && config.pluggyReady) {
+    message = 'Open Finance real via Pluggy configurado. Conecte instituições suportadas pelo provedor (não é conexão direta Nubank/Itaú).';
+  } else if (config.provider === 'pluggy') {
+    message = 'OPENFINANCE_PROVIDER=pluggy, mas credenciais incompletas. Defina OPENFINANCE_CLIENT_ID, OPENFINANCE_CLIENT_SECRET e OPENFINANCE_BASE_URL.';
+  } else if (config.realProviderConfigured) {
+    message = `Provider ${config.provider} configurado.`;
+  } else {
+    message = `Provider ${config.provider} selecionado, mas credenciais incompletas.`;
+  }
+
   return {
     enabled: true,
     provider: config.provider,
+    providerLabel,
     demoMode: config.demoMode,
     realProviderConfigured: config.realProviderConfigured,
     pluggyReady: config.pluggyReady,
     belvoReady: config.belvoReady,
-    message: config.demoMode
-      ? 'Modo demonstração (mock). Credenciais Pluggy/Belvo não são necessárias.'
-      : config.realProviderConfigured
-        ? `Provider ${config.provider} configurado.`
-        : `Provider ${config.provider} selecionado, mas credenciais incompletas. Use mock em desenvolvimento.`,
+    canStartPluggyConnect: config.canStartPluggyConnect,
+    credentialsMissing: config.provider === 'pluggy' && !config.pluggyReady,
+    message,
+  };
+}
+
+export async function initPluggyConnectForUser(usuarioId) {
+  return startPluggyConnect({ clientUserId: String(usuarioId) });
+}
+
+export async function completePluggyConnectionForUser(db, usuarioId, { itemId }) {
+  if (!itemId || !String(itemId).trim()) {
+    const err = new Error('Campo itemId é obrigatório (retornado pelo Pluggy Connect após autorização).');
+    err.status = 400;
+    throw err;
+  }
+
+  const itemIdStr = String(itemId).trim();
+  const existing = await listConnections(db, usuarioId);
+  const dup = existing.find((c) => c.provider === 'pluggy' && c.provider_item_id === itemIdStr);
+  if (dup) {
+    const err = new Error('Esta conexão Pluggy já está vinculada à sua conta.');
+    err.status = 409;
+    throw err;
+  }
+
+  const payload = await buildPluggyConnectionPayload(itemIdStr);
+
+  const connection = await insertConnection(db, usuarioId, {
+    provider: payload.provider,
+    institutionName: payload.institutionName,
+    status: payload.status,
+    consentId: payload.consentId,
+    providerItemId: payload.providerItemId,
+  });
+
+  const accounts = [];
+  for (const acc of payload.accounts || []) {
+    const row = await insertAccount(db, connection.id, acc);
+    accounts.push(row);
+  }
+
+  return {
+    connection,
+    accounts,
+    provider: 'pluggy',
+    pluggyItemStatus: payload.pluggyItemStatus,
   };
 }
 

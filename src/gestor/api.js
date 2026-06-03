@@ -176,6 +176,10 @@ export const conexoesApi = {
 export const openFinanceApi = {
   status: () => request("/open-finance/status"),
   listConnections: () => request("/open-finance/connections"),
+  initConnect: () =>
+    request("/open-finance/connect/init", { method: "POST", body: {} }),
+  completePluggyConnection: (itemId) =>
+    request("/open-finance/connections/pluggy", { method: "POST", body: { itemId } }),
   createMockConnection: (body = {}) =>
     request("/open-finance/connections/mock", { method: "POST", body }),
   syncConnection: (connectionId, contaId, planoId) =>

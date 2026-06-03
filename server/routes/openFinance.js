@@ -4,6 +4,8 @@
  * GET    /api/open-finance/status
  * GET    /api/open-finance/connections
  * POST   /api/open-finance/connections/mock
+ * POST   /api/open-finance/connect/init
+ * POST   /api/open-finance/connections/pluggy
  * POST   /api/open-finance/connections/:id/sync
  * DELETE /api/open-finance/connections/:id
  * GET    /api/open-finance/transactions
@@ -13,7 +15,13 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
-import { getModuleStatus, createMockConnectionForUser, getConnectionsWithAccounts } from '../openFinance/connectionService.js';
+import {
+  getModuleStatus,
+  createMockConnectionForUser,
+  getConnectionsWithAccounts,
+  initPluggyConnectForUser,
+  completePluggyConnectionForUser,
+} from '../openFinance/connectionService.js';
 import { syncConnection } from '../openFinance/syncService.js';
 import {
   findConnection,
@@ -50,6 +58,59 @@ router.get('/connections', async (req, res) => {
   } catch (err) {
     console.error('open-finance/connections:', err.message);
     return res.status(500).json({ error: 'Erro ao listar conexões.' });
+  }
+});
+
+router.post('/connect/init', async (req, res) => {
+  const usuarioId = req.user.id;
+  try {
+    const result = await initPluggyConnectForUser(usuarioId);
+    return res.json({
+      provider: result.provider,
+      connectToken: result.connectToken,
+      expiresInMinutes: result.expiresInMinutes,
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: err.message,
+        code: err.code || undefined,
+        credentialsMissing: err.status === 503,
+      });
+    }
+    console.error('open-finance/connect/init:', err.message);
+    return res.status(500).json({ error: 'Erro ao iniciar conexão Open Finance.' });
+  }
+});
+
+router.post('/connections/pluggy', async (req, res) => {
+  const usuarioId = req.user.id;
+  const { itemId } = req.body || {};
+
+  try {
+    const result = await completePluggyConnectionForUser(pool, usuarioId, { itemId });
+    return res.status(201).json({
+      connection: {
+        id: result.connection.id,
+        provider: result.connection.provider,
+        institutionName: result.connection.institution_name,
+        status: result.connection.status,
+        providerItemId: result.connection.provider_item_id,
+        createdAt: result.connection.created_at,
+      },
+      accounts: result.accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        balance: Number(a.balance),
+      })),
+      provider: result.provider,
+      pluggyItemStatus: result.pluggyItemStatus,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('open-finance/connections/pluggy:', err.message);
+    return res.status(500).json({ error: 'Erro ao registrar conexão Pluggy.' });
   }
 });
 

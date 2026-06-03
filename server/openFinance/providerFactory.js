@@ -23,17 +23,26 @@ export async function createConnectionViaProvider(opts = {}) {
 }
 
 export async function fetchTransactionsViaProvider(connectionRow, accountsRows) {
+  const connectionProvider = connectionRow.provider || getOpenFinanceConfig().provider;
   const config = getOpenFinanceConfig();
+
+  if (connectionProvider === 'mock') {
+    return fetchMockTransactions({
+      id: connectionRow.id,
+      accounts: accountsRows,
+    });
+  }
+
   assertProviderOperational(config);
 
   const connection = {
     id: connectionRow.id,
-    provider: connectionRow.provider,
+    provider: connectionProvider,
     provider_item_id: connectionRow.provider_item_id,
     accounts: accountsRows,
   };
 
-  switch (config.provider) {
+  switch (connectionProvider) {
     case 'pluggy':
       return fetchPluggyTransactions(connection);
     case 'belvo':

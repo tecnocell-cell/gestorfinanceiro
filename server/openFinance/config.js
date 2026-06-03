@@ -13,16 +13,21 @@ export function getOpenFinanceConfig() {
 
   const hasCredentials = Boolean(clientId && clientSecret);
 
+  const pluggyReady = provider === 'pluggy' && hasCredentials && Boolean(baseUrl);
+  const belvoReady = provider === 'belvo' && hasCredentials && Boolean(baseUrl);
+
   return {
     provider,
     clientId,
     clientSecret,
     baseUrl,
     demoMode: provider === 'mock',
-    pluggyReady: provider === 'pluggy' && hasCredentials && Boolean(baseUrl),
-    belvoReady: provider === 'belvo' && hasCredentials && Boolean(baseUrl),
-    realProviderConfigured:
-      (provider === 'pluggy' || provider === 'belvo') && hasCredentials,
+    pluggyReady,
+    belvoReady,
+    realProviderConfigured: pluggyReady || belvoReady,
+    credentialsPresent: hasCredentials,
+    credentialsComplete: hasCredentials && Boolean(baseUrl),
+    canStartPluggyConnect: pluggyReady,
   };
 }
 
