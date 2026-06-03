@@ -12,6 +12,7 @@ import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
   CircleDollarSign, ArrowRight, ArrowDownRight, Lock, CalendarDays, PenLine, Trash2, Pause, Play,
 } from "../components/icons.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 
 const TAB_VINCULO = "vinculo";
 const TABS_FINANCEIRAS = ["prolabore", "lucros", "salario", "transferencia", "agendamentos", "historico"];
@@ -1060,6 +1061,7 @@ export default function IntegracaoPfPjPage() {
       </div>
 
       <div className="of-section">
+        {contaPJ && <PlanLimitNotice feature="integracaoPfPj" />}
         {!contaPJ && (
           <div className="alert alert-warn" style={{ marginBottom: 16 }}>
             Esta área é exclusiva para contas Pessoa Jurídica.

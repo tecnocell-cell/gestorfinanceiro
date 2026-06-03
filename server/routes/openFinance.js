@@ -31,9 +31,21 @@ import {
   countTransactions,
 } from '../openFinance/repository.js';
 import { reaisFromCentavos } from '../utils/money.js';
+import { assertOpenFinanceReal, handlePlanAccessError } from '../billing/accessControl.js';
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
+
+async function guardOpenFinanceReal(req, res, next) {
+  try {
+    await assertOpenFinanceReal(req.user.id);
+    next();
+  } catch (err) {
+    const handled = handlePlanAccessError(res, err);
+    if (handled) return handled;
+    next(err);
+  }
+}
 
 function parsePagination(query) {
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 100);
@@ -61,7 +73,7 @@ router.get('/connections', async (req, res) => {
   }
 });
 
-router.post('/connect/init', async (req, res) => {
+router.post('/connect/init', guardOpenFinanceReal, async (req, res) => {
   const usuarioId = req.user.id;
   try {
     const result = await initPluggyConnectForUser(usuarioId);
@@ -83,7 +95,7 @@ router.post('/connect/init', async (req, res) => {
   }
 });
 
-router.post('/connections/pluggy', async (req, res) => {
+router.post('/connections/pluggy', guardOpenFinanceReal, async (req, res) => {
   const usuarioId = req.user.id;
   const { itemId } = req.body || {};
 

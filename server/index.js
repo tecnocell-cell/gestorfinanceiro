@@ -22,6 +22,7 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { registerSecurityRoutes } from "./authSecurity/routes.js";
 import { registerBillingRoutes } from "./billing/routes.js";
+import { validateStateSave } from "./billing/accessControl.js";
 import { isAccountVerified } from "./verification.js";
 import { getRequestMeta } from "./authSecurity/requestMeta.js";
 import { recordLoginAudit } from "./authSecurity/loginAudit.js";
@@ -272,6 +273,24 @@ app.put("/api/state", authMiddleware, activeMiddleware, async (req, res) => {
     toSave = stripLancamentosIntegracaoRollback(toSave, rollbackIds);
     if (isValid(toSave)) {
       toSave = normalizeStateForUser(toSave, profile);
+    }
+
+    const { rows: oldStateRows } = await query(
+      "SELECT dados FROM estados WHERE usuario_id = $1",
+      [req.user.id]
+    );
+    const validation = await validateStateSave(
+      req.user.id,
+      oldStateRows[0]?.dados,
+      toSave
+    );
+    if (!validation.ok) {
+      return res.status(403).json({
+        error: validation.error,
+        code: validation.code,
+        recurso: validation.recurso,
+        limite: validation.limite,
+      });
     }
 
     await query(

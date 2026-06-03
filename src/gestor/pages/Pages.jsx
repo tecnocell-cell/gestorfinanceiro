@@ -12,6 +12,7 @@ import {
 import { getIntegracaoOperacaoLabel } from "../integracaoPfPjLabels.js";
 import { labelInstituicaoConta } from "../bancosBrasil.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import {
@@ -207,6 +208,7 @@ export function LancamentosPage() {
 
   return (
     <div className="lanc-premium">
+      <PlanLimitNotice limitKey="lancamentos" />
       <div className="lanc-toolbar">
         <div className="lanc-toolbar-row">
           <PeriodToolbar />
@@ -1162,6 +1164,8 @@ function CadastroTable({ items, onAdd, onEdit, onDelete, label }) {
 export function ClientesPage() {
   const { clientes, openModal, clienteCrud } = useGestor();
   return (
+    <>
+    <PlanLimitNotice limitKey="clientes" />
     <CadastroTable
       items={clientes}
       label="Cliente"
@@ -1169,6 +1173,7 @@ export function ClientesPage() {
       onEdit={(x) => openModal("cliente", x)}
       onDelete={clienteCrud.remove}
     />
+    </>
   );
 }
 

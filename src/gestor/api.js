@@ -105,6 +105,7 @@ export const authApi = {
 export const billingApi = {
   planos: () => request("/billing/planos"),
   assinatura: () => request("/billing/assinatura"),
+  usage: () => request("/billing/usage"),
   faturas: () => request("/billing/faturas"),
   pagamentos: () => request("/billing/pagamentos"),
   checkout: (plano_slug) =>

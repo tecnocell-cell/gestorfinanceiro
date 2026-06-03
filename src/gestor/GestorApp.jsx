@@ -134,6 +134,15 @@ export default function GestorApp() {
   const goTo = (p) => { setPage(p); setSidebarOpen(false); };
   const goToAdmin = () => { exitAsTenant(); goTo("super-admin"); };
 
+  useEffect(() => {
+    const onNavigate = (e) => {
+      const target = e.detail?.page;
+      if (target) goTo(target);
+    };
+    window.addEventListener("gestor-navigate", onNavigate);
+    return () => window.removeEventListener("gestor-navigate", onNavigate);
+  }, []);
+
   const handleEnterTenant = async (tenantUser) => {
     try {
       await enterAsTenant(tenantUser);

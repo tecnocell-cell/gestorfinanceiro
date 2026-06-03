@@ -11,6 +11,7 @@ import {
 } from "../centroCusto.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { Layers, PenLine, Pause } from "../components/icons.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 
 function PeriodoHint({ filterPeriodo }) {
   const { ano, mes } = filterPeriodo || {};
@@ -209,6 +210,7 @@ function Conteudo({ pfMode = false }) {
 
   return (
     <div>
+      <PlanLimitNotice feature="centroCusto" limitKey="centrosCusto" />
       <PeriodoHint filterPeriodo={filterPeriodo} />
       <CadastroCentros
         viewOnly={viewOnly}

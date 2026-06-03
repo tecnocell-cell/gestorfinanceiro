@@ -12,6 +12,7 @@ import {
   Upload, CheckCircle, XCircle, Clock, ChevronLeft, Eye, ExternalLink, RefreshCw,
 } from "../components/icons.jsx";
 import PlanilhaImportWizard from "./PlanilhaImportWizard.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 
 const BANCOS = [
   { slug: "nubank",    nome: "Nubank",         sigla: "Nu",   cor: "oklch(0.52 0.22 295)", descricao: "Conta + Cartão de crédito"   },
@@ -1277,6 +1278,7 @@ export default function ConexoesBancariasPage({ onNavigate }) {
 
   return (
     <div className="of-page">
+      <PlanLimitNotice feature="openFinance" />
 
       <div className="of-status-banner" role="status">
         <AlertCircle size={18} strokeWidth={2} aria-hidden />

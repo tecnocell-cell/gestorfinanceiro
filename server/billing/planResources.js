@@ -20,6 +20,9 @@ const PF_BASICO = {
   limiteUsuarios: 1,
   limiteWhatsappNumeros: 1,
   limiteLancamentos: null,
+  limiteClientes: null,
+  limiteProjetos: null,
+  limiteCentrosCusto: null,
   whatsappTexto: true,
   whatsappAudio: false,
   whatsappComprovante: false,
@@ -179,7 +182,7 @@ export function buildLimiteAvisos({ recursos, totalLancamentos = 0 }) {
   const avisos = [];
   const limite = getLimiteLancamentos(recursos);
 
-  if (limite != null && totalLancamentos >= limite) {
+  if (limite != null && totalLancamentos > limite) {
     avisos.push(
       `Você atingiu o limite de ${limite} lançamentos do seu plano. Considere fazer upgrade.`
     );

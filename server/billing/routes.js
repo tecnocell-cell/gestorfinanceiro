@@ -15,6 +15,7 @@ import {
   processAsaasWebhook,
 } from './billingService.js';
 import { verifyWebhookToken } from './gateways/asaas.js';
+import { getBillingUsage } from './accessControl.js';
 
 async function tipoPerfilFromRequest(req) {
   if (req.user?.tipo_perfil) return req.user.tipo_perfil;
@@ -37,6 +38,16 @@ export function registerBillingRoutes(app) {
     } catch (err) {
       console.error('billing/planos:', err.message);
       res.status(500).json({ error: 'Erro ao listar planos.' });
+    }
+  });
+
+  app.get('/api/billing/usage', authMiddleware, activeMiddleware, async (req, res) => {
+    try {
+      const usage = await getBillingUsage(req.user.id);
+      res.json(usage);
+    } catch (err) {
+      console.error('billing/usage:', err.message);
+      res.status(500).json({ error: 'Erro ao carregar uso do plano.' });
     }
   });
 

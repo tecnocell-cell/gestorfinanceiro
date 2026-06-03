@@ -23,6 +23,7 @@
     "test:63": "node server/test63.js",
     "test:64": "node server/test64.js",
     "test:65": "node server/test65.js",
+    "test:66": "node server/test66.js",
     "seed:planos": "node server/billing/seedPlanos.js",
     "test:money": "node server/testFinanceMoney.js",
     "test:money-full": "node server/testMoneyFull.js",

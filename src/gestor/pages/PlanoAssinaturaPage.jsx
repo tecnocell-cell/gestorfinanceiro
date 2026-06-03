@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import { billingApi } from "../api.js";
 import { AlertTriangle } from "../components/icons.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -105,6 +106,7 @@ export default function PlanoAssinaturaPage() {
   const [busy, setBusy] = useState(null);
   const [pixCheckout, setPixCheckout] = useState(null);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [usage, setUsage] = useState(null);
 
   const segmentoLabel =
     user?.tipo_perfil === "fisica" ? "Pessoa Física (PF)" : "Pessoa Jurídica (PJ)";
@@ -113,13 +115,15 @@ export default function PlanoAssinaturaPage() {
     setError("");
     setLoading(true);
     try {
-      const [sub, plans, fat, pays] = await Promise.all([
+      const [sub, plans, fat, pays, uso] = await Promise.all([
         billingApi.assinatura(),
         billingApi.planos(),
         billingApi.faturas().catch(() => ({ faturas: [] })),
         billingApi.pagamentos().catch(() => ({ pagamentos: [] })),
+        billingApi.usage().catch(() => null),
       ]);
       setAssinatura(sub.assinatura);
+      setUsage(uso);
       setPagamentosReais(Boolean(sub.pagamentos_reais ?? plans.pagamentos_reais));
       setPlanos(plans.planos || []);
       setFaturas(fat.faturas || []);
@@ -194,8 +198,17 @@ export default function PlanoAssinaturaPage() {
     assinatura &&
     ["ativa", "atrasada", "trial"].includes(assinatura.status);
 
+  const usageRows = [
+    { key: "lancamentos", label: "Lançamentos" },
+    { key: "clientes", label: "Clientes" },
+    { key: "projetos", label: "Projetos" },
+    { key: "centrosCusto", label: "Centros de custo" },
+    { key: "whatsappNumeros", label: "Números WhatsApp" },
+  ];
+
   return (
     <div>
+      <PlanLimitNotice />
       {!pagamentosReais && (
         <div
           className="card"
@@ -247,6 +260,37 @@ export default function PlanoAssinaturaPage() {
               style={{ maxWidth: 200, marginTop: 8 }}
             />
           )}
+        </div>
+      )}
+
+      {usage && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">Uso do plano</div>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>
+            Status: {STATUS_LABEL[usage.status] || usage.status} · Plano {usage.plano?.nome}
+          </p>
+          <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th>Recurso</th>
+                <th>Em uso</th>
+                <th>Limite</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageRows.map(({ key, label }) => {
+                const usado = usage.uso?.[key] ?? 0;
+                const lim = usage.limites?.[key];
+                return (
+                  <tr key={key}>
+                    <td>{label}</td>
+                    <td>{usado}</td>
+                    <td>{lim == null ? "Ilimitado" : lim}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

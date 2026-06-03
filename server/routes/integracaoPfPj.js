@@ -50,6 +50,7 @@ import {
 } from '../integracaoPfPj/agendamentos.js';
 import { isPessoaFisica, isPessoaJuridica, normalizeTipoPerfil } from '../profileTipo.js';
 import { reaisFromCentavos, resolveValorCentavos } from '../utils/money.js';
+import { assertIntegracaoPfPj, handlePlanAccessError } from '../billing/accessControl.js';
 
 /** Centavos inteiros a partir do body (valorCentavos preferido; nunca float*100). */
 function centavosFromIntegracaoBody(body = {}) {
@@ -62,6 +63,21 @@ function centavosFromIntegracaoBody(body = {}) {
 
 const router = Router();
 router.use(authMiddleware, activeMiddleware);
+
+router.use(async (req, res, next) => {
+  if (req.method === 'GET') return next();
+  if (/\/preview$/i.test(req.path)) return next();
+  // PF aceita/recusa convite sem flag integracaoPfPj no plano PF
+  if (/^\/(aceitar|recusar)$/.test(req.path)) return next();
+  try {
+    await assertIntegracaoPfPj(req.user.id);
+    next();
+  } catch (err) {
+    const handled = handlePlanAccessError(res, err);
+    if (handled) return handled;
+    next(err);
+  }
+});
 
 const VINCULO_COLS = `id, usuario_pj_id, usuario_pf_id, email_pf, nome_pf,
   status, created_at, aceito_em, revogado_em`;

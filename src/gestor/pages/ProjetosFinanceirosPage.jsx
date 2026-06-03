@@ -8,6 +8,7 @@ import { PROJETO_STATUS } from "../projetoFinanceiro.js";
 import { fmtDate } from "../finance.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { Briefcase, PenLine, Pause } from "../components/icons.jsx";
+import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 
 function Conteudo() {
   const { viewOnly, projetos, projetoCrud, clientes, openModal } = useGestor();
@@ -36,6 +37,7 @@ function Conteudo() {
 
   return (
     <div>
+      <PlanLimitNotice feature="projetos" limitKey="projetos" />
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 16px", lineHeight: 1.5 }}>
         Projetos podem ser vinculados a um cliente e referenciados opcionalmente nos lançamentos.
       </p>
