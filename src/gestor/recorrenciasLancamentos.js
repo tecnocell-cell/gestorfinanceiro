@@ -101,7 +101,7 @@ export function getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferenci
   }
 
   const mesProx = monthKeyFromDate(rec.proxima_data);
-  if (mesProx && mesProx < mesReferencia) {
+  if (mesProx && proximaAcimaDoMesReferencia(mesProx, mesReferencia)) {
     return {
       code: "fora_mes",
       label: mesProx ? `Aguardando ${formatMesReferencia(mesProx)}` : "Outro mês",
@@ -179,6 +179,20 @@ export function vencimentoNoMesReferencia(recorrencia, mesReferencia) {
   return `${mesReferencia}-${String(d).padStart(2, "0")}`;
 }
 
+function monthIndex(monthKey) {
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return null;
+  const [y, m] = monthKey.split("-").map(Number);
+  return y * 12 + m;
+}
+
+/** Próxima data ainda “longe” demais para gerar o mês ref. (ex.: prox. ago, ref. jun). */
+function proximaAcimaDoMesReferencia(proximaMonthKey, mesReferencia) {
+  const proxIdx = monthIndex(proximaMonthKey);
+  const refIdx = monthIndex(mesReferencia);
+  if (proxIdx == null || refIdx == null) return false;
+  return proxIdx > refIdx + 1;
+}
+
 /** Pode gerar lançamento do mês ref. (ainda não gerado; ciclo não “futuro” demais). */
 export function podeGerarRecorrenciaNoMes(recorrencia, lancamentos, mesReferencia) {
   if (recorrencia?.status !== "ativa") return false;
@@ -188,8 +202,8 @@ export function podeGerarRecorrenciaNoMes(recorrencia, lancamentos, mesReferenci
 
   const mesProx = monthKeyFromDate(recorrencia.proxima_data);
   if (!mesProx) return false;
-  // proxima em maio, ref junho → ainda não; proxima em julho, ref junho → pode gerar junho
-  return mesProx >= mesReferencia;
+  if (proximaAcimaDoMesReferencia(mesProx, mesReferencia)) return false;
+  return true;
 }
 
 /**
@@ -210,7 +224,7 @@ export function classificarRecorrenciasParaMes(recorrencias, lancamentos, monthK
     }
 
     const mesProx = monthKeyFromDate(rec.proxima_data);
-    if (mesProx && mesProx < monthKey) {
+    if (mesProx && proximaAcimaDoMesReferencia(mesProx, monthKey)) {
       foraDoMes.push(rec);
       continue;
     }

@@ -303,15 +303,17 @@ function ModalGerarMesVencimentos({
   elegiveis,
   jaGeradas,
   semConta,
+  foraDoMes,
   onClose,
   onConfirm,
   loading,
 }) {
+  const mesLabel = formatMesReferencia(monthKey);
   return (
     <ModalShell
       onClose={onClose}
       title="Gerar vencimentos do mês"
-      subtitle={`Referência: ${formatMesReferencia(monthKey)}. Lançamentos entram em A Pagar/Receber como pendentes.`}
+      subtitle={`Referência: ${mesLabel}. Lançamentos entram em A Pagar/Receber como pendentes.`}
       tone="violet"
       size="md"
       footer={
@@ -320,10 +322,34 @@ function ModalGerarMesVencimentos({
           onSave={onConfirm}
           loading={loading}
           disabled={elegiveis.length === 0}
-          saveLabel={loading ? "Gerando…" : `Gerar ${elegiveis.length} lançamento(s)`}
+          saveLabel={
+            loading
+              ? "Gerando…"
+              : elegiveis.length > 0
+                ? `Gerar ${elegiveis.length} lançamento(s)`
+                : "Nada a gerar"
+          }
         />
       }
     >
+      {elegiveis.length === 0 && (
+        <ModalSection label="Nenhuma pendente">
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--text2)" }}>
+            {jaGeradas.length > 0 ? (
+              <>
+                Todas as recorrências com conta já foram lançadas para <strong>{mesLabel}</strong>{" "}
+                ({jaGeradas.length} em aberto ou quitadas). Para quitar, use{" "}
+                <strong>A Pagar / A Receber</strong>. A próxima data só avança ao marcar como pago.
+              </>
+            ) : (
+              <>
+                Não há recorrências ativas elegíveis para <strong>{mesLabel}</strong>.
+                Verifique o mês de referência nos filtros ou vincule uma conta às recorrências.
+              </>
+            )}
+          </p>
+        </ModalSection>
+      )}
       <ModalSection label="Resumo">
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
           <li><strong>{elegiveis.length}</strong> serão gerados (com conta vinculada)</li>
@@ -331,6 +357,11 @@ function ModalGerarMesVencimentos({
           {semConta.length > 0 && (
             <li style={{ color: "var(--warning)" }}>
               <strong>{semConta.length}</strong> sem conta — edite a recorrência antes de gerar
+            </li>
+          )}
+          {foraDoMes?.length > 0 && (
+            <li style={{ color: "var(--text3)" }}>
+              <strong>{foraDoMes.length}</strong> com próxima data em outro mês — use o botão individual na linha
             </li>
           )}
         </ul>
@@ -681,6 +712,8 @@ export default function RecorrenciasPage() {
     };
   })();
 
+  const nElegiveis = classificacaoMes.elegiveis.length;
+
   return (
     <PfPageShell pageId="recorrencias">
       <div className="pp-page-header">
@@ -695,12 +728,20 @@ export default function RecorrenciasPage() {
             <button
               type="button"
               className="pp-btn-secondary"
-              title={`Gera lançamentos pendentes com vencimento em ${formatMesReferencia(mesReferencia)}`}
+              title={
+                nElegiveis > 0
+                  ? `Gerar ${nElegiveis} lançamento(s) com vencimento em ${formatMesReferencia(mesReferencia)}`
+                  : classificacaoMes.jaGeradas.length > 0
+                    ? `Todas já lançadas em ${formatMesReferencia(mesReferencia)} — clique para ver o resumo`
+                    : `Nenhuma recorrência elegível em ${formatMesReferencia(mesReferencia)}`
+              }
               onClick={() => setShowGerarMes(true)}
-              disabled={classificacaoMes.elegiveis.length === 0}
             >
               <CalendarDays size={16} strokeWidth={2} aria-hidden style={{ marginRight: 6, verticalAlign: -2 }} />
               Gerar vencimentos do mês
+              {nElegiveis > 0 && (
+                <span className="pp-btn-badge" style={{ marginLeft: 8 }}>{nElegiveis}</span>
+              )}
             </button>
             <button type="button" className="pp-btn-primary" onClick={() => setShowNova(true)}>
               <span aria-hidden>＋</span> Nova recorrência
@@ -1007,6 +1048,7 @@ export default function RecorrenciasPage() {
           elegiveis={classificacaoMes.elegiveis}
           jaGeradas={classificacaoMes.jaGeradas}
           semConta={classificacaoMes.semConta}
+          foraDoMes={classificacaoMes.foraDoMes}
           onClose={() => setShowGerarMes(false)}
           onConfirm={handleGerarMesConfirm}
           loading={gerarMesLoading}
