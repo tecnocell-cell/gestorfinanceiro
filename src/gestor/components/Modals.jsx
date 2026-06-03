@@ -8,6 +8,7 @@ import {
   labelLancamentoTipo,
   isPerfilFisica,
 } from "../profileLabels.js";
+import { centrosCustoAtivos } from "../centroCusto.js";
 import {
   ModalShell,
   ModalSection,
@@ -170,7 +171,7 @@ const CATEGORIA_TIPO_OPTIONS = [
 
 export function ModalLancamento() {
   const {
-    editingItem, contas, planoContas, clientes, fornecedores,
+    editingItem, contas, planoContas, clientes, fornecedores, centroCustos,
     closeModal, saveLancamento, lancamentos, tipo,
   } = useGestor();
   const isPF = isPerfilFisica(tipo);
@@ -199,6 +200,7 @@ export function ModalLancamento() {
     consiliado:   item?.consiliado    || false,
     clienteId:    item?.clienteId     || "",
     fornecedorId: item?.fornecedorId  || "",
+    centroCustoId: item?.centroCustoId || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -372,6 +374,25 @@ export function ModalLancamento() {
             ))}
           </select>
         </ModalField>
+
+        {(centrosCustoAtivos(centroCustos).length > 0 || form.centroCustoId) && (
+          <ModalField label="Centro de custo / projeto">
+            <select
+              className="form-select"
+              value={form.centroCustoId}
+              onChange={(e) => set("centroCustoId", e.target.value)}
+            >
+              <option value="">— Nenhum (opcional) —</option>
+              {centrosCustoAtivos(centroCustos).map((cc) => (
+                <option key={cc.id} value={cc.id}>{cc.nome}</option>
+              ))}
+              {form.centroCustoId &&
+                !(centroCustos || []).find((c) => c.id === form.centroCustoId && c.status === "ativo") && (
+                <option value={form.centroCustoId}>Centro inativo / legado</option>
+              )}
+            </select>
+          </ModalField>
+        )}
 
         {!isPF && (
           <ModalGrid cols={2}>

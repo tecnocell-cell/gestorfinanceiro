@@ -281,5 +281,8 @@ export function buildLancamentoFromRecorrencia({
     recorrenciaMes: monthKey,
     status: "pendente",
     pago: false,
+    ...(recorrencia.centro_custo_id || recorrencia.centroCustoId
+      ? { centroCustoId: recorrencia.centro_custo_id || recorrencia.centroCustoId }
+      : {}),
   };
 }

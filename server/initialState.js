@@ -49,7 +49,7 @@ function createEmpresaPJ(nome) {
       contas: defaultContasPJ(),
       planoContas: defaultPlanoPJ(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [],
+      fechamentos: [], metas: [], orcamentos: [], centroCustos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -93,7 +93,7 @@ function createPerfilPF(nome) {
       contas: defaultContasPF(),
       planoContas: defaultCategoriasPF(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [],
+      fechamentos: [], metas: [], orcamentos: [], centroCustos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -148,6 +148,7 @@ export function normalizeStateForUser(dados, user) {
     const allMetas = empresas.flatMap((e) => e.metas || []);
     const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
+    const mergedCentroCustos = mergeEmpresaField(empresas, 'centroCustos');
     const mergedPlanoRaw = mergeEmpresaField(empresas, 'planoContas');
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -201,6 +202,9 @@ export function normalizeStateForUser(dados, user) {
     converted.metas = allMetas.length ? allMetas : (converted.metas || []);
     converted.orcamentos = allOrcamentos.length ? allOrcamentos : (converted.orcamentos || []);
     converted.fechamentos = allFechamentos.length ? allFechamentos : (converted.fechamentos || []);
+    converted.centroCustos = mergedCentroCustos.length
+      ? mergedCentroCustos
+      : (converted.centroCustos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -231,6 +235,7 @@ export function normalizeStateForUser(dados, user) {
       fechamentos: emp.fechamentos || [],
       metas: emp.metas || [],
       orcamentos: emp.orcamentos || [],
+      centroCustos: emp.centroCustos || [],
     };
   });
 

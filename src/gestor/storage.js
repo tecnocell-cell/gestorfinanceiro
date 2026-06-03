@@ -39,6 +39,7 @@ export const createEmpresa = (nome = "Nova Empresa") => ({
   fechamentos: [],
   metas: [],
   orcamentos: [],
+  centroCustos: [],
 });
 
 // ─── Pessoa Física ────────────────────────────────────────────────────────────
@@ -89,6 +90,7 @@ export const createPerfil = (nome = "Novo Perfil", tipo = "juridica") => {
       fechamentos: [],
       metas: [],
       orcamentos: [],
+      centroCustos: [],
     };
   }
   return createEmpresa(nome);
@@ -115,10 +117,12 @@ export const loadState = () => {
     parsed.empresas = parsed.empresas.map((emp) => ({
       metas: [],
       orcamentos: [],
+      centroCustos: [],
       pessoa: null,
       tipo: "juridica",
       ...emp,
       fechamentos: emp.fechamentos || [],
+      centroCustos: emp.centroCustos || [],
       contas: (emp.contas || []).map((c) => ({ apelido: "", ...c })),
     }));
     return parsed;
@@ -172,6 +176,7 @@ export const normalizeStateForUser = (dados, user) => {
     const allMetas = empresas.flatMap((e) => e.metas || []);
     const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
+    const mergedCentroCustos = mergeEmpresaField(empresas, "centroCustos");
     const mergedPlanoRaw = mergeEmpresaField(empresas, "planoContas");
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -224,6 +229,9 @@ export const normalizeStateForUser = (dados, user) => {
     converted.metas = allMetas.length ? allMetas : (converted.metas || []);
     converted.orcamentos = allOrcamentos.length ? allOrcamentos : (converted.orcamentos || []);
     converted.fechamentos = allFechamentos.length ? allFechamentos : (converted.fechamentos || []);
+    converted.centroCustos = mergedCentroCustos.length
+      ? mergedCentroCustos
+      : (converted.centroCustos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -250,6 +258,7 @@ export const normalizeStateForUser = (dados, user) => {
       fornecedores: mergedFornecedoresPj.length
         ? mergedFornecedoresPj
         : (emp.fornecedores || []),
+      centroCustos: emp.centroCustos || [],
     };
   });
 

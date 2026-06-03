@@ -254,6 +254,7 @@ export function GestorProvider({ children }) {
   const fechamentos = empresa.fechamentos  || [];
   const metas       = empresa.metas        || [];
   const orcamentos  = empresa.orcamentos   || [];
+  const centroCustos = empresa.centroCustos || [];
   const profileTipo = resolveProfileTipo({
     user,
     impersonatingUser,
@@ -383,6 +384,7 @@ export function GestorProvider({ children }) {
   const fechamentoCrud = crudList("fechamentos");
   const metaCrud       = crudList("metas");
   const orcamentoCrud  = crudList("orcamentos");
+  const centroCustoCrud = crudList("centroCustos");
 
   const saveLancamento = useCallback(
     (data) => {
@@ -398,6 +400,7 @@ export function GestorProvider({ children }) {
         codigoOrigem:   sai?.codigo ?? data.codigoOrigem  ?? null,
         clienteId:      data.clienteId    || null,
         fornecedorId:   data.fornecedorId || null,
+        centroCustoId:  data.centroCustoId || null,
       };
       if (editingItem?.id) {
         lancCrud.update(editingItem.id, payload);
@@ -458,7 +461,7 @@ export function GestorProvider({ children }) {
     state, setState, appLoading, appLoadError,
     empresa, tipo, profileTipo, pessoa,
     company, contas, planoContas, lancamentos, clientes, fornecedores,
-    metas, orcamentos,
+    metas, orcamentos, centroCustos,
     viewOnly,
     impersonatingUser, enterAsTenant, exitAsTenant,
     filterPeriodo, setFilterPeriodo,
@@ -475,7 +478,7 @@ export function GestorProvider({ children }) {
     saveLancamento, markConsiliado, setLancamentos, flushStateSave,
     lancCrud, contaCrud, planoCrud, clienteCrud, fornecedorCrud,
     fechamentos, fechamentoCrud,
-    metaCrud, orcamentoCrud,
+    metaCrud, orcamentoCrud, centroCustoCrud,
     lancsFiltrados, dreAtual, consultaDRE, mensal, balancete, fluxoCaixa,
     getSaldoConta: saldoContaFn,
     getSaldoTotal: saldoTotalFn,
