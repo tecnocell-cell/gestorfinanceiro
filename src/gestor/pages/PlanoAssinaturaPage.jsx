@@ -1,8 +1,164 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import { billingApi } from "../api.js";
-import { AlertTriangle } from "../components/icons.jsx";
+import { AlertTriangle, CircleCheck, Sparkles } from "../components/icons.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
+import {
+  PLAN_BADGES,
+  planIconSlug,
+  buildPlanFeatureItems,
+  usageMetric,
+} from "../planBillingUi.js";
+
+const PAGE_CSS = `
+.plan-page-header { margin-bottom: 20px; }
+.plan-page-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+.plan-page-sub { font-size: 13px; color: var(--muted); margin: 0; }
+
+.plan-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.plan-summary-item {
+  background: linear-gradient(145deg, oklch(0.98 0.01 150), oklch(0.96 0.02 155));
+  border: 1px solid oklch(0.92 0.02 150);
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-height: 72px;
+}
+.plan-summary-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.plan-summary-value { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.plan-summary-value--muted { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+.plan-cards-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
+}
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border-radius: 18px;
+  border: 1px solid oklch(0.9 0.015 150);
+  padding: 0;
+  overflow: hidden;
+  min-height: 420px;
+  background: #fff;
+  box-shadow: 0 8px 24px oklch(0.45 0.04 155 / 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.plan-card:hover { transform: translateY(-3px); box-shadow: 0 14px 32px oklch(0.4 0.05 155 / 0.12); }
+.plan-card--current {
+  border: 2px solid var(--green-dark, #166534);
+  box-shadow: 0 12px 28px oklch(0.45 0.08 155 / 0.18);
+}
+.plan-card--highlight {
+  background: linear-gradient(165deg, oklch(0.28 0.06 155), oklch(0.22 0.05 160));
+  border-color: transparent;
+  color: #fff;
+}
+.plan-card-head {
+  padding: 20px 20px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.plan-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: oklch(0.96 0.03 155);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.plan-card--highlight .plan-card-icon { background: oklch(1 0 0 / 0.12); }
+.plan-card-icon img { width: 28px; height: 28px; object-fit: contain; }
+.plan-card-title { font-size: 17px; font-weight: 700; margin: 0; line-height: 1.2; }
+.plan-card-tagline { font-size: 12px; margin: 4px 0 0; opacity: 0.85; }
+.plan-card-price-row {
+  padding: 0 20px 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.plan-card-price { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.plan-card-interval { font-size: 12px; opacity: 0.75; }
+.plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+.plan-badge--popular { background: linear-gradient(135deg, #86efac, #22c55e); color: #042817; }
+.plan-badge--premium { background: oklch(0.92 0.04 85); color: oklch(0.35 0.08 85); }
+.plan-badge--business { background: oklch(0.35 0.06 260); color: #fff; }
+.plan-card--highlight .plan-badge--popular { box-shadow: 0 4px 12px oklch(0 0 0 / 0.2); }
+.plan-features {
+  list-style: none;
+  margin: 0;
+  padding: 12px 20px;
+  flex: 1;
+}
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+.plan-card--highlight .plan-features li { color: oklch(0.95 0.02 150); }
+.plan-features li svg { flex-shrink: 0; margin-top: 2px; color: var(--green-dark, #166534); }
+.plan-card--highlight .plan-features li svg { color: #86efac; }
+.plan-card-actions {
+  padding: 16px 20px 20px;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plan-current-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: oklch(0.95 0.04 150);
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+.plan-empty-hint {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  border: 1px dashed oklch(0.85 0.02 150);
+  border-radius: 14px;
+}
+`;
 
 function formatDate(value) {
   if (!value) return "—";
@@ -15,13 +171,6 @@ function formatDate(value) {
 
 function formatCentavos(centavos) {
   if (centavos == null) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    centavos / 100
-  );
-}
-
-function formatAddonPreco(centavos) {
-  if (!centavos) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     centavos / 100
   );
@@ -49,47 +198,162 @@ const PAGAMENTO_STATUS = {
   estornado: "Estornado",
 };
 
-function RecursosList({ recursos }) {
-  if (!recursos) return null;
+function PlanBadge({ slug, highlight }) {
+  const badge = PLAN_BADGES[slug];
+  if (!badge) return null;
+  const cls =
+    badge.tone === "business"
+      ? "plan-badge plan-badge--business"
+      : badge.tone === "premium"
+        ? "plan-badge plan-badge--premium"
+        : "plan-badge plan-badge--popular";
+  return (
+    <span className={cls}>
+      {badge.tone === "popular" && <Sparkles size={12} aria-hidden />}
+      {badge.label}
+    </span>
+  );
+}
 
-  const items = [
-    recursos.limiteUsuarios != null ? `${recursos.limiteUsuarios} usuário(s)` : null,
-    recursos.limiteWhatsappNumeros != null
-      ? `${recursos.limiteWhatsappNumeros} número(s) WhatsApp`
-      : null,
-    recursos.limiteLancamentos == null
-      ? "Lançamentos ilimitados"
-      : `Até ${recursos.limiteLancamentos} lançamentos`,
-    recursos.whatsappTexto ? "WhatsApp: texto" : null,
-    recursos.whatsappAudio ? "WhatsApp: áudio" : null,
-    recursos.whatsappComprovante ? "WhatsApp: comprovante" : null,
-    recursos.iaComprovante ? "Leitura de comprovante (IA)" : null,
-    recursos.centroCusto ? "Centro de custo" : null,
-    recursos.dreCompleto ? "DRE completo" : recursos.segmento === "pj" && recursos.centroCusto ? "DRE simplificado" : null,
-    recursos.projetos ? "Projetos financeiros" : null,
-    recursos.integracaoPfPj ? "Integração PF/PJ" : null,
-    recursos.apiAccess ? "API access" : null,
-    recursos.suportePrioritario ? "Suporte prioritário" : null,
-    recursos.openFinance ? "Open Finance (incluso)" : null,
-  ].filter(Boolean);
-
-  const addon = recursos.openFinanceAddon;
-  if (addon && !recursos.openFinance) {
-    items.push(
-      `Open Finance add-on (em breve${addon.futuroPrecoSugeridoCentavos ? ` · ${formatAddonPreco(addon.futuroPrecoSugeridoCentavos)}` : ""})`
+function PlanFeatureList({ recursos, highlight }) {
+  const items = buildPlanFeatureItems(recursos);
+  if (!items.length) {
+    return (
+      <p style={{ fontSize: 13, color: "var(--muted)", padding: "0 20px" }}>
+        Recursos do plano indisponíveis. Execute as migrations 024 e 027 no servidor.
+      </p>
     );
   }
-
-  if (recursos._premiumBloqueado) {
-    items.push("Recursos premium limitados (regularize a assinatura)");
-  }
-
   return (
-    <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, color: "var(--muted)" }}>
-      {items.map((t) => (
-        <li key={t}>{t}</li>
+    <ul className="plan-features">
+      {items.map((text) => (
+        <li key={text}>
+          <CircleCheck size={16} strokeWidth={2} aria-hidden />
+          <span>{text}</span>
+        </li>
       ))}
     </ul>
+  );
+}
+
+function PlanCard({
+  plano,
+  assinatura,
+  currentSlug,
+  pagamentosReais,
+  busy,
+  onSimulate,
+  onCheckout,
+}) {
+  const isCurrent = plano.slug === currentSlug && assinatura?.status !== "trial";
+  const isTrialCurrent = plano.slug === currentSlug && assinatura?.status === "trial";
+  const highlight = Boolean(PLAN_BADGES[plano.slug]?.tone === "popular");
+  const cardClass = [
+    "plan-card",
+    isCurrent || isTrialCurrent ? "plan-card--current" : "",
+    highlight ? "plan-card--highlight" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={cardClass}>
+      <div className="plan-card-head">
+        <div className="plan-card-icon">
+          <img src={planIconSlug(plano.slug)} alt="" aria-hidden />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 className="plan-card-title">{plano.nome}</h3>
+          <p className="plan-card-tagline">{plano.descricao || "Plano Fluxiva"}</p>
+        </div>
+        <PlanBadge slug={plano.slug} highlight={highlight} />
+      </div>
+      <div className="plan-card-price-row">
+        <span className="plan-card-price">{plano.preco_formatado}</span>
+        <span className="plan-card-interval">
+          /{plano.intervalo === "anual" ? "ano" : "mês"}
+        </span>
+      </div>
+      <PlanFeatureList recursos={plano.recursos} highlight={highlight} />
+      <div className="plan-card-actions">
+        {isCurrent || isTrialCurrent ? (
+          <span className="plan-current-pill">
+            <CircleCheck size={14} aria-hidden />
+            {isTrialCurrent ? "Plano do trial" : "Plano atual"}
+          </span>
+        ) : (
+          <>
+            {pagamentosReais && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: "100%" }}
+                disabled={!!busy}
+                onClick={() => onCheckout(plano.slug)}
+              >
+                {busy === `checkout-${plano.slug}` ? "Gerando PIX…" : "Assinar plano"}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: "100%" }}
+              disabled={!!busy}
+              onClick={() => onSimulate(plano.slug)}
+            >
+              {busy === plano.slug ? "Simulando…" : "Simular upgrade"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
+  if (!assinatura) return null;
+  const usuarios = usageMetric(usage?.uso?.usuarios, true);
+  const whatsapp = usageMetric(usage?.uso?.whatsappNumeros, false);
+  const waLim = usage?.limites?.whatsappNumeros ?? whatsapp.limite;
+
+  const items = [
+    { label: "Plano atual", value: assinatura.plano?.nome || "—" },
+    { label: "Status", value: STATUS_LABEL[assinatura.status] || assinatura.status },
+    { label: "Trial até", value: formatDate(assinatura.trial_ate) },
+    { label: "Próxima cobrança", value: formatDate(assinatura.proxima_cobranca) },
+    {
+      label: "Usuários",
+      value:
+        usuarios.limite != null
+          ? `${usuarios.usado} / ${usuarios.limite}`
+          : `${usuarios.usado}`,
+    },
+    {
+      label: "WhatsApp",
+      value: waLim != null ? `${whatsapp.usado} / ${waLim}` : `${whatsapp.usado}`,
+    },
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+        Resumo · {segmentoLabel}
+      </div>
+      <div className="plan-summary-grid">
+        {items.map(({ label, value }) => (
+          <div key={label} className="plan-summary-item">
+            <div className="plan-summary-label">{label}</div>
+            <div
+              className={
+                value === "—" ? "plan-summary-value plan-summary-value--muted" : "plan-summary-value"
+              }
+            >
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -195,8 +459,7 @@ export default function PlanoAssinaturaPage() {
 
   const currentSlug = assinatura?.plano?.slug;
   const canCancel =
-    assinatura &&
-    ["ativa", "atrasada", "trial"].includes(assinatura.status);
+    assinatura && ["ativa", "atrasada", "trial"].includes(assinatura.status);
 
   const usageRows = [
     { key: "lancamentos", label: "Lançamentos" },
@@ -208,8 +471,17 @@ export default function PlanoAssinaturaPage() {
   ];
 
   return (
-    <div>
+    <div className="plan-assinatura-page">
+      <style>{PAGE_CSS}</style>
       <PlanLimitNotice />
+
+      <div className="plan-page-header">
+        <h1 className="plan-page-title">Plano e Assinatura</h1>
+        <p className="plan-page-sub">
+          Gerencie seu plano Fluxiva, limites e cobrança — alinhado aos planos da landing pública.
+        </p>
+      </div>
+
       {!pagamentosReais && (
         <div
           className="card"
@@ -242,6 +514,10 @@ export default function PlanoAssinaturaPage() {
         <div style={{ marginBottom: 12, fontSize: 13, color: "var(--green-dark)" }}>{msg}</div>
       )}
 
+      {!loading && assinatura && (
+        <PlanSummaryBar assinatura={assinatura} usage={usage} segmentoLabel={segmentoLabel} />
+      )}
+
       {pixCheckout?.pix?.copy_paste && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">PIX — pagamento pendente</div>
@@ -266,10 +542,7 @@ export default function PlanoAssinaturaPage() {
 
       {usage && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title">Uso do plano</div>
-          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>
-            Status: {STATUS_LABEL[usage.status] || usage.status} · Plano {usage.plano?.nome}
-          </p>
+          <div className="card-title">Uso detalhado do plano</div>
           <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
             <thead>
               <tr>
@@ -280,12 +553,8 @@ export default function PlanoAssinaturaPage() {
             </thead>
             <tbody>
               {usageRows.map(({ key, label, nested }) => {
-                const raw = usage.uso?.[key];
-                const usado = nested && raw && typeof raw === "object" ? raw.usados : (raw ?? 0);
-                const lim =
-                  nested && raw && typeof raw === "object"
-                    ? raw.limite
-                    : usage.limites?.[key];
+                const { usado, limite } = usageMetric(usage.uso?.[key], nested);
+                const lim = nested ? limite : usage.limites?.[key];
                 return (
                   <tr key={key}>
                     <td>{label}</td>
@@ -299,58 +568,21 @@ export default function PlanoAssinaturaPage() {
         </div>
       )}
 
-      {assinatura && (
+      {assinatura?.avisos?.length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title">Plano e assinatura</div>
-          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
-            Perfil: {segmentoLabel}
-          </p>
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div>
-              <div className="form-label">Plano</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{assinatura.plano?.nome}</div>
-            </div>
-            <div>
-              <div className="form-label">Status</div>
-              <div style={{ fontSize: 14 }}>
-                {STATUS_LABEL[assinatura.status] || assinatura.status}
-              </div>
-            </div>
-            <div>
-              <div className="form-label">Trial até</div>
-              <div style={{ fontSize: 14 }}>{formatDate(assinatura.trial_ate)}</div>
-            </div>
-            <div>
-              <div className="form-label">Válido até</div>
-              <div style={{ fontSize: 14 }}>{formatDate(assinatura.fim_em)}</div>
-            </div>
-            <div>
-              <div className="form-label">Próxima cobrança</div>
-              <div style={{ fontSize: 14 }}>{formatDate(assinatura.proxima_cobranca)}</div>
-            </div>
-            <div>
-              <div className="form-label">Acesso até (cancelamento)</div>
-              <div style={{ fontSize: 14 }}>{formatDate(assinatura.acesso_ate)}</div>
-            </div>
-          </div>
-          <RecursosList recursos={assinatura.recursos} />
-          {assinatura.avisos?.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              {assinatura.avisos.map((a) => (
-                <p
-                  key={a}
-                  style={{ fontSize: 12, color: "var(--amber-dark, #b45309)", margin: "4px 0" }}
-                >
-                  {a}
-                </p>
-              ))}
-            </div>
-          )}
+          {assinatura.avisos.map((a) => (
+            <p
+              key={a}
+              style={{ fontSize: 12, color: "var(--amber-dark, #b45309)", margin: "4px 0" }}
+            >
+              {a}
+            </p>
+          ))}
           {canCancel && (
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ marginTop: 12 }}
+              style={{ marginTop: 8 }}
               disabled={!!busy}
               onClick={handleCancelar}
             >
@@ -361,74 +593,28 @@ export default function PlanoAssinaturaPage() {
       )}
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Planos disponíveis ({segmentoLabel})</div>
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          }}
-        >
-          {planos.map((p) => {
-            const isCurrent = p.slug === currentSlug && assinatura?.status !== "trial";
-            const isTrialCurrent = p.slug === currentSlug && assinatura?.status === "trial";
-            return (
-              <div
+        <div className="card-title">Planos disponíveis · {segmentoLabel}</div>
+        {!loading && planos.length === 0 ? (
+          <div className="plan-empty-hint">
+            Nenhum plano comercial ativo para seu perfil. No servidor, execute{" "}
+            <code>npm run migrate</code> (migrations 024 e 027).
+          </div>
+        ) : (
+          <div className="plan-cards-grid">
+            {planos.map((p) => (
+              <PlanCard
                 key={p.id}
-                className="card"
-                style={{
-                  margin: 0,
-                  border: isCurrent ? "2px solid var(--green-dark)" : undefined,
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{p.nome}</div>
-                <div style={{ fontSize: 20, margin: "8px 0" }}>{p.preco_formatado}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {p.intervalo === "anual" ? "Cobrança anual" : "Cobrança mensal"}
-                </div>
-                <p style={{ fontSize: 13, color: "var(--muted)", minHeight: 40 }}>{p.descricao}</p>
-                <RecursosList recursos={p.recursos} />
-                {isCurrent ? (
-                  <span style={{ fontSize: 12, color: "var(--green-dark)" }}>Plano atual</span>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-                    {pagamentosReais && (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ width: "100%" }}
-                        disabled={!!busy}
-                        onClick={() => handleCheckout(p.slug)}
-                      >
-                        {busy === `checkout-${p.slug}` ? "Gerando PIX…" : "Assinar plano"}
-                      </button>
-                    )}
-                    {pagamentosReais && assinatura?.status === "ativa" && !isTrialCurrent && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ width: "100%" }}
-                        disabled={!!busy}
-                        onClick={() => handleCheckout(p.slug)}
-                      >
-                        {busy === `checkout-${p.slug}` ? "Gerando…" : "Trocar plano"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ width: "100%" }}
-                      disabled={!!busy}
-                      onClick={() => handleSimulate(p.slug)}
-                    >
-                      {busy === p.slug ? "Simulando…" : "Simular upgrade"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                plano={p}
+                assinatura={assinatura}
+                currentSlug={currentSlug}
+                pagamentosReais={pagamentosReais}
+                busy={busy}
+                onSimulate={handleSimulate}
+                onCheckout={handleCheckout}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card">

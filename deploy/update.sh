@@ -14,6 +14,9 @@ sudo -u gestor npm ci
 echo ">> npm run build"
 sudo -u gestor npm run build
 
+echo ">> npm run migrate"
+sudo -u gestor npm run migrate
+
 echo ">> restart services"
 systemctl restart gestor-api
 systemctl reload nginx

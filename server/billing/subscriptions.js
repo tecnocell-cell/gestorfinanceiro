@@ -12,6 +12,7 @@ import {
   refreshSubscriptionLifecycle,
   buildBillingAvisos,
 } from './subscriptionLifecycle.js';
+import { corrigirAssinaturaSegmento } from './planoCorrecao.js';
 
 function isPagamentosReaisEnabled() {
   return isAsaasConfigured();
@@ -152,6 +153,7 @@ async function fetchAssinaturaRow(usuarioId) {
 
 export async function getAssinaturaUsuario(usuarioId) {
   await ensureAssinaturaPadrao(usuarioId);
+  await corrigirAssinaturaSegmento(usuarioId);
   await refreshSubscriptionLifecycle(usuarioId);
   const row = await fetchAssinaturaRow(usuarioId);
   if (!row) return null;
