@@ -38,6 +38,9 @@ import {
   recordFailedLogin,
   resetLoginAttempts,
 } from "./authSecurity/bruteForce.js";
+import { assessSuspiciousLogin } from "./authSecurity/suspiciousLogin.js";
+import { criarEnviarOtp } from "./authSecurity/otp.js";
+import { OTP_TTL_MIN } from "./authSecurity/constants.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
 import { conexoesRouter } from "./routes/conexoes.js";
 import { importacoesRouter } from "./routes/importacoes.js";
@@ -127,6 +130,29 @@ app.post("/api/auth/login", async (req, res) => {
     }
     if (!user.ativo) {
       return res.status(403).json({ error: "Conta desativada. Entre em contato com o administrador." });
+    }
+
+    const risk = await assessSuspiciousLogin(user.id, ip, userAgent);
+    if (risk.suspicious) {
+      const otp = await criarEnviarOtp({
+        usuarioId: user.id,
+        tipo: "login_suspeito",
+        canalPreferido: "email",
+        nome: user.nome,
+      });
+
+      return res.status(403).json({
+        error: "Login suspeito detectado. Confirme com o código enviado.",
+        requires_otp: true,
+        otp_id: otp.otp_id,
+        expires_at: otp.expires_at,
+        canal: otp.canal,
+        destino_mascarado: otp.destino_mascarado,
+        ttl_minutes: OTP_TTL_MIN,
+        motivos: risk.reasons,
+        aviso: otp.aviso,
+        dev_codigo: otp.dev_codigo,
+      });
     }
 
     await resetLoginAttempts(user.id);
@@ -517,13 +543,28 @@ app.get("/api/admin/users/:id/recorrencias", authMiddleware, adminMiddleware, as
 
 // Altera senha do próprio usuário (qualquer role)
 app.patch("/api/auth/change-password", authMiddleware, async (req, res) => {
-  const { senha_atual, nova_senha } = req.body || {};
+  const { senha_atual, nova_senha, otp_id, codigo } = req.body || {};
   if (!senha_atual || !nova_senha)
     return res.status(400).json({ error: "Informe a senha atual e a nova senha." });
+  if (!otp_id || !codigo) {
+    return res.status(400).json({
+      error: "Confirme a alteração com o código OTP enviado.",
+      requires_otp: true,
+    });
+  }
   if (nova_senha.length < 6)
     return res.status(400).json({ error: "Senha mínima: 6 caracteres." });
 
   try {
+    const { validarOtp } = await import("./authSecurity/otp.js");
+    const otpCheck = await validarOtp({
+      otpId: otp_id,
+      usuarioId: req.user.id,
+      tipo: "acao_sensivel",
+      codigo,
+    });
+    if (!otpCheck.ok) return res.status(400).json({ error: otpCheck.error });
+
     const { rows } = await query("SELECT senha_hash FROM usuarios WHERE id = $1", [req.user.id]);
     if (!rows.length || !(await bcrypt.compare(senha_atual, rows[0].senha_hash))) {
       return res.status(401).json({ error: "Senha atual incorreta." });

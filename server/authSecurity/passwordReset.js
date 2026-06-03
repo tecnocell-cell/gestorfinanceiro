@@ -88,3 +88,35 @@ export async function resetPasswordWithToken(token, novaSenha) {
 
   return { ok: true };
 }
+
+export async function resetPasswordWithOtp({ otpId, codigo, novaSenha, email }) {
+  if (!novaSenha || String(novaSenha).length < 6) {
+    return { ok: false, error: 'Senha mínima: 6 caracteres.' };
+  }
+
+  const { validarOtp, getUsuarioForOtp } = await import('./otp.js');
+  let usuarioId;
+  if (email) {
+    const u = await getUsuarioForOtp({ email });
+    usuarioId = u?.id;
+  }
+
+  const check = await validarOtp({
+    otpId,
+    usuarioId,
+    tipo: 'reset_senha',
+    codigo,
+  });
+  if (!check.ok) return check;
+
+  const hash = await bcrypt.hash(novaSenha, 12);
+  await query('UPDATE usuarios SET senha_hash = $1, updated_at = NOW() WHERE id = $2', [
+    hash,
+    check.usuario_id,
+  ]);
+
+  const { resetLoginAttempts } = await import('./bruteForce.js');
+  await resetLoginAttempts(check.usuario_id);
+
+  return { ok: true };
+}

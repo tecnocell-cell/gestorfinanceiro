@@ -49,6 +49,49 @@ export async function sendVerificationEmail(email, nome, codigo) {
   return { sent: true, canal: "email", dev: true };
 }
 
+export async function sendOtpEmail(email, nome, codigo, tipo, ttlMin = 10) {
+  const subject = `Fluxiva — Código de verificação (${tipo})`;
+  const text =
+    `Olá${nome ? `, ${nome}` : ""}!\n\n` +
+    `Seu código de verificação é: ${codigo}\n\n` +
+    `Válido por ${ttlMin} minutos.\n\n` +
+    `Se você não solicitou esta ação, ignore esta mensagem.`;
+
+  if (process.env.SMTP_HOST) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transport = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+      await transport.sendMail({
+        from: process.env.SMTP_FROM || "noreply@gestor.local",
+        to: email,
+        subject,
+        text,
+      });
+      return { sent: true, canal: "email" };
+    } catch (err) {
+      console.error("SMTP OTP error:", err.message);
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Falha ao enviar código por e-mail.");
+      }
+    }
+  }
+
+  console.log("\n────────── CÓDIGO OTP E-MAIL ──────────");
+  console.log(`Para: ${email}`);
+  console.log(`Tipo: ${tipo}`);
+  console.log(`Código: ${codigo}`);
+  console.log("──────────────────────────────────────\n");
+  return { sent: true, canal: "email", dev: true };
+}
+
 export async function sendVerificationSms(telefone, codigo) {
   const text = `CenterTech Gestor: seu código é ${codigo}. Válido por ${CODE_TTL_MIN} min.`;
 

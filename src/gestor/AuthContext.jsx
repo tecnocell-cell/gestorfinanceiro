@@ -38,6 +38,9 @@ export function AuthProvider({ children }) {
     setLoading(true); setError(null);
     try {
       const data = await authApi.login(email, senha);
+      if (data?.requires_otp) {
+        return { ok: false, requiresOtp: true, otp: data };
+      }
       if (!data?.token || !data?.user) {
         throw new Error("Resposta inválida do servidor.");
       }
@@ -49,7 +52,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setSession]);
 
   const logout = useCallback(async () => {
     try {
