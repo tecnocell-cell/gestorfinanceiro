@@ -5,11 +5,11 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGestor }      from "../GestorContext.jsx";
-import { conexoesApi, importacoesApi } from "../api.js";
+import { conexoesApi, importacoesApi, openFinanceApi } from "../api.js";
 import { fmtBRL, fmtDate } from "../finance.js";
 import {
   Bell, FileText, Table, PenLine, ArrowRight, Link2, AlertCircle,
-  Upload, CheckCircle, XCircle, Clock, ChevronLeft, Eye, ExternalLink,
+  Upload, CheckCircle, XCircle, Clock, ChevronLeft, Eye, ExternalLink, RefreshCw,
 } from "../components/icons.jsx";
 import PlanilhaImportWizard from "./PlanilhaImportWizard.jsx";
 
@@ -584,6 +584,317 @@ function ImportacaoDetalheModal({ importacaoId, onClose, onNavigate }) {
   );
 }
 
+function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
+  const [status, setStatus] = useState(null);
+  const [connections, setConnections] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [syncLogs, setSyncLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [syncingId, setSyncingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [contaSyncId, setContaSyncId] = useState("");
+  const [planoSyncId, setPlanoSyncId] = useState("");
+
+  const contasAtivas = (contas || []).filter((c) => !c.inativo);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const [st, conn, tx, logs] = await Promise.all([
+        openFinanceApi.status(),
+        openFinanceApi.listConnections(),
+        openFinanceApi.listTransactions({ limit: 30 }),
+        openFinanceApi.listSyncLogs({ limit: 15 }),
+      ]);
+      setStatus(st);
+      setConnections(conn.connections || []);
+      setTransactions(tx.transactions || []);
+      setSyncLogs(logs.logs || []);
+    } catch (e) {
+      setErro(e.message || "Erro ao carregar Open Finance.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (!contaSyncId && contasAtivas[0]?.id) setContaSyncId(contasAtivas[0].id);
+  }, [contasAtivas, contaSyncId]);
+
+  const handleConnectMock = async () => {
+    if (viewOnly) return;
+    setConnecting(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      await openFinanceApi.createMockConnection();
+      setMsg("Conexão demo criada com sucesso.");
+      await loadAll();
+    } catch (e) {
+      setErro(e.message || "Erro ao conectar banco demo.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleSync = async (connectionId) => {
+    if (viewOnly || !contaSyncId) return;
+    setSyncingId(connectionId);
+    setErro(null);
+    setMsg(null);
+    try {
+      const res = await openFinanceApi.syncConnection(connectionId, contaSyncId, planoSyncId || null);
+      setMsg(`Sincronização: ${res.imported} importada(s), ${res.skipped} ignorada(s).`);
+      await loadAll();
+      onSyncSuccess?.();
+    } catch (e) {
+      setErro(e.message || "Erro ao sincronizar.");
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleDelete = async (connectionId) => {
+    if (viewOnly) return;
+    if (!window.confirm("Remover esta conexão? Lançamentos já importados permanecem no sistema.")) return;
+    setDeletingId(connectionId);
+    setErro(null);
+    try {
+      await openFinanceApi.deleteConnection(connectionId);
+      setMsg("Conexão removida.");
+      await loadAll();
+    } catch (e) {
+      setErro(e.message || "Erro ao remover conexão.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="of-section" style={{ marginBottom: 24 }}>
+      <div className="of-section-header">
+        <div>
+          <div className="of-section-title">Open Finance — MVP</div>
+          <div className="of-section-sub">
+            Sincronização automática de transações (modo demo com provider mock).
+            OFX e CSV/XLSX continuam disponíveis abaixo.
+          </div>
+        </div>
+        {!viewOnly && status?.demoMode && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleConnectMock}
+            disabled={connecting}
+          >
+            {connecting ? "Conectando..." : "Conectar banco demo"}
+          </button>
+        )}
+      </div>
+
+      {status && (
+        <div
+          className={"alert " + (status.demoMode ? "alert-info" : "alert-warn")}
+          style={{ marginBottom: 14 }}
+          role="status"
+        >
+          <strong>Provider: {status.provider}</strong>
+          {" — "}
+          {status.message}
+          {!status.demoMode && !status.realProviderConfigured && (
+            <span>
+              {" "}
+              Configure OPENFINANCE_CLIENT_ID, OPENFINANCE_CLIENT_SECRET e OPENFINANCE_BASE_URL no servidor.
+            </span>
+          )}
+        </div>
+      )}
+
+      {msg && <div className="alert alert-success" style={{ marginBottom: 12 }}>{msg}</div>}
+      {erro && <div className="alert alert-error" style={{ marginBottom: 12 }}>{erro}</div>}
+
+      {loading ? (
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando Open Finance...</p>
+      ) : (
+        <>
+          <div className="card" style={{ marginBottom: 14, padding: 14 }}>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>Sincronizar para conta Fluxiva</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <label style={{ fontSize: 12 }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Conta destino *</span>
+                <select
+                  className="form-select"
+                  value={contaSyncId}
+                  onChange={(e) => setContaSyncId(e.target.value)}
+                  disabled={viewOnly}
+                >
+                  {contasAtivas.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nome || c.apelido}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ fontSize: 12 }}>
+                <span style={{ color: "var(--muted-foreground)" }}>Categoria (opcional)</span>
+                <select
+                  className="form-select"
+                  value={planoSyncId}
+                  onChange={(e) => setPlanoSyncId(e.target.value)}
+                  disabled={viewOnly}
+                >
+                  <option value="">— Padrão —</option>
+                  {(planoContas || []).filter((p) => !p.inativo).map((p) => (
+                    <option key={p.id} value={p.id}>{p.descricao}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 14, padding: 0 }}>
+            <div style={{ padding: "12px 14px", fontWeight: 600 }}>Conexões</div>
+            {!connections.length ? (
+              <p style={{ padding: 12, fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
+                Nenhuma conexão. Use &quot;Conectar banco demo&quot; para testar o fluxo.
+              </p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Instituição</th>
+                      <th>Provider</th>
+                      <th>Status</th>
+                      <th>Contas</th>
+                      <th>Transações</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {connections.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.institutionName}</td>
+                        <td className="td-mono" style={{ fontSize: 12 }}>{c.provider}</td>
+                        <td><span className="badge badge-cp-pago">{c.status}</span></td>
+                        <td>{c.accountsCount ?? c.accounts?.length ?? 0}</td>
+                        <td>{c.transactionsCount ?? 0}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {!viewOnly && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                disabled={syncingId === c.id || !contaSyncId}
+                                onClick={() => handleSync(c.id)}
+                              >
+                                <RefreshCw size={13} strokeWidth={2} aria-hidden />
+                                {syncingId === c.id ? "Sync..." : "Sincronizar"}
+                              </button>
+                            )}
+                            {!viewOnly && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                disabled={deletingId === c.id}
+                                onClick={() => handleDelete(c.id)}
+                              >
+                                {deletingId === c.id ? "..." : "Remover"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {connections.some((c) => c.accounts?.length) && (
+              <div style={{ padding: 12, borderTop: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Contas conectadas</div>
+                {connections.map((c) =>
+                  (c.accounts || []).map((a) => (
+                    <div key={a.id} style={{ fontSize: 12, marginBottom: 4 }}>
+                      {c.institutionName} — {a.name} ({a.type}) · {fmtBRL(a.balance)}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ marginBottom: 14, padding: 0 }}>
+            <div style={{ padding: "12px 14px", fontWeight: 600 }}>Histórico de sincronização</div>
+            {!syncLogs.length ? (
+              <p style={{ padding: 12, fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>Nenhuma sincronização ainda.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Data</th><th>Status</th><th>Detalhe</th></tr>
+                  </thead>
+                  <tbody>
+                    {syncLogs.map((l) => (
+                      <tr key={l.id}>
+                        <td style={{ fontSize: 12 }}>{fmtData(l.createdAt)}</td>
+                        <td><span className="badge badge-cp-pendente">{l.status}</span></td>
+                        <td style={{ fontSize: 12 }}>{l.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{ padding: "12px 14px", fontWeight: 600 }}>Transações importadas (Open Finance)</div>
+            {!transactions.length ? (
+              <p style={{ padding: 12, fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
+                Nenhuma transação importada ainda.
+              </p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Descrição</th>
+                      <th>Conta OF</th>
+                      <th style={{ textAlign: "right" }}>Valor</th>
+                      <th>Tipo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t) => (
+                      <tr key={t.id}>
+                        <td>{fmtDate(t.date)}</td>
+                        <td>{t.description || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{t.accountName}</td>
+                        <td className="td-mono" style={{ textAlign: "right" }}>
+                          {fmtBRL(t.amount)}
+                        </td>
+                        <td>{t.type === "credit" ? "Entrada" : "Saída"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function HistoricoImportacoes({
   importacoes, total, loading, erro, viewOnly,
   onVerDetalhes, onVerLancamentos, onDesfazer, desfazendoId,
@@ -776,9 +1087,9 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       <div className="of-status-banner" role="status">
         <AlertCircle size={18} strokeWidth={2} aria-hidden />
         <div>
-          <strong>Conexao automatica ainda nao disponivel.</strong>
-          {" "}Importacao OFX e CSV/XLSX com deduplicacao e historico disponiveis.
-          Open Finance no roadmap.
+          <strong>Open Finance MVP disponivel em modo demo.</strong>
+          {" "}Use o provider mock abaixo ou continue com importacao OFX/CSV/XLSX.
+          Nenhuma senha bancaria e armazenada no servidor.
         </div>
       </div>
 
@@ -786,21 +1097,28 @@ export default function ConexoesBancariasPage({ onNavigate }) {
         <div className="of-hero-inner">
           <div className="of-hero-badge">
             <Link2 size={13} strokeWidth={2} aria-hidden />
-            Open Finance · Em preparacao
+            Open Finance · MVP demo
           </div>
           <h2 className="of-hero-title">Conexoes Bancarias</h2>
           <p className="of-hero-sub">
-            Importe extratos OFX ou planilhas CSV/XLSX com preview, deduplicacao e historico.
-            A integracao com Open Finance Brasil esta planejada para 2026.
+            Sincronize transacoes via Open Finance (mock) ou importe extratos OFX/CSV/XLSX com deduplicacao.
+            Pluggy e Belvo preparados por variaveis de ambiente no servidor.
           </p>
           <div className="of-hero-chips">
-            <span className="of-chip">Deduplicacao por FITID</span>
-            <span className="of-chip">Historico de importacoes</span>
+            <span className="of-chip">Open Finance mock</span>
+            <span className="of-chip">Deduplicacao por fingerprint</span>
+            <span className="of-chip">Historico de sync</span>
             <span className="of-chip">Sem armazenar senhas</span>
-            <span className="of-chip">Open Finance (futuro)</span>
           </div>
         </div>
       </div>
+
+      <OpenFinancePanel
+        contas={contas || []}
+        planoContas={planoContas || []}
+        viewOnly={viewOnly}
+        onSyncSuccess={handleImportSuccess}
+      />
 
       <div className="of-section">
         <div className="of-section-header">

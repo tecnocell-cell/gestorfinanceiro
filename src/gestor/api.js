@@ -149,6 +149,36 @@ export const conexoesApi = {
   registerInteresse: (banco_slug) =>
     request("/conexoes/interesse", { method: "POST", body: { banco_slug } }),
 };
+
+// ─── Open Finance MVP (Etapa 6.1) ─────────────────────────────────────────────
+export const openFinanceApi = {
+  status: () => request("/open-finance/status"),
+  listConnections: () => request("/open-finance/connections"),
+  createMockConnection: (body = {}) =>
+    request("/open-finance/connections/mock", { method: "POST", body }),
+  syncConnection: (connectionId, contaId, planoId) =>
+    request(`/open-finance/connections/${connectionId}/sync`, {
+      method: "POST",
+      body: { contaId, planoId: planoId || null },
+    }),
+  deleteConnection: (connectionId) =>
+    request(`/open-finance/connections/${connectionId}`, { method: "DELETE" }),
+  listTransactions: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.connectionId) qs.set("connectionId", params.connectionId);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return request(q ? `/open-finance/transactions?${q}` : "/open-finance/transactions");
+  },
+  listSyncLogs: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.connectionId) qs.set("connectionId", params.connectionId);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    const q = qs.toString();
+    return request(q ? `/open-finance/sync-logs?${q}` : "/open-finance/sync-logs");
+  },
+};
 // ─── Importações (OFX com histórico e deduplicação) ──────────────────────────
 export const importacoesApi = {
   /**
