@@ -20,6 +20,7 @@ import ProjetosFinanceirosPage from "./pages/ProjetosFinanceirosPage.jsx";
 import ResultadoClientePage from "./pages/ResultadoClientePage.jsx";
 import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import OrcadoRealizadoPage from "./pages/OrcadoRealizadoPage.jsx";
+import SegurancaPage from "./pages/SegurancaPage.jsx";
 import SuportePage           from "./pages/SuportePage.jsx";
 import TutoriaisPage         from "./pages/TutoriaisPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
@@ -62,6 +63,7 @@ const PAGE_MAP_PJ = {
   tutoriais: () => <TutoriaisPage />,
   suporte: () => <SuportePage />,
   empresa: EmpresaPage,
+  seguranca: SegurancaPage,
 };
 
 const PAGE_MAP_PF = {
@@ -82,6 +84,7 @@ const PAGE_MAP_PF = {
   tutoriais: () => <TutoriaisPage pfMode />,
   suporte: () => <SuportePage pfMode />,
   perfil: PerfilPFPage,
+  seguranca: SegurancaPage,
 };
 
 // ─── SyncPill: indicador discreto de auto-sincronização ─────────────────────

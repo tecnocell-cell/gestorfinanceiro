@@ -69,7 +69,9 @@ export async function verifyCode(email, codigo, canal = "email") {
     );
   } else {
     await query(
-      `UPDATE usuarios SET email_verificado = true, ativo = true, updated_at = NOW() WHERE id = $1`,
+      `UPDATE usuarios
+       SET email_verificado = true, email_verificado_em = NOW(), ativo = true, updated_at = NOW()
+       WHERE id = $1`,
       [row.id]
     );
   }

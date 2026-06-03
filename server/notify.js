@@ -86,3 +86,91 @@ export async function sendVerificationSms(telefone, codigo) {
   console.log("────────────────────────────────\n");
   return { sent: true, canal: "sms", dev: true };
 }
+
+export async function sendVerificationEmailLink(email, nome, token) {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const subject = "CenterTech Gestor — Verifique seu e-mail";
+  const text =
+    `Olá${nome ? `, ${nome}` : ""}!\n\n` +
+    `Para confirmar seu e-mail, use o token abaixo no app (Configurações → Segurança) ou acesse:\n` +
+    `${appUrl}/?verify_token=${token}\n\n` +
+    `Token: ${token}\n\n` +
+    `Se você não solicitou esta verificação, ignore este e-mail.`;
+
+  if (process.env.SMTP_HOST) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transport = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+      await transport.sendMail({
+        from: process.env.SMTP_FROM || "noreply@gestor.local",
+        to: email,
+        subject,
+        text,
+      });
+      return { sent: true, canal: "email" };
+    } catch (err) {
+      console.error("SMTP error:", err.message);
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Falha ao enviar e-mail de verificação.");
+      }
+    }
+  }
+
+  console.log("\n────────── TOKEN VERIFICAÇÃO E-MAIL ──────────");
+  console.log(`Para: ${email}`);
+  console.log(`Token: ${token}`);
+  console.log("────────────────────────────────────────────\n");
+  return { sent: true, canal: "email", dev: true };
+}
+
+export async function sendPasswordResetEmail(email, nome, token) {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const subject = "CenterTech Gestor — Recuperação de senha";
+  const text =
+    `Olá${nome ? `, ${nome}` : ""}!\n\n` +
+    `Recebemos uma solicitação para redefinir sua senha.\n` +
+    `Use o token no app ou acesse: ${appUrl}/?reset_token=${token}\n\n` +
+    `Token: ${token}\n\n` +
+    `Se você não solicitou, ignore este e-mail.`;
+
+  if (process.env.SMTP_HOST) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transport = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+      await transport.sendMail({
+        from: process.env.SMTP_FROM || "noreply@gestor.local",
+        to: email,
+        subject,
+        text,
+      });
+      return { sent: true, canal: "email" };
+    } catch (err) {
+      console.error("SMTP error:", err.message);
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Falha ao enviar e-mail de recuperação.");
+      }
+    }
+  }
+
+  console.log("\n────────── TOKEN RECUPERAÇÃO SENHA ──────────");
+  console.log(`Para: ${email}`);
+  console.log(`Token: ${token}`);
+  console.log("──────────────────────────────────────────\n");
+  return { sent: true, canal: "email", dev: true };
+}

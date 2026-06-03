@@ -20,7 +20,16 @@ import { countPlanoContas } from "./initialState.js";
 import { normalizeMoneyInState } from "./normalizeEstadoMoney.js";
 import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
+import { registerSecurityRoutes } from "./authSecurity/routes.js";
 import { isAccountVerified } from "./verification.js";
+import { getRequestMeta } from "./authSecurity/requestMeta.js";
+import { recordLoginAudit } from "./authSecurity/loginAudit.js";
+import {
+  isLockedOut,
+  lockoutMessage,
+  recordFailedLogin,
+  resetLoginAttempts,
+} from "./authSecurity/bruteForce.js";
 import { recorrenciasRouter } from "./routes/recorrencias.js";
 import { conexoesRouter } from "./routes/conexoes.js";
 import { importacoesRouter } from "./routes/importacoes.js";
@@ -72,17 +81,33 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, senha } = req.body || {};
   if (!email || !senha) return res.status(400).json({ error: "E-mail e senha obrigatórios." });
 
+  const { ip, userAgent } = getRequestMeta(req);
+
   try {
     const { rows } = await query(
       `SELECT id, email, nome, senha_hash, role, ativo, tipo_perfil, nome_perfil,
-              email_verificado, telefone_verificado
+              email_verificado, telefone_verificado, tentativas_login, bloqueado_ate
        FROM usuarios WHERE email = $1`,
       [email.toLowerCase()]
     );
     const user = rows[0];
-    if (!user || !(await bcrypt.compare(senha, user.senha_hash))) {
+
+    if (user && isLockedOut(user)) {
+      return res.status(429).json({ error: lockoutMessage(user) });
+    }
+
+    const senhaOk = user && (await bcrypt.compare(senha, user.senha_hash));
+
+    if (!senhaOk) {
+      if (user) {
+        await recordFailedLogin(user.id);
+        await recordLoginAudit({ usuarioId: user.id, ip, userAgent, sucesso: false });
+      } else {
+        await recordLoginAudit({ usuarioId: null, ip, userAgent, sucesso: false });
+      }
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
+
     // Se o admin ativou a conta manualmente (ativo=true), dispensa verificação de e-mail/SMS.
     // Só exige código se o usuário ainda não verificou E o admin não liberou.
     if (!isAccountVerified(user) && !user.ativo) {
@@ -96,7 +121,8 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(403).json({ error: "Conta desativada. Entre em contato com o administrador." });
     }
 
-    // Atualiza último acesso
+    await resetLoginAttempts(user.id);
+    await recordLoginAudit({ usuarioId: user.id, ip, userAgent, sucesso: true });
     await query("UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = $1", [user.id]);
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
@@ -118,6 +144,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 registerAuthRoutes(app);
+registerSecurityRoutes(app);
 
 // ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
 app.get("/api/auth/me", authMiddleware, activeMiddleware, async (req, res) => {

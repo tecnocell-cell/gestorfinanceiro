@@ -102,6 +102,7 @@ export const NAV_ICON_MAP = {
   "integracao-pf-pj": Users,
   "open-finance": Link2,
   perfil: User,
+  seguranca: Shield,
   dre: BarChart3,
   plano: FolderTree,
   impostos: Percent,

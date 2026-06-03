@@ -85,6 +85,20 @@ export const authApi = {
 
   changePassword: (senha_atual, nova_senha) =>
     request("/auth/change-password", { method: "PATCH", body: { senha_atual, nova_senha } }),
+
+  security: () => request("/auth/security"),
+
+  sendVerification: () =>
+    request("/auth/send-verification", { method: "POST", body: {} }),
+
+  verifyEmail: (token) =>
+    request("/auth/verify-email", { method: "POST", body: { token } }),
+
+  forgotPassword: (email) =>
+    request("/auth/forgot-password", { method: "POST", body: { email } }),
+
+  resetPassword: (token, nova_senha) =>
+    request("/auth/reset-password", { method: "POST", body: { token, nova_senha } }),
 };
 
 // ─── Estado do App ────────────────────────────────────────────────────────────

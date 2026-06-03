@@ -58,6 +58,7 @@ export const NAV_SECTIONS_FISICA = [
       { id: "tutoriais", label: "Tutoriais" },
       { id: "suporte", label: "Suporte" },
       { id: "perfil", label: "Perfil" },
+      { id: "seguranca", label: "Segurança" },
     ],
   },
 ];
@@ -107,6 +108,7 @@ export const NAV_SECTIONS_PJ = [
       { id: "tutoriais", label: "Tutoriais" },
       { id: "suporte", label: "Suporte" },
       { id: "empresa", label: "Empresa" },
+      { id: "seguranca", label: "Segurança" },
     ],
   },
 ];
