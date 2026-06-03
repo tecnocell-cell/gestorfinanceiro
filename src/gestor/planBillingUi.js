@@ -12,6 +12,9 @@ export function planIconSlug(slug) {
   return "/fluxiva-icon.png";
 }
 
+/** Planos de entrada: sem teaser de Open Finance nos cards. */
+const PLANOS_SEM_OPEN_FINANCE_CARD = new Set(["pf_basico", "pj_start"]);
+
 export function buildPlanFeatureItems(recursos, planSlug) {
   if (!recursos) return [];
   const items = [];
@@ -46,7 +49,12 @@ export function buildPlanFeatureItems(recursos, planSlug) {
     items.push("Recursos premium limitados — regularize a assinatura");
   }
   const addon = recursos.openFinanceAddon;
-  if (addon && !recursos.openFinance && planSlug !== "pf_basico") {
+  if (
+    addon &&
+    !recursos.openFinance &&
+    planSlug &&
+    !PLANOS_SEM_OPEN_FINANCE_CARD.has(planSlug)
+  ) {
     items.push(
       addon.ativo ? "Open Finance add-on disponível" : "Open Finance add-on (em breve)"
     );
