@@ -53,7 +53,7 @@ const PAGE_CSS = `
   border: 1px solid oklch(0.9 0.015 150);
   padding: 0;
   overflow: hidden;
-  min-height: 420px;
+  min-height: 0;
   background: #fff;
   color: var(--text, #0f172a);
   box-shadow: 0 8px 24px oklch(0.45 0.04 155 / 0.08);
@@ -225,8 +225,8 @@ function PlanBadge({ slug, highlight }) {
   );
 }
 
-function PlanFeatureList({ recursos, highlight }) {
-  const items = buildPlanFeatureItems(recursos);
+function PlanFeatureList({ recursos, planSlug, highlight }) {
+  const items = buildPlanFeatureItems(recursos, planSlug);
   if (!items.length) {
     return (
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", padding: "0 20px" }}>
@@ -284,7 +284,7 @@ function PlanCard({
           /{plano.intervalo === "anual" ? "ano" : "mês"}
         </span>
       </div>
-      <PlanFeatureList recursos={plano.recursos} highlight={highlight} />
+      <PlanFeatureList recursos={plano.recursos} planSlug={plano.slug} highlight={highlight} />
       <div className="plan-card-actions">
         {isCurrent || isTrialCurrent ? (
           <span className="plan-current-pill">

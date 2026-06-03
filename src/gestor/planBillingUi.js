@@ -12,7 +12,7 @@ export function planIconSlug(slug) {
   return "/fluxiva-icon.png";
 }
 
-export function buildPlanFeatureItems(recursos) {
+export function buildPlanFeatureItems(recursos, planSlug) {
   if (!recursos) return [];
   const items = [];
   if (recursos.limiteUsuarios != null) {
@@ -36,7 +36,9 @@ export function buildPlanFeatureItems(recursos) {
   if (recursos.dreCompleto) items.push("DRE completo");
   else if (recursos.segmento === "pj" && recursos.centroCusto) items.push("DRE simplificado");
   if (recursos.projetos) items.push("Projetos financeiros");
-  if (recursos.integracaoPfPj) items.push("Integração PF/PJ");
+  if (recursos.integracaoPfPj && recursos.segmento === "pj") {
+    items.push("Integração PF/PJ");
+  }
   if (recursos.apiAccess) items.push("Acesso API");
   if (recursos.suportePrioritario) items.push("Suporte prioritário");
   if (recursos.openFinance) items.push("Open Finance incluso");
@@ -44,8 +46,10 @@ export function buildPlanFeatureItems(recursos) {
     items.push("Recursos premium limitados — regularize a assinatura");
   }
   const addon = recursos.openFinanceAddon;
-  if (addon && !recursos.openFinance) {
-    items.push("Open Finance add-on (em breve)");
+  if (addon && !recursos.openFinance && planSlug !== "pf_basico") {
+    items.push(
+      addon.ativo ? "Open Finance add-on disponível" : "Open Finance add-on (em breve)"
+    );
   }
   return items;
 }
