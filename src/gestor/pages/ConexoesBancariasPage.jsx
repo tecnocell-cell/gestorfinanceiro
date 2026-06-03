@@ -61,18 +61,29 @@ function loadPluggyConnectScript() {
   });
 }
 
+/**
+ * Abre Pluggy Connect Widget. Apenas connectToken vai ao browser — nunca client_secret.
+ * @returns {'success'|'closed'} success quando itemId foi salvo
+ */
 async function openPluggyConnectWidget(connectToken, { onItemId, onError }) {
   const PluggyConnect = await loadPluggyConnectScript();
   return new Promise((resolve, reject) => {
+    let finished = false;
+    const finish = (result) => {
+      if (finished) return;
+      finished = true;
+      resolve(result);
+    };
+
     const instance = new PluggyConnect({
       connectToken,
       onSuccess: async (data) => {
         try {
-          const itemId = data?.item?.id || data?.id;
-          if (!itemId) throw new Error("Pluggy não retornou itemId.");
-          await onItemId(itemId);
+          const itemId = data?.item?.id ?? data?.id ?? data?.itemId;
+          if (!itemId) throw new Error("Pluggy não retornou itemId após autorização.");
+          await onItemId(String(itemId));
           instance.destroy?.();
-          resolve();
+          finish("success");
         } catch (e) {
           onError?.(e);
           reject(e);
@@ -82,6 +93,9 @@ async function openPluggyConnectWidget(connectToken, { onItemId, onError }) {
         const e = err instanceof Error ? err : new Error(err?.message || "Erro no Pluggy Connect.");
         onError?.(e);
         reject(e);
+      },
+      onClose: () => {
+        if (!finished) finish("closed");
       },
     });
     if (typeof instance.init === "function") instance.init();
@@ -711,7 +725,8 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
     if (viewOnly) return;
     if (!status?.canStartPluggyConnect) {
       setErro(
-        "Open Finance real indisponível: configure OPENFINANCE_PROVIDER=pluggy e credenciais Pluggy no servidor."
+        status?.message ||
+          "Open Finance indisponível. Peça ao administrador do Fluxiva para configurar a integração Pluggy no servidor."
       );
       return;
     }
@@ -720,16 +735,22 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
     setMsg(null);
     try {
       const init = await openFinanceApi.initConnect();
-      await openPluggyConnectWidget(init.connectToken, {
+      if (!init?.connectToken) {
+        throw new Error("Servidor não retornou token do Pluggy Connect.");
+      }
+      const outcome = await openPluggyConnectWidget(init.connectToken, {
         onItemId: async (itemId) => {
           await openFinanceApi.completePluggyConnection(itemId);
-          setMsg("Instituição conectada via Pluggy. Sincronize as transações abaixo.");
+          setMsg("Banco conectado com sucesso. Escolha a conta destino abaixo e clique em Sincronizar.");
           await loadAll();
         },
         onError: (e) => setErro(e?.message || "Erro no Pluggy Connect."),
       });
+      if (outcome === "closed") {
+        setMsg("Conexão cancelada. Você pode tentar novamente quando quiser.");
+      }
     } catch (e) {
-      setErro(e.message || "Erro ao iniciar conexão Pluggy.");
+      setErro(e.message || "Erro ao conectar banco via Pluggy.");
     } finally {
       setConnectingPluggy(false);
     }
@@ -768,10 +789,10 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
     }
   };
 
-  const showDemo = status?.demoMode;
-  const showReal = status?.provider === "pluggy" || (!status?.demoMode && status?.provider !== "mock");
-  const realReady = status?.canStartPluggyConnect;
-  const realMissingCreds = status?.credentialsMissing;
+  const isMockMode = status?.demoMode || status?.provider === "mock";
+  const isPluggyMode = status?.provider === "pluggy";
+  const pluggyReady = status?.canStartPluggyConnect === true;
+  const pluggyConfigPending = isPluggyMode && status?.credentialsMissing;
 
   return (
     <div className="of-section" style={{ marginBottom: 24 }}>
@@ -779,15 +800,18 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
         <div>
           <div className="of-section-title">Open Finance</div>
           <div className="of-section-sub">
-            Três caminhos: demonstração local, conexão real via provedor (Pluggy) e lista de interesse por banco.
-            Importação OFX/CSV permanece abaixo.
+            {isMockMode
+              ? "Modo demonstração: Banco Demo Fluxiva. Importação OFX/CSV abaixo."
+              : isPluggyMode
+                ? "Conecte seu banco pelo Pluggy (você autoriza no widget; credenciais são do servidor Fluxiva)."
+                : "Conexão bancária e importação de extratos."}
           </div>
         </div>
       </div>
 
       {status && (
         <div
-          className={"alert " + (realMissingCreds ? "alert-warn" : status.demoMode ? "alert-info" : "alert-success")}
+          className={"alert " + (pluggyConfigPending ? "alert-warn" : isMockMode ? "alert-info" : "alert-success")}
           style={{ marginBottom: 14 }}
           role="status"
         >
@@ -798,11 +822,11 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
       )}
 
       <div className="of-import-grid" style={{ marginBottom: 16 }}>
-        {showDemo && (
+        {isMockMode && (
           <div className="of-import-card" style={{ borderColor: "var(--primary)" }}>
-            <div className="of-import-titulo">1. Banco Demo Fluxiva</div>
+            <div className="of-import-titulo">Banco Demo Fluxiva</div>
             <div className="of-import-desc">
-              Ambiente de testes com transações fictícias. Disponível com OPENFINANCE_PROVIDER=mock.
+              Transações fictícias para testar sincronização e deduplicação, sem banco real.
             </div>
             {!viewOnly && (
               <button
@@ -818,43 +842,46 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
           </div>
         )}
 
-        <div className="of-import-card">
-          <div className="of-import-titulo">
-            {showDemo ? "2. " : ""}Open Finance real (provedor)
-          </div>
-          <div className="of-import-desc">
-            Conexão regulada via Pluggy — escolha a instituição no widget do provedor.
-            Não é integração direta com Nubank, Itaú ou outros sem passar pelo conector Pluggy.
-          </div>
-          {realMissingCreds && (
-            <div className="alert alert-warn" style={{ marginTop: 10, fontSize: 12 }}>
-              <strong>Credenciais ausentes no servidor.</strong>
-              {" "}Defina OPENFINANCE_PROVIDER=pluggy, OPENFINANCE_CLIENT_ID, OPENFINANCE_CLIENT_SECRET e OPENFINANCE_BASE_URL (ex.: https://api.pluggy.ai).
+        {isPluggyMode && (
+          <div className="of-import-card" style={pluggyReady ? { borderColor: "var(--primary)" } : undefined}>
+            <div className="of-import-titulo">Open Finance via Pluggy</div>
+            <div className="of-import-desc">
+              Clique no botão, escolha seu banco no widget Pluggy e autorize o acesso.
+              A conexão fica vinculada apenas à sua conta Fluxiva.
+              Não é integração direta com Nubank ou Itaú — usa os conectores do provedor.
             </div>
-          )}
-          {showReal && realReady && !viewOnly && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              style={{ marginTop: 10 }}
-              onClick={handleConnectPluggy}
-              disabled={connectingPluggy}
-            >
-              {connectingPluggy ? "Abrindo Pluggy..." : "Conectar via Pluggy"}
-            </button>
-          )}
-          {showReal && !realReady && !realMissingCreds && status?.provider !== "pluggy" && (
-            <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 8 }}>
-              Configure OPENFINANCE_PROVIDER=pluggy no servidor para habilitar.
-            </p>
-          )}
-        </div>
+            {pluggyConfigPending && (
+              <div className="alert alert-warn" style={{ marginTop: 10, fontSize: 12 }}>
+                <strong>Integração não configurada no servidor.</strong>
+                {" "}O administrador do Fluxiva deve definir as credenciais Pluggy no ambiente do servidor (uma vez para todos os usuários). Você não precisa alterar nenhum arquivo de configuração.
+              </div>
+            )}
+            {pluggyReady && !viewOnly && (
+              <>
+                <ol style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "10px 0 0 18px", padding: 0 }}>
+                  <li>Abrir widget Pluggy</li>
+                  <li>Escolher banco e autorizar</li>
+                  <li>Sincronizar transações na tabela abaixo</li>
+                </ol>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: 10 }}
+                  onClick={handleConnectPluggy}
+                  disabled={connectingPluggy}
+                >
+                  {connectingPluggy ? "Abrindo widget..." : "Conectar banco via Pluggy"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="of-import-card">
-          <div className="of-import-titulo">{showDemo ? "3. " : "2. "}Bancos — roadmap</div>
+          <div className="of-import-titulo">Bancos — roadmap / interesse</div>
           <div className="of-import-desc">
-            Os cartões Nubank, Itaú etc. abaixo servem apenas para registrar interesse.
-            Não conectam a conta automaticamente nesta versão.
+            Nubank, Itaú e outros na lista abaixo são apenas registro de interesse.
+            Para conectar de verdade, use Pluggy (quando ativo) ou importe OFX/CSV.
           </div>
           <span className="badge badge-cp-pendente" style={{ marginTop: 10 }}>Ver seção &quot;Bancos na fila&quot;</span>
         </div>
@@ -904,7 +931,8 @@ function OpenFinancePanel({ contas, planoContas, viewOnly, onSyncSuccess }) {
             <div style={{ padding: "12px 14px", fontWeight: 600 }}>Conexões</div>
             {!connections.length ? (
               <p style={{ padding: 12, fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
-                Nenhuma conexão. Use o Banco Demo Fluxiva ou Pluggy (se configurado).
+                Nenhuma conexão ainda.
+                {isMockMode ? " Use o Banco Demo Fluxiva." : isPluggyMode && pluggyReady ? " Clique em Conectar banco via Pluggy." : ""}
               </p>
             ) : (
               <div className="table-wrap">
@@ -1229,9 +1257,9 @@ export default function ConexoesBancariasPage({ onNavigate }) {
       <div className="of-status-banner" role="status">
         <AlertCircle size={18} strokeWidth={2} aria-hidden />
         <div>
-          <strong>Demo, provedor Pluggy ou importação manual.</strong>
-          {" "}Banco Demo Fluxiva (mock), Open Finance real via Pluggy quando credenciais estiverem no servidor,
-          ou OFX/CSV/XLSX. Nenhuma senha bancária é armazenada no Fluxiva.
+          <strong>Demo, Pluggy ou importação manual.</strong>
+          {" "}Credenciais Pluggy são configuradas pelo administrador no servidor (não por você).
+          Conecte seu banco no widget ou importe OFX/CSV. Nenhuma senha bancária é armazenada no Fluxiva.
         </div>
       </div>
 
@@ -1243,8 +1271,8 @@ export default function ConexoesBancariasPage({ onNavigate }) {
           </div>
           <h2 className="of-hero-title">Conexoes Bancarias</h2>
           <p className="of-hero-sub">
-            Banco Demo Fluxiva para testes, conexão real via provedor Pluggy (OPENFINANCE_PROVIDER=pluggy),
-            registro de interesse por banco e importação OFX/CSV com deduplicação.
+            Banco Demo Fluxiva (ambiente de testes), conexão do seu banco via Pluggy quando habilitado pelo administrador,
+            registro de interesse por instituição e importação OFX/CSV.
           </p>
           <div className="of-hero-chips">
             <span className="of-chip">Banco Demo Fluxiva</span>

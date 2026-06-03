@@ -15,17 +15,19 @@ export async function getModuleStatus() {
       : config.provider === 'belvo' ? 'Belvo'
         : 'Mock (demo)';
 
+  const credentialsMissing = config.provider === 'pluggy' && !config.pluggyReady;
+
   let message;
   if (config.demoMode) {
-    message = 'Modo demonstração: use Banco Demo Fluxiva. Para Open Finance real, configure OPENFINANCE_PROVIDER=pluggy e credenciais Pluggy no servidor.';
+    message = 'Modo demonstração: use o Banco Demo Fluxiva para testar o fluxo sem banco real.';
   } else if (config.provider === 'pluggy' && config.pluggyReady) {
-    message = 'Open Finance real via Pluggy configurado. Conecte instituições suportadas pelo provedor (não é conexão direta Nubank/Itaú).';
-  } else if (config.provider === 'pluggy') {
-    message = 'OPENFINANCE_PROVIDER=pluggy, mas credenciais incompletas. Defina OPENFINANCE_CLIENT_ID, OPENFINANCE_CLIENT_SECRET e OPENFINANCE_BASE_URL.';
+    message = 'Open Finance via Pluggy ativo. Clique em "Conectar banco via Pluggy", escolha sua instituição no widget e autorize o acesso.';
+  } else if (credentialsMissing) {
+    message = 'Open Finance temporariamente indisponível. O administrador do Fluxiva precisa configurar a integração Pluggy no servidor (configuração única, não é por usuário).';
   } else if (config.realProviderConfigured) {
-    message = `Provider ${config.provider} configurado.`;
+    message = `Provedor ${config.provider} configurado no servidor.`;
   } else {
-    message = `Provider ${config.provider} selecionado, mas credenciais incompletas.`;
+    message = 'Provedor Open Finance selecionado no servidor, mas ainda não está pronto para uso.';
   }
 
   return {
@@ -37,7 +39,9 @@ export async function getModuleStatus() {
     pluggyReady: config.pluggyReady,
     belvoReady: config.belvoReady,
     canStartPluggyConnect: config.canStartPluggyConnect,
-    credentialsMissing: config.provider === 'pluggy' && !config.pluggyReady,
+    credentialsMissing,
+    /** Credenciais Pluggy são globais do servidor; nunca por usuário. */
+    credentialsScope: 'server',
     message,
   };
 }
