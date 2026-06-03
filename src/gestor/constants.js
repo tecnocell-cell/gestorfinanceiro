@@ -40,6 +40,7 @@ export const NAV_SECTIONS_FISICA = [
     items: [
       { id: "categorias", label: "Categorias" },
       { id: "orcamento", label: "Orçamento" },
+      { id: "orcado-realizado", label: "Orçado x Realizado" },
       { id: "metas", label: "Metas" },
       { id: "resultado-centro-custo", label: "Centro de Custo" },
       { id: "projetos", label: "Projetos" },
@@ -93,6 +94,7 @@ export const NAV_SECTIONS_PJ = [
       { id: "balancete", label: "Balancete" },
       { id: "fechamento", label: "Fechamento" },
       { id: "resultado-centro-custo", label: "Centro de Custo" },
+      { id: "orcado-realizado", label: "Orçado x Realizado" },
       { id: "relatorios", label: "Relatórios" },
     ],
   },

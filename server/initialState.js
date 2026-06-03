@@ -49,7 +49,8 @@ function createEmpresaPJ(nome) {
       contas: defaultContasPJ(),
       planoContas: defaultPlanoPJ(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [], centroCustos: [], projetos: [],
+      fechamentos: [], metas: [], orcamentos: [], orcamentosCentros: [], orcamentosProjetos: [],
+      centroCustos: [], projetos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -93,7 +94,8 @@ function createPerfilPF(nome) {
       contas: defaultContasPF(),
       planoContas: defaultCategoriasPF(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [], centroCustos: [], projetos: [],
+      fechamentos: [], metas: [], orcamentos: [], orcamentosCentros: [], orcamentosProjetos: [],
+      centroCustos: [], projetos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -150,6 +152,8 @@ export function normalizeStateForUser(dados, user) {
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
     const mergedCentroCustos = mergeEmpresaField(empresas, 'centroCustos');
     const mergedProjetos = mergeEmpresaField(empresas, 'projetos');
+    const mergedOrcCentros = mergeEmpresaField(empresas, 'orcamentosCentros');
+    const mergedOrcProjetos = mergeEmpresaField(empresas, 'orcamentosProjetos');
     const mergedPlanoRaw = mergeEmpresaField(empresas, 'planoContas');
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -209,6 +213,12 @@ export function normalizeStateForUser(dados, user) {
     converted.projetos = mergedProjetos.length
       ? mergedProjetos
       : (converted.projetos || []);
+    converted.orcamentosCentros = mergedOrcCentros.length
+      ? mergedOrcCentros
+      : (converted.orcamentosCentros || []);
+    converted.orcamentosProjetos = mergedOrcProjetos.length
+      ? mergedOrcProjetos
+      : (converted.orcamentosProjetos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -241,6 +251,8 @@ export function normalizeStateForUser(dados, user) {
       orcamentos: emp.orcamentos || [],
       centroCustos: emp.centroCustos || [],
       projetos: emp.projetos || [],
+      orcamentosCentros: emp.orcamentosCentros || [],
+      orcamentosProjetos: emp.orcamentosProjetos || [],
     };
   });
 

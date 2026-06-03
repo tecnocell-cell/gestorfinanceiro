@@ -26,6 +26,18 @@ function normValorField(valor) {
   return fixValorFromCentavosDrift(round2(valor));
 }
 
+function normOrcamentoDimensao(o) {
+  if (!o || typeof o !== 'object') return o;
+  const out = { ...o };
+  if (out.valorReceitaPrevista != null) {
+    out.valorReceitaPrevista = normValorField(out.valorReceitaPrevista);
+  }
+  if (out.valorDespesaPrevista != null) {
+    out.valorDespesaPrevista = normValorField(out.valorDespesaPrevista);
+  }
+  return out;
+}
+
 function normLancamento(l) {
   if (!l || typeof l !== 'object') return l;
   const out = { ...l };
@@ -46,6 +58,8 @@ function normEmpresa(emp) {
     orcamentos: (emp.orcamentos || []).map((o) =>
       o && o.valor != null ? { ...o, valor: normValorField(o.valor) } : o
     ),
+    orcamentosCentros: (emp.orcamentosCentros || []).map(normOrcamentoDimensao),
+    orcamentosProjetos: (emp.orcamentosProjetos || []).map(normOrcamentoDimensao),
     contas: (emp.contas || []).map((c) =>
       c && c.saldoInicial != null
         ? { ...c, saldoInicial: normValorField(c.saldoInicial) }

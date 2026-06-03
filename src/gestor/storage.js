@@ -39,6 +39,8 @@ export const createEmpresa = (nome = "Nova Empresa") => ({
   fechamentos: [],
   metas: [],
   orcamentos: [],
+  orcamentosCentros: [],
+  orcamentosProjetos: [],
   centroCustos: [],
   projetos: [],
 });
@@ -91,6 +93,8 @@ export const createPerfil = (nome = "Novo Perfil", tipo = "juridica") => {
       fechamentos: [],
       metas: [],
       orcamentos: [],
+      orcamentosCentros: [],
+      orcamentosProjetos: [],
       centroCustos: [],
       projetos: [],
     };
@@ -119,6 +123,8 @@ export const loadState = () => {
     parsed.empresas = parsed.empresas.map((emp) => ({
       metas: [],
       orcamentos: [],
+      orcamentosCentros: [],
+      orcamentosProjetos: [],
       centroCustos: [],
       projetos: [],
       pessoa: null,
@@ -181,6 +187,8 @@ export const normalizeStateForUser = (dados, user) => {
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
     const mergedCentroCustos = mergeEmpresaField(empresas, "centroCustos");
     const mergedProjetos = mergeEmpresaField(empresas, "projetos");
+    const mergedOrcCentros = mergeEmpresaField(empresas, "orcamentosCentros");
+    const mergedOrcProjetos = mergeEmpresaField(empresas, "orcamentosProjetos");
     const mergedPlanoRaw = mergeEmpresaField(empresas, "planoContas");
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -239,6 +247,12 @@ export const normalizeStateForUser = (dados, user) => {
     converted.projetos = mergedProjetos.length
       ? mergedProjetos
       : (converted.projetos || []);
+    converted.orcamentosCentros = mergedOrcCentros.length
+      ? mergedOrcCentros
+      : (converted.orcamentosCentros || []);
+    converted.orcamentosProjetos = mergedOrcProjetos.length
+      ? mergedOrcProjetos
+      : (converted.orcamentosProjetos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -267,6 +281,8 @@ export const normalizeStateForUser = (dados, user) => {
         : (emp.fornecedores || []),
       centroCustos: emp.centroCustos || [],
       projetos: emp.projetos || [],
+      orcamentosCentros: emp.orcamentosCentros || [],
+      orcamentosProjetos: emp.orcamentosProjetos || [],
     };
   });
 
