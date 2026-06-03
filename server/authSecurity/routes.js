@@ -3,7 +3,8 @@ import { query } from '../db.js';
 import { authMiddleware, activeMiddleware } from '../middleware/auth.js';
 import { createAndSendEmailVerificationToken, verifyEmailByToken } from './emailVerify.js';
 import { requestPasswordReset, resetPasswordWithToken, resetPasswordWithOtp } from './passwordReset.js';
-import { getLastSuccessfulLogin } from './loginAudit.js';
+import { getLastSuccessfulLogin, getRecentSuccessfulLogins } from './loginAudit.js';
+import { getEmailConfigStatus } from '../notify.js';
 import {
   criarEnviarOtp,
   validarOtp,
@@ -28,7 +29,8 @@ export function registerSecurityRoutes(app) {
   app.get('/api/auth/security', authMiddleware, activeMiddleware, async (req, res) => {
     try {
       const { rows } = await query(
-        `SELECT id, email, nome, email_verificado, email_verificado_em, ultimo_acesso
+        `SELECT id, email, nome, telefone, telefone_verificado,
+                email_verificado, email_verificado_em, ultimo_acesso
          FROM usuarios WHERE id = $1`,
         [req.user.id]
       );
@@ -36,9 +38,13 @@ export function registerSecurityRoutes(app) {
       if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
       const lastLogin = await getLastSuccessfulLogin(user.id);
+      const recentLogins = await getRecentSuccessfulLogins(user.id, 5);
+      const emailStatus = getEmailConfigStatus();
 
       res.json({
         email: user.email,
+        telefone: user.telefone || '',
+        telefone_verificado: Boolean(user.telefone_verificado),
         email_verificado: Boolean(user.email_verificado),
         email_verificado_em: user.email_verificado_em,
         ultimo_acesso: user.ultimo_acesso,
@@ -49,6 +55,13 @@ export function registerSecurityRoutes(app) {
               em: lastLogin.created_at,
             }
           : null,
+        logins_recentes: recentLogins.map((l) => ({
+          ip: l.ip,
+          user_agent: l.user_agent,
+          em: l.created_at,
+        })),
+        email_configurado: emailStatus.configured,
+        email_provider: emailStatus.provider,
       });
     } catch (err) {
       console.error('auth/security:', err.message);
@@ -73,11 +86,16 @@ export function registerSecurityRoutes(app) {
         nome: user.nome,
       });
 
+      const emailStatus = getEmailConfigStatus();
+
       res.json({
         ok: true,
-        message: 'Enviamos um link de verificação para seu e-mail.',
+        message: emailStatus.configured
+          ? 'Enviamos um link de verificação para seu e-mail.'
+          : 'Envio de e-mail não configurado. Use o token abaixo (ambiente de teste).',
         ttl_hours: send.ttl_hours,
         dev_token: send.dev_token,
+        email_configurado: emailStatus.configured,
       });
     } catch (err) {
       console.error('send-verification:', err.message);
@@ -139,6 +157,26 @@ export function registerSecurityRoutes(app) {
     } catch (err) {
       console.error('reset-password:', err.message);
       res.status(500).json({ error: 'Erro ao redefinir senha.' });
+    }
+  });
+
+  app.patch('/api/auth/security/telefone', authMiddleware, activeMiddleware, async (req, res) => {
+    const { telefone } = req.body || {};
+    const digits = String(telefone || '').replace(/\D/g, '');
+    if (digits.length < 10) {
+      return res.status(400).json({ error: 'Informe um telefone válido com DDD.' });
+    }
+
+    try {
+      await query(
+        `UPDATE usuarios SET telefone = $1, telefone_verificado = false, updated_at = NOW()
+         WHERE id = $2`,
+        [digits, req.user.id]
+      );
+      res.json({ ok: true, telefone: digits, telefone_verificado: false });
+    } catch (err) {
+      console.error('security/telefone:', err.message);
+      res.status(500).json({ error: 'Erro ao salvar telefone.' });
     }
   });
 

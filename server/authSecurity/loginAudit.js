@@ -19,3 +19,15 @@ export async function getLastSuccessfulLogin(usuarioId) {
   );
   return rows[0] || null;
 }
+
+export async function getRecentSuccessfulLogins(usuarioId, limit = 5) {
+  const { rows } = await query(
+    `SELECT ip, user_agent, created_at
+     FROM login_audits
+     WHERE usuario_id = $1 AND sucesso = true
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [usuarioId, limit]
+  );
+  return rows;
+}

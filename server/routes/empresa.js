@@ -18,7 +18,7 @@ import {
   removerMembro,
   isPlanAccessError,
 } from '../empresa/empresaService.js';
-import { sendEmpresaConviteEmail } from '../notify.js';
+import { sendEmpresaConviteEmail, getEmailConfigStatus } from '../notify.js';
 import { query } from '../db.js';
 
 const router = Router();
@@ -102,7 +102,7 @@ router.post(
         convidadoPorId: req.user.id,
       });
 
-      await sendEmpresaConviteEmail({
+      const mailResult = await sendEmpresaConviteEmail({
         email: payload.convite.email,
         empresaNome: payload.empresaNome,
         perfil: payload.convite.perfil,
@@ -110,13 +110,21 @@ router.post(
         convidadoPorNome: actor[0]?.nome,
       });
 
+      const emailStatus = getEmailConfigStatus();
+      const emailSent = Boolean(mailResult.configured && !mailResult.dev);
+
       res.status(201).json({
         ok: true,
-        message: 'Convite enviado.',
+        message: emailSent
+          ? 'Convite enviado por e-mail.'
+          : 'Convite gerado. Copie o token manualmente (e-mail não configurado).',
         email: payload.convite.email,
         perfil: payload.convite.perfil,
         expiresAt: payload.convite.expires_at,
-        dev_token: payload.devToken,
+        email_configurado: emailStatus.configured,
+        email_sent: emailSent,
+        manual_token: emailSent ? undefined : payload.convite.token,
+        dev_token: payload.devToken || (!emailSent ? payload.convite.token : undefined),
       });
     } catch (err) {
       if (handlePermissionError(res, err)) return;

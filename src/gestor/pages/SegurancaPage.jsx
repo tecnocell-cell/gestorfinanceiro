@@ -3,6 +3,33 @@ import { authApi } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import { AlertTriangle } from "../components/icons.jsx";
 import OtpModal from "../components/OtpModal.jsx";
+import ConfigStatusBanner from "../components/ConfigStatusBanner.jsx";
+import useConfigStatus from "../hooks/useConfigStatus.js";
+
+const PAGE_CSS = `
+.sec-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.sec-card {
+  margin: 0;
+  border-radius: 14px;
+  border: 1px solid oklch(0.92 0.01 150);
+  padding: 16px 18px;
+  background: #fff;
+  box-shadow: 0 4px 16px oklch(0.45 0.03 155 / 0.06);
+}
+.sec-card-title { font-size: 14px; font-weight: 700; margin: 0 0 10px; color: var(--text, #0f172a); }
+.sec-muted { font-size: 12px; color: var(--muted-foreground, #64748b); margin: 0 0 12px; line-height: 1.45; }
+.sec-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+}
+.sec-badge--ok { background: oklch(0.95 0.04 150); color: var(--green-dark, #166534); }
+.sec-badge--warn { background: oklch(0.96 0.04 85); color: oklch(0.45 0.08 75); }
+.sec-badge--muted { background: oklch(0.96 0.01 250); color: #475569; }
+.sec-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+.sec-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+.sec-table th { text-align: left; padding: 8px 6px; border-bottom: 1px solid oklch(0.92 0.01 150); color: var(--muted-foreground); font-weight: 600; }
+.sec-table td { padding: 8px 6px; border-bottom: 1px solid oklch(0.96 0.01 150); color: var(--text, #0f172a); }
+`;
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -13,8 +40,15 @@ function formatDateTime(value) {
   }
 }
 
+function shortUa(ua) {
+  if (!ua) return "—";
+  if (ua.length <= 48) return ua;
+  return `${ua.slice(0, 45)}…`;
+}
+
 export default function SegurancaPage() {
   const { user } = useAuth();
+  const { status: configStatus } = useConfigStatus();
   const [security, setSecurity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,6 +63,7 @@ export default function SegurancaPage() {
   const [otpModal, setOtpModal] = useState(null);
   const [otpBusy, setOtpBusy] = useState(false);
   const [telefone, setTelefone] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -36,6 +71,7 @@ export default function SegurancaPage() {
     try {
       const data = await authApi.security();
       setSecurity(data);
+      setTelefone(data.telefone || "");
     } catch (e) {
       setError(e.message || "Erro ao carregar segurança.");
     } finally {
@@ -79,6 +115,22 @@ export default function SegurancaPage() {
       setError(err.message || "Token inválido.");
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    setMsg("");
+    setError("");
+    setSavingPhone(true);
+    try {
+      const data = await authApi.updateTelefone(telefone);
+      setTelefone(data.telefone || telefone);
+      setMsg("Telefone salvo. Agora você pode enviar o código de verificação.");
+      await load();
+    } catch (err) {
+      setError(err.message || "Erro ao salvar telefone.");
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -130,10 +182,11 @@ export default function SegurancaPage() {
     setMsg("");
     setError("");
     if (!telefone.trim()) {
-      setError("Informe o telefone para verificação.");
+      setError("Informe e salve o telefone antes de verificar.");
       return;
     }
     try {
+      await authApi.updateTelefone(telefone);
       const sent = await authApi.otpSend({
         tipo: "verificar_telefone",
         canal: "whatsapp",
@@ -147,7 +200,12 @@ export default function SegurancaPage() {
         aviso: sent.aviso,
         ttl_minutes: sent.ttl_minutes,
       });
-      setMsg("Código enviado para verificação do telefone.");
+      setMsg(
+        sent.aviso ||
+          (sent.canal === "whatsapp"
+            ? "Código enviado por WhatsApp."
+            : "Código enviado por e-mail.")
+      );
     } catch (err) {
       setError(err.message || "Falha ao enviar código.");
     }
@@ -168,7 +226,8 @@ export default function SegurancaPage() {
   const resendOtp = async () => {
     if (!otpModal) return;
     const tipo = otpModal.mode === "verify_phone" ? "verificar_telefone" : "acao_sensivel";
-    const data = await authApi.otpSend({ tipo, canal: otpModal.canal || "email" });
+    const canal = otpModal.mode === "verify_phone" ? "whatsapp" : "email";
+    const data = await authApi.otpSend({ tipo, canal });
     setOtpModal((prev) => ({
       ...prev,
       otp_id: data.otp_id,
@@ -180,10 +239,44 @@ export default function SegurancaPage() {
   };
 
   const verified = Boolean(security?.email_verificado);
+  const phoneVerified = Boolean(security?.telefone_verificado);
+  const emailConfigured =
+    security?.email_configurado ?? configStatus?.email?.configured ?? true;
+  const logins = security?.logins_recentes?.length
+    ? security.logins_recentes
+    : security?.ultimo_login
+      ? [security.ultimo_login]
+      : [];
 
   return (
-    <div>
-      {loading && <p style={{ fontSize: 13, color: "var(--muted)" }}>Carregando…</p>}
+    <div className="seguranca-page">
+      <style>{PAGE_CSS}</style>
+
+      <div className="page-header" style={{ marginBottom: 16 }}>
+        <h1 className="page-title">Segurança da conta</h1>
+        <p className="page-sub">Verificação, senha e histórico de acesso.</p>
+      </div>
+
+      <ConfigStatusBanner status={configStatus} keys={["email", "whatsapp"]} compact />
+
+      {!emailConfigured && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "10px 14px",
+            borderRadius: 12,
+            background: "oklch(0.98 0.02 85)",
+            border: "1px solid oklch(0.88 0.05 85)",
+            fontSize: 13,
+            color: "var(--text, #0f172a)",
+          }}
+        >
+          Envio de e-mail não configurado — em produção, tokens aparecerão apenas se o
+          administrador configurar SMTP ou Resend.
+        </div>
+      )}
+
+      {loading && <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando…</p>}
 
       {error && (
         <div className="login-error" style={{ marginBottom: 12 }}>
@@ -195,99 +288,112 @@ export default function SegurancaPage() {
         <div style={{ marginBottom: 12, fontSize: 13, color: "var(--green-dark)" }}>{msg}</div>
       )}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Verificação de e-mail</div>
-        <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
-          Conta: <strong>{security?.email || user?.email}</strong>
-        </p>
-        <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <div className="form-label">Status</div>
-            <div style={{ fontSize: 14 }}>
-              {verified ? (
-                <span style={{ color: "var(--green-dark)" }}>Verificado</span>
-              ) : (
-                <span style={{ color: "var(--amber-dark, #b45309)" }}>Pendente</span>
-              )}
-            </div>
+      <div className="sec-grid">
+        <div className="sec-card">
+          <h2 className="sec-card-title">E-mail</h2>
+          <p className="sec-muted">
+            Conta: <strong>{security?.email || user?.email}</strong>
+          </p>
+          <div className="sec-row">
+            <span
+              className={`sec-badge ${verified ? "sec-badge--ok" : "sec-badge--warn"}`}
+            >
+              {verified ? "Verificado" : "Não verificado"}
+            </span>
+            {verified && (
+              <span className="sec-muted" style={{ margin: 0 }}>
+                {formatDateTime(security?.email_verificado_em)}
+              </span>
+            )}
           </div>
-          <div>
-            <div className="form-label">Verificado em</div>
-            <div style={{ fontSize: 14 }}>{formatDateTime(security?.email_verificado_em)}</div>
-          </div>
+          {!verified && (
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={sendingVerify}
+                onClick={handleResend}
+                style={{ marginBottom: 12 }}
+              >
+                {sendingVerify ? "Enviando…" : "Reenviar verificação"}
+              </button>
+              <form onSubmit={handleVerifyToken}>
+                <div className="form-group" style={{ marginBottom: 8 }}>
+                  <label className="form-label">Token do e-mail</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={verifyToken}
+                    onChange={(e) => setVerifyToken(e.target.value)}
+                    placeholder="Cole o token recebido"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={verifying || !verifyToken.trim()}
+                >
+                  {verifying ? "Validando…" : "Confirmar e-mail"}
+                </button>
+              </form>
+            </>
+          )}
         </div>
-        {!verified && (
-          <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
+
+        <div className="sec-card">
+          <h2 className="sec-card-title">Telefone / WhatsApp</h2>
+          <p className="sec-muted">
+            Cadastre seu número para OTP por WhatsApp. Sem gateway, o código vai por e-mail.
+          </p>
+          <div className="sec-row">
+            <span
+              className={`sec-badge ${
+                phoneVerified ? "sec-badge--ok" : telefone ? "sec-badge--warn" : "sec-badge--muted"
+              }`}
+            >
+              {phoneVerified
+                ? "Verificado"
+                : telefone
+                  ? "Pendente"
+                  : "Não cadastrado"}
+            </span>
+          </div>
+          <div className="form-group" style={{ marginBottom: 8 }}>
+            <label className="form-label">Telefone (DDD + número)</label>
+            <input
+              className="form-input"
+              type="tel"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              placeholder="5599999999999"
+            />
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              disabled={sendingVerify}
-              onClick={handleResend}
+              className="btn btn-secondary btn-sm"
+              disabled={savingPhone}
+              onClick={handleSavePhone}
             >
-              {sendingVerify ? "Enviando…" : "Reenviar verificação"}
+              {savingPhone ? "Salvando…" : "Salvar telefone"}
             </button>
-          </div>
-        )}
-        {!verified && (
-          <form onSubmit={handleVerifyToken} style={{ marginTop: 16 }}>
-            <div className="form-group">
-              <label className="form-label">Token de verificação (e-mail)</label>
-              <input
-                className="form-input"
-                type="text"
-                value={verifyToken}
-                onChange={(e) => setVerifyToken(e.target.value)}
-                placeholder="Cole o token recebido por e-mail"
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={verifying || !verifyToken.trim()}>
-              {verifying ? "Validando…" : "Confirmar e-mail"}
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={handleVerifyPhone}
+              disabled={!telefone.trim()}
+            >
+              Enviar código
             </button>
-          </form>
-        )}
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Último login</div>
-        <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <div className="form-label">Data/hora</div>
-            <div style={{ fontSize: 14 }}>
-              {formatDateTime(security?.ultimo_login?.em || security?.ultimo_acesso)}
-            </div>
-          </div>
-          <div>
-            <div className="form-label">IP</div>
-            <div style={{ fontSize: 14 }}>{security?.ultimo_login?.ip || "—"}</div>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Verificação de telefone / WhatsApp</div>
-        <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 12 }}>
-          Confirme seu número para recursos que usam WhatsApp. Se o gateway não estiver
-          configurado, o código será enviado por e-mail.
-        </p>
-        <div className="form-group">
-          <label className="form-label">Telefone (com DDD)</label>
-          <input
-            className="form-input"
-            type="tel"
-            value={telefone}
-            onChange={(e) => setTelefone(e.target.value)}
-            placeholder="5599999999999"
-          />
-        </div>
-        <button type="button" className="btn btn-secondary" onClick={handleVerifyPhone}>
-          Enviar código de verificação
-        </button>
-      </div>
-
-      <div className="card">
-        <div className="card-title">Alterar senha</div>
+      <div className="sec-card" style={{ marginTop: 14 }}>
+        <h2 className="sec-card-title">Alterar senha</h2>
+        <p className="sec-muted">Exigimos um código OTP por e-mail ou WhatsApp antes de trocar a senha.</p>
         <form onSubmit={handleChangePassword}>
-          <div className="form-grid">
+          <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             <div className="form-group">
               <label className="form-label">Senha atual</label>
               <input
@@ -312,7 +418,7 @@ export default function SegurancaPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Confirmar nova senha</label>
+              <label className="form-label">Confirmar</label>
               <input
                 className="form-input"
                 type="password"
@@ -324,12 +430,40 @@ export default function SegurancaPage() {
               />
             </div>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <button type="submit" className="btn btn-primary" disabled={changingPwd}>
-              {changingPwd ? "Enviando código…" : "Solicitar código e alterar senha"}
-            </button>
-          </div>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={changingPwd} style={{ marginTop: 12 }}>
+            {changingPwd ? "Enviando código…" : "Solicitar código e alterar"}
+          </button>
         </form>
+      </div>
+
+      <div className="sec-card" style={{ marginTop: 14 }}>
+        <h2 className="sec-card-title">Últimos logins</h2>
+        <table className="sec-table">
+          <thead>
+            <tr>
+              <th>Data/hora</th>
+              <th>IP</th>
+              <th>Navegador</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logins.length === 0 ? (
+              <tr>
+                <td colSpan={3} style={{ color: "var(--muted-foreground)" }}>
+                  Nenhum login registrado.
+                </td>
+              </tr>
+            ) : (
+              logins.map((l, i) => (
+                <tr key={`${l.em}-${i}`}>
+                  <td>{formatDateTime(l.em)}</td>
+                  <td>{l.ip || "—"}</td>
+                  <td title={l.user_agent}>{shortUa(l.user_agent)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <OtpModal

@@ -120,6 +120,9 @@ export const authApi = {
 
   security: () => request("/auth/security"),
 
+  updateTelefone: (telefone) =>
+    request("/auth/security/telefone", { method: "PATCH", body: { telefone } }),
+
   sendVerification: () =>
     request("/auth/send-verification", { method: "POST", body: {} }),
 
@@ -170,6 +173,10 @@ export const stateApi = {
 /** Saúde do backend PostgreSQL (Express) */
 export const healthApi = {
   status: () => request("/status"),
+};
+
+export const systemApi = {
+  configStatus: () => request("/system/config-status"),
 };
 
 // ─── Admin — gestão de tenants ────────────────────────────────────────────────

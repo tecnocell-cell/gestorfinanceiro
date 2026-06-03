@@ -3,6 +3,7 @@ import { useAuth } from "../AuthContext.jsx";
 import { billingApi } from "../api.js";
 import { AlertTriangle, CircleCheck, Sparkles } from "../components/icons.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
+import useConfigStatus from "../hooks/useConfigStatus.js";
 import {
   PLAN_BADGES,
   planIconSlug,
@@ -251,6 +252,7 @@ function PlanCard({
   assinatura,
   currentSlug,
   pagamentosReais,
+  allowSimulate,
   busy,
   onSimulate,
   onCheckout,
@@ -293,26 +295,32 @@ function PlanCard({
           </span>
         ) : (
           <>
-            {pagamentosReais && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ width: "100%" }}
-                disabled={!!busy}
-                onClick={() => onCheckout(plano.slug)}
-              >
-                {busy === `checkout-${plano.slug}` ? "Gerando PIX…" : "Assinar plano"}
-              </button>
-            )}
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ width: "100%" }}
-              disabled={!!busy}
-              onClick={() => onSimulate(plano.slug)}
+              className="btn btn-primary"
+              style={{ width: "100%", opacity: pagamentosReais ? 1 : 0.65 }}
+              disabled={!!busy || !pagamentosReais}
+              title={pagamentosReais ? undefined : "Configure Asaas (ASAAS_API_KEY) no servidor"}
+              onClick={() => pagamentosReais && onCheckout(plano.slug)}
             >
-              {busy === plano.slug ? "Simulando…" : "Simular upgrade"}
+              {busy === `checkout-${plano.slug}` ? "Gerando PIX…" : "Assinar plano"}
             </button>
+            {!pagamentosReais && (
+              <p style={{ fontSize: 11, margin: 0, color: "var(--muted-foreground, #64748b)", textAlign: "center" }}>
+                Cobrança real indisponível — configure Asaas
+              </p>
+            )}
+            {allowSimulate && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: "100%" }}
+                disabled={!!busy}
+                onClick={() => onSimulate(plano.slug)}
+              >
+                {busy === plano.slug ? "Simulando…" : "Simular upgrade"}
+              </button>
+            )}
           </>
         )}
       </div>
@@ -369,6 +377,7 @@ function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
 
 export default function PlanoAssinaturaPage() {
   const { user } = useAuth();
+  const { status: configStatus } = useConfigStatus();
   const [assinatura, setAssinatura] = useState(null);
   const [planos, setPlanos] = useState([]);
   const [faturas, setFaturas] = useState([]);
@@ -381,6 +390,10 @@ export default function PlanoAssinaturaPage() {
   const [pixCheckout, setPixCheckout] = useState(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [usage, setUsage] = useState(null);
+
+  const allowSimulate =
+    configStatus?.billing?.allowSimulate ??
+    import.meta.env.DEV;
 
   const segmentoLabel =
     user?.tipo_perfil === "fisica" ? "Pessoa Física (PF)" : "Pessoa Jurídica (PJ)";
@@ -497,17 +510,27 @@ export default function PlanoAssinaturaPage() {
           className="card"
           style={{
             marginBottom: 16,
-            borderColor: "var(--amber-dark, #b45309)",
+            borderColor: "oklch(0.85 0.05 85)",
             background: "oklch(0.98 0.02 85)",
           }}
         >
-          <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            className="card-title"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text, #0f172a)",
+            }}
+          >
             <AlertTriangle size={18} strokeWidth={2} aria-hidden />
             Cobrança real não configurada
           </div>
-          <p style={{ fontSize: 13, margin: 0, color: "var(--muted-foreground)" }}>
-            Configure ASAAS_API_KEY no servidor para PIX e webhooks. A simulação de planos continua
-            disponível em ambiente de teste.
+          <p style={{ fontSize: 13, margin: 0, color: "var(--muted-foreground, #475569)" }}>
+            Configure <code>ASAAS_API_KEY</code> no servidor para PIX e webhooks. O uso do plano e
+            limites continuam visíveis abaixo.
+            {allowSimulate &&
+              " Em dev/staging, use «Simular upgrade» para testar planos sem cobrança."}
           </p>
         </div>
       )}
@@ -579,11 +602,22 @@ export default function PlanoAssinaturaPage() {
       )}
 
       {assinatura?.avisos?.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            background: "oklch(0.98 0.02 85)",
+            borderColor: "oklch(0.88 0.05 85)",
+          }}
+        >
           {assinatura.avisos.map((a) => (
             <p
               key={a}
-              style={{ fontSize: 12, color: "var(--amber-dark, #b45309)", margin: "4px 0" }}
+              style={{
+                fontSize: 13,
+                color: "oklch(0.45 0.08 75)",
+                margin: "4px 0",
+              }}
             >
               {a}
             </p>
@@ -618,6 +652,7 @@ export default function PlanoAssinaturaPage() {
                 assinatura={assinatura}
                 currentSlug={currentSlug}
                 pagamentosReais={pagamentosReais}
+                allowSimulate={allowSimulate}
                 busy={busy}
                 onSimulate={handleSimulate}
                 onCheckout={handleCheckout}

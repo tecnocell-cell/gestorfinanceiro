@@ -48,6 +48,7 @@ import openFinanceRouter from "./routes/openFinance.js";
 import { integracaoPfPjRouter } from "./routes/integracaoPfPj.js";
 import whatsappRouter from "./routes/whatsapp.js";
 import { whatsappAdminRouter } from "./routes/whatsappAdmin.js";
+import systemRouter from "./routes/system.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -134,12 +135,26 @@ app.post("/api/auth/login", async (req, res) => {
 
     const risk = await assessSuspiciousLogin(user.id, ip, userAgent);
     if (risk.suspicious) {
-      const otp = await criarEnviarOtp({
-        usuarioId: user.id,
-        tipo: "login_suspeito",
-        canalPreferido: "email",
-        nome: user.nome,
-      });
+      let otp;
+      try {
+        otp = await criarEnviarOtp({
+          usuarioId: user.id,
+          tipo: "login_suspeito",
+          canalPreferido: "email",
+          nome: user.nome,
+        });
+      } catch (err) {
+        if (err.code === "OTP_RATE_LIMIT") {
+          return res.status(429).json({
+            error: err.message,
+            requires_otp: true,
+          });
+        } else if (err.code === "OTP_CANAL_INDISPONIVEL") {
+          return res.status(503).json({ error: err.message });
+        } else {
+          throw err;
+        }
+      }
 
       return res.status(403).json({
         error: "Login suspeito detectado. Confirme com o código enviado.",
@@ -518,6 +533,7 @@ app.use("/api/recorrencias", recorrenciasRouter);
 app.use("/api/conexoes", conexoesRouter);
 app.use("/api/importacoes", importacoesRouter);
 app.use("/api/open-finance", openFinanceRouter);
+app.use("/api/system", systemRouter);
 app.use("/api/integracao-pf-pj", integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
