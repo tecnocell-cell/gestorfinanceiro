@@ -16,6 +16,9 @@ import ContasAPagarPage       from "./pages/ContasAPagarPage.jsx";
 import ConexoesBancariasPage  from "./pages/ConexoesBancariasPage.jsx";
 import IntegracaoPfPjPage     from "./pages/IntegracaoPfPjPage.jsx";
 import ResultadoCentroCustoPage from "./pages/ResultadoCentroCustoPage.jsx";
+import ProjetosFinanceirosPage from "./pages/ProjetosFinanceirosPage.jsx";
+import ResultadoClientePage from "./pages/ResultadoClientePage.jsx";
+import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import SuportePage           from "./pages/SuportePage.jsx";
 import TutoriaisPage         from "./pages/TutoriaisPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
@@ -48,6 +51,9 @@ const PAGE_MAP_PJ = {
   importacoes: ImportacoesPage, conciliacao: ConciliacaoPage,
   balancete: BalancetePage, fechamento: FechamentoPage,
   "resultado-centro-custo": ResultadoCentroCustoPage,
+  projetos: ProjetosFinanceirosPage,
+  "resultado-cliente": ResultadoClientePage,
+  "resultado-projeto": ResultadoProjetoPage,
   relatorios: RelatoriosPage, whatsapp: WhatsAppPage,
   "integracao-pf-pj": IntegracaoPfPjPage,
   "open-finance": ConexoesBancariasPage,
@@ -65,6 +71,9 @@ const PAGE_MAP_PF = {
   categorias: CategoriasPFPage, orcamento: OrcamentoPage,
   metas: MetasPage, contas: ContasPFPage,
   "resultado-centro-custo": () => <ResultadoCentroCustoPage pfMode />,
+  projetos: () => <ProjetosFinanceirosPage pfMode />,
+  "resultado-cliente": () => <ResultadoClientePage pfMode />,
+  "resultado-projeto": () => <ResultadoProjetoPage pfMode />,
   relatorios: RelatoriosPFPage, whatsapp: WhatsAppPage,
   "open-finance": ConexoesBancariasPage,
   tutoriais: () => <TutoriaisPage pfMode />,

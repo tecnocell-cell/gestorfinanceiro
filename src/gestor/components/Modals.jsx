@@ -9,6 +9,7 @@ import {
   isPerfilFisica,
 } from "../profileLabels.js";
 import { centrosCustoAtivos } from "../centroCusto.js";
+import { projetosAtivos } from "../projetoFinanceiro.js";
 import {
   ModalShell,
   ModalSection,
@@ -171,7 +172,7 @@ const CATEGORIA_TIPO_OPTIONS = [
 
 export function ModalLancamento() {
   const {
-    editingItem, contas, planoContas, clientes, fornecedores, centroCustos,
+    editingItem, contas, planoContas, clientes, fornecedores, centroCustos, projetos,
     closeModal, saveLancamento, lancamentos, tipo,
   } = useGestor();
   const isPF = isPerfilFisica(tipo);
@@ -201,6 +202,7 @@ export function ModalLancamento() {
     clienteId:    item?.clienteId     || "",
     fornecedorId: item?.fornecedorId  || "",
     centroCustoId: item?.centroCustoId || "",
+    projetoId: item?.projetoId || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -394,21 +396,43 @@ export function ModalLancamento() {
           </ModalField>
         )}
 
+        {(clientes?.length > 0 || form.clienteId) && (
+          <ModalField label="Cliente">
+            <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
+              <option value="">— Nenhum (opcional) —</option>
+              {(clientes || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </ModalField>
+        )}
+
+        {(projetosAtivos(projetos).length > 0 || form.projetoId) && (
+          <ModalField label="Projeto">
+            <select
+              className="form-select"
+              value={form.projetoId}
+              onChange={(e) => set("projetoId", e.target.value)}
+            >
+              <option value="">— Nenhum (opcional) —</option>
+              {projetosAtivos(projetos)
+                .filter((p) => !form.clienteId || p.clienteId === form.clienteId || !p.clienteId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              {form.projetoId &&
+                !(projetos || []).find((p) => p.id === form.projetoId && p.status === "ativo") && (
+                <option value={form.projetoId}>Projeto inativo / legado</option>
+              )}
+            </select>
+          </ModalField>
+        )}
+
         {!isPF && (
-          <ModalGrid cols={2}>
-            <ModalField label="Cliente">
-              <select className="form-select" value={form.clienteId} onChange={(e) => set("clienteId", e.target.value)}>
-                <option value="">— Nenhum —</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </ModalField>
-            <ModalField label="Fornecedor">
-              <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
-                <option value="">— Nenhum —</option>
-                {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-              </select>
-            </ModalField>
-          </ModalGrid>
+          <ModalField label="Fornecedor">
+            <select className="form-select" value={form.fornecedorId} onChange={(e) => set("fornecedorId", e.target.value)}>
+              <option value="">— Nenhum —</option>
+              {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+          </ModalField>
         )}
       </ModalSection>
 

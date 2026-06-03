@@ -284,5 +284,11 @@ export function buildLancamentoFromRecorrencia({
     ...(recorrencia.centro_custo_id || recorrencia.centroCustoId
       ? { centroCustoId: recorrencia.centro_custo_id || recorrencia.centroCustoId }
       : {}),
+    ...(recorrencia.cliente_id || recorrencia.clienteId
+      ? { clienteId: recorrencia.cliente_id || recorrencia.clienteId }
+      : {}),
+    ...(recorrencia.projeto_id || recorrencia.projetoId
+      ? { projetoId: recorrencia.projeto_id || recorrencia.projetoId }
+      : {}),
   };
 }

@@ -40,6 +40,7 @@ export const createEmpresa = (nome = "Nova Empresa") => ({
   metas: [],
   orcamentos: [],
   centroCustos: [],
+  projetos: [],
 });
 
 // ─── Pessoa Física ────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ export const createPerfil = (nome = "Novo Perfil", tipo = "juridica") => {
       metas: [],
       orcamentos: [],
       centroCustos: [],
+      projetos: [],
     };
   }
   return createEmpresa(nome);
@@ -118,6 +120,7 @@ export const loadState = () => {
       metas: [],
       orcamentos: [],
       centroCustos: [],
+      projetos: [],
       pessoa: null,
       tipo: "juridica",
       ...emp,
@@ -177,6 +180,7 @@ export const normalizeStateForUser = (dados, user) => {
     const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
     const mergedCentroCustos = mergeEmpresaField(empresas, "centroCustos");
+    const mergedProjetos = mergeEmpresaField(empresas, "projetos");
     const mergedPlanoRaw = mergeEmpresaField(empresas, "planoContas");
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -232,6 +236,9 @@ export const normalizeStateForUser = (dados, user) => {
     converted.centroCustos = mergedCentroCustos.length
       ? mergedCentroCustos
       : (converted.centroCustos || []);
+    converted.projetos = mergedProjetos.length
+      ? mergedProjetos
+      : (converted.projetos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -259,6 +266,7 @@ export const normalizeStateForUser = (dados, user) => {
         ? mergedFornecedoresPj
         : (emp.fornecedores || []),
       centroCustos: emp.centroCustos || [],
+      projetos: emp.projetos || [],
     };
   });
 

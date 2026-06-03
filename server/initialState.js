@@ -49,7 +49,7 @@ function createEmpresaPJ(nome) {
       contas: defaultContasPJ(),
       planoContas: defaultPlanoPJ(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [], centroCustos: [],
+      fechamentos: [], metas: [], orcamentos: [], centroCustos: [], projetos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -93,7 +93,7 @@ function createPerfilPF(nome) {
       contas: defaultContasPF(),
       planoContas: defaultCategoriasPF(),
       lancamentos: [], clientes: [], fornecedores: [],
-      fechamentos: [], metas: [], orcamentos: [], centroCustos: [],
+      fechamentos: [], metas: [], orcamentos: [], centroCustos: [], projetos: [],
     }],
     empresaAtivaId: empId,
     filterPeriodo: { ano: ano(), mes: "" },
@@ -149,6 +149,7 @@ export function normalizeStateForUser(dados, user) {
     const allOrcamentos = empresas.flatMap((e) => e.orcamentos || []);
     const allFechamentos = empresas.flatMap((e) => e.fechamentos || []);
     const mergedCentroCustos = mergeEmpresaField(empresas, 'centroCustos');
+    const mergedProjetos = mergeEmpresaField(empresas, 'projetos');
     const mergedPlanoRaw = mergeEmpresaField(empresas, 'planoContas');
     const mergedPlano = selectPlanoContasForPf(
       mergedPlanoRaw,
@@ -205,6 +206,9 @@ export function normalizeStateForUser(dados, user) {
     converted.centroCustos = mergedCentroCustos.length
       ? mergedCentroCustos
       : (converted.centroCustos || []);
+    converted.projetos = mergedProjetos.length
+      ? mergedProjetos
+      : (converted.projetos || []);
 
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
@@ -236,6 +240,7 @@ export function normalizeStateForUser(dados, user) {
       metas: emp.metas || [],
       orcamentos: emp.orcamentos || [],
       centroCustos: emp.centroCustos || [],
+      projetos: emp.projetos || [],
     };
   });
 
