@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
-import { Calculator, Users, Smartphone, Mic, Receipt } from "lucide-react";
+import { Calculator, Users, Smartphone, MessageSquare, Mic, Receipt } from "lucide-react";
 
 type PlanKey = "PF_BASICO" | "PF_PLUS" | "PF_PREMIUM" | "PJ_START" | "PJ_PRO" | "PJ_BUSINESS";
 
-const PLAN_META: Record<PlanKey, { label: string; base: number; type: "PF" | "PJ"; maxUsers: number; maxNumbers: number; audio: boolean; receipt: boolean }> = {
-  PF_BASICO:   { label: "PF Básico",   base: 19.9,  type: "PF", maxUsers: 1,  maxNumbers: 1,  audio: false, receipt: false },
-  PF_PLUS:     { label: "PF Plus",     base: 29.9,  type: "PF", maxUsers: 1,  maxNumbers: 3,  audio: true,  receipt: false },
-  PF_PREMIUM:  { label: "PF Premium",  base: 49.9,  type: "PF", maxUsers: 1,  maxNumbers: 5,  audio: true,  receipt: true  },
-  PJ_START:    { label: "PJ Start",    base: 59.9,  type: "PJ", maxUsers: 3,  maxNumbers: 2,  audio: true,  receipt: false },
-  PJ_PRO:      { label: "PJ Pro",      base: 99.9,  type: "PJ", maxUsers: 8,  maxNumbers: 5,  audio: true,  receipt: true  },
-  PJ_BUSINESS: { label: "PJ Business", base: 199.9, type: "PJ", maxUsers: 20, maxNumbers: 15, audio: true,  receipt: true  },
+const PLAN_META: Record<PlanKey, { label: string; base: number; type: "PF" | "PJ"; maxUsers: number; maxNumbers: number; texto: boolean; audio: boolean; receipt: boolean }> = {
+  PF_BASICO:   { label: "PF Básico",   base: 19.9,  type: "PF", maxUsers: 1,  maxNumbers: 1,  texto: true, audio: false, receipt: false },
+  PF_PLUS:     { label: "PF Plus",     base: 29.9,  type: "PF", maxUsers: 1,  maxNumbers: 3,  texto: true, audio: true,  receipt: false },
+  PF_PREMIUM:  { label: "PF Premium",  base: 49.9,  type: "PF", maxUsers: 1,  maxNumbers: 5,  texto: true, audio: true,  receipt: true  },
+  PJ_START:    { label: "PJ Start",    base: 59.9,  type: "PJ", maxUsers: 3,  maxNumbers: 2,  texto: true, audio: true,  receipt: false },
+  PJ_PRO:      { label: "PJ Pro",      base: 99.9,  type: "PJ", maxUsers: 8,  maxNumbers: 5,  texto: true, audio: true,  receipt: true  },
+  PJ_BUSINESS: { label: "PJ Business", base: 199.9, type: "PJ", maxUsers: 20, maxNumbers: 15, texto: true, audio: true,  receipt: true  },
 };
 
 export function PriceSimulator() {
@@ -97,6 +97,7 @@ export function PriceSimulator() {
               />
 
               <div className="flex flex-wrap gap-2 text-xs">
+                <Pill on={meta.texto} icon={<MessageSquare className="h-3 w-3" />} label="Texto" />
                 <Pill on={meta.audio} icon={<Mic className="h-3 w-3" />} label="Áudio" />
                 <Pill on={meta.receipt} icon={<Receipt className="h-3 w-3" />} label="Comprovante (IA)" />
               </div>

@@ -580,10 +580,9 @@ function PfModePanel({ adminPhone }) {
         marginBottom: 20,
         textAlign: "left",
       }}>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: C.text, fontWeight: 600 }}>
-          Meu numero autorizado
+        <p style={{ margin: "0 0 8px", fontSize: 13, color: C.textMuted }}>
+          Cadastre e gerencie seus números autorizados na seção abaixo (conforme limite do plano).
         </p>
-        {authorizedSection}
       </div>
 
       {/* Instrucoes — so exibe apos numero cadastrado */}
@@ -610,8 +609,8 @@ function PfModePanel({ adminPhone }) {
   );
 }
 
-// ── Painel de numeros autorizados (PJ) ───────────────────────────────────────
-function PjAuthorizedPanel() {
+// ── Painel de números autorizados (PF e PJ) ─────────────────────────────────
+function AuthorizedNumbersPanel() {
   const [numbers, setNumbers] = React.useState(null); // null = carregando
   const [planInfo, setPlanInfo] = React.useState(null); // { plan, max_authorized_numbers, used_authorized_numbers, ai_audio_enabled, ai_receipt_enabled, ai_text_enabled }
   const [form, setForm]       = React.useState({ phone_number: "", label: "" });
@@ -664,6 +663,18 @@ function PjAuthorizedPanel() {
       const { whatsappApi } = await import("../api.js");
       await whatsappApi.deleteAuthorized(row.id);
       setNumbers(prev => prev.filter(r => r.id !== row.id));
+      whatsappApi.planLimit().then(d => setPlanInfo(d)).catch(() => {});
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+
+  const setPrimary = async (row) => {
+    try {
+      const { whatsappApi } = await import("../api.js");
+      const d = await whatsappApi.updateAuthorized(row.id, { is_primary: true });
+      setNumbers(prev => prev.map(r => ({
+        ...r,
+        is_primary: r.id === d.authorized.id,
+      })));
     } catch (e) { alert("Erro: " + e.message); }
   };
 
@@ -703,7 +714,7 @@ function PjAuthorizedPanel() {
             color: planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers ? C.red : C.green,
             border: `1px solid ${planInfo.used_authorized_numbers >= planInfo.max_authorized_numbers ? C.redBorder : C.greenBorder}`,
           }}>
-            {planInfo.used_authorized_numbers} de {planInfo.max_authorized_numbers} números
+            {planInfo.used_authorized_numbers} / {planInfo.max_authorized_numbers} números
           </span>
         )}
       </div>
@@ -749,8 +760,7 @@ function PjAuthorizedPanel() {
           fontSize: 13,
           marginBottom: 16,
         }}>
-          ⚠️ Limite de números atingido para o plano <strong>{planInfo.plan}</strong>.
-          Remova um número existente ou entre em contato para fazer upgrade.
+          Limite do plano atingido. Remova um número ou faça upgrade do plano.
         </div>
       )}
 
@@ -834,11 +844,31 @@ function PjAuthorizedPanel() {
               <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14, color: C.text }}>
                 {fmtPhone(row.phone_number)}
               </span>
-              {row.label && (
+              {row.is_primary && (
+                <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.green }}>Principal</span>
+              )}
+              {row.label && !row.is_primary && (
                 <span style={{ marginLeft: 8, fontSize: 12, color: C.textMuted }}>{row.label}</span>
               )}
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {numbers.length > 1 && !row.is_primary && (
+                <button
+                  type="button"
+                  onClick={() => setPrimary(row)}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    border: `1px solid ${C.greenBorder}`,
+                    background: "#fff",
+                    color: C.green,
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Principal
+                </button>
+              )}
               <span style={{
                 padding: "3px 10px",
                 borderRadius: 99,
@@ -1198,6 +1228,7 @@ export default function WhatsAppPage() {
       {isPF ? (
         <>
           <PfModePanel adminPhone={adminPhone} />
+          <AuthorizedNumbersPanel />
           <WhatsAppPendingPanel />
           <WhatsAppInbox />
         </>
@@ -1230,8 +1261,7 @@ export default function WhatsAppPage() {
             />
           )}
 
-          {/* Numeros autorizados — sempre visivel para PJ */}
-          <PjAuthorizedPanel />
+          <AuthorizedNumbersPanel />
           <WhatsAppPendingPanel />
           <WhatsAppInbox />
         </>

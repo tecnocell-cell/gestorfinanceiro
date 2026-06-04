@@ -15,6 +15,11 @@ import {
 import { parseMessage, detectConfirmation } from "../whatsapp/messageParser.js";
 import { addLancamentoFromWhatsApp } from "../whatsapp/lancamentoWriter.js";
 import { processMediaInbox }         from "../whatsapp/mediaProcessor.js";
+import { getUserSubscriptionResources } from "../billing/accessControl.js";
+import {
+  whatsappCapabilitiesFromRecursos,
+  PUBLIC_MESSAGES,
+} from "../billing/planRules.js";
 
 const router = Router();
 
@@ -1370,10 +1375,10 @@ router.get("/pf-config", ...auth, async (_req, res) => {
 async function handleGetAuthorized(req, res) {
   try {
     const { rows } = await query(
-      `SELECT id, phone_number, label, active, verified_at, last_used_at, created_at
+      `SELECT id, phone_number, label, active, is_primary, verified_at, last_used_at, created_at
          FROM whatsapp_authorized_numbers
         WHERE usuario_id = $1
-        ORDER BY created_at ASC`,
+        ORDER BY is_primary DESC, created_at ASC`,
       [req.user.id]
     );
     res.json({ authorized: rows });
@@ -1385,63 +1390,14 @@ async function handleGetAuthorized(req, res) {
 router.get("/my-authorized", ...auth, handleGetAuthorized);
 router.get("/authorized",    ...auth, handleGetAuthorized);
 
-// ── Planos e capacidades ─────────────────────────────────────────────────────
+// ── Planos e capacidades (assinatura comercial — Etapa 7.0) ─────────────────
 
 /**
- * Definições de plano — fonte de verdade para quando não há linha no banco.
- * A migration 014 popula esses valores como colunas em whatsapp_user_plan,
- * mas este mapa garante fallback e compatibilidade com planos legados.
- */
-const PLAN_DEFAULTS = {
-  // PF
-  PF_BASIC:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
-  PF_PLUS:     { max_users: 1,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
-  PF_PREMIUM:  { max_users: 1,  max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
-  // PJ (novos)
-  PJ_START:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
-  PJ_PRO:      { max_users: 3,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
-  PJ_BUSINESS: { max_users: 10, max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
-  // PJ (legado)
-  PJ_BASIC:    { max_users: 1,  max_authorized_numbers: 1, ai_text_enabled: true,  ai_audio_enabled: false, ai_receipt_enabled: false },
-  PJ_PLUS:     { max_users: 3,  max_authorized_numbers: 3, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: false },
-  PJ_PREMIUM:  { max_users: 10, max_authorized_numbers: 5, ai_text_enabled: true,  ai_audio_enabled: true,  ai_receipt_enabled: true  },
-};
-
-/**
- * Retorna capacidades completas do plano do usuário.
- * Lê da tabela whatsapp_user_plan (migration 014).
- * Fallback via PLAN_DEFAULTS se ainda não houver linha ou colunas antigas.
- *
- * @returns {{
- *   plan:                    string,
- *   max_users:               number,
- *   max_authorized_numbers:  number,
- *   used_authorized_numbers: number,
- *   ai_text_enabled:         boolean,
- *   ai_audio_enabled:        boolean,
- *   ai_receipt_enabled:      boolean,
- * }}
+ * Capacidades WhatsApp a partir da assinatura ativa (planRules).
  */
 async function getUserPlanInfo(usuarioId) {
-  const { rows: planRows } = await query(
-    `SELECT plan_type,
-            max_authorized_numbers, max_users,
-            ai_text_enabled, ai_audio_enabled, ai_receipt_enabled
-       FROM whatsapp_user_plan
-      WHERE usuario_id = $1`,
-    [usuarioId]
-  );
-
-  const row  = planRows[0] || null;
-  const plan = row?.plan_type || "PJ_BASIC";
-  const def  = PLAN_DEFAULTS[plan] || PLAN_DEFAULTS.PJ_BASIC;
-
-  // Prefer DB columns (migration 014) over JS defaults when present and non-null
-  const max_authorized_numbers = row?.max_authorized_numbers ?? def.max_authorized_numbers;
-  const max_users               = row?.max_users               ?? def.max_users;
-  const ai_text_enabled         = row?.ai_text_enabled         ?? def.ai_text_enabled;
-  const ai_audio_enabled        = row?.ai_audio_enabled        ?? def.ai_audio_enabled;
-  const ai_receipt_enabled      = row?.ai_receipt_enabled      ?? def.ai_receipt_enabled;
+  const bundle = await getUserSubscriptionResources(usuarioId);
+  const caps = whatsappCapabilitiesFromRecursos(bundle.recursos);
 
   const { rows: countRows } = await query(
     "SELECT COUNT(*)::int AS total FROM whatsapp_authorized_numbers WHERE usuario_id = $1",
@@ -1450,13 +1406,14 @@ async function getUserPlanInfo(usuarioId) {
   const used_authorized_numbers = countRows[0]?.total || 0;
 
   return {
-    plan,
-    max_users,
-    max_authorized_numbers,
+    plan: bundle.plano_slug,
+    plano_nome: bundle.plano_nome,
+    max_users: bundle.recursos?.limiteUsuarios ?? 1,
+    max_authorized_numbers: caps.max_authorized_numbers,
     used_authorized_numbers,
-    ai_text_enabled,
-    ai_audio_enabled,
-    ai_receipt_enabled,
+    ai_text_enabled: caps.ai_text_enabled,
+    ai_audio_enabled: caps.ai_audio_enabled,
+    ai_receipt_enabled: caps.ai_receipt_enabled,
   };
 }
 
@@ -1490,18 +1447,20 @@ router.post("/authorized", ...auth, async (req, res) => {
     const { plan, max_authorized_numbers, used_authorized_numbers } = planInfo;
     if (used_authorized_numbers >= max_authorized_numbers) {
       return res.status(403).json({
-        error: `Limite de ${max_authorized_numbers} número(s) atingido para o plano ${plan}. Faça upgrade para adicionar mais.`,
+        error: PUBLIC_MESSAGES.whatsappLimit,
+        code: 'PLAN_LIMIT',
         plan,
         limit: max_authorized_numbers,
-        used:  used_authorized_numbers,
+        used: used_authorized_numbers,
       });
     }
 
+    const isFirst = used_authorized_numbers === 0;
     const { rows } = await query(
-      `INSERT INTO whatsapp_authorized_numbers (usuario_id, phone_number, label)
-       VALUES ($1, $2, $3)
-       RETURNING id, phone_number, label, active, verified_at, last_used_at, created_at`,
-      [usuarioId, phone, String(label).trim()]
+      `INSERT INTO whatsapp_authorized_numbers (usuario_id, phone_number, label, is_primary)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, phone_number, label, active, is_primary, verified_at, last_used_at, created_at`,
+      [usuarioId, phone, String(label).trim(), isFirst]
     );
     res.status(201).json({ authorized: rows[0] });
   } catch (err) {
@@ -1518,7 +1477,7 @@ router.post("/authorized", ...auth, async (req, res) => {
 // Apenas o proprio usuario pode atualizar seus numeros.
 router.patch("/authorized/:id", ...auth, async (req, res) => {
   const { id } = req.params;
-  const { active, label } = req.body || {};
+  const { active, label, is_primary } = req.body || {};
   const usuarioId = req.user.id;
 
   const sets = [];
@@ -1528,15 +1487,28 @@ router.patch("/authorized/:id", ...auth, async (req, res) => {
   if (active !== undefined) { sets.push(`active = $${i++}`); vals.push(!!active); }
   if (label  !== undefined) { sets.push(`label  = $${i++}`); vals.push(String(label).trim()); }
 
-  if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar." });
+  if (!sets.length && is_primary === undefined) {
+    return res.status(400).json({ error: "Nenhum campo para atualizar." });
+  }
 
-  vals.push(id, usuarioId);
   try {
+    if (is_primary === true) {
+      await query(
+        `UPDATE whatsapp_authorized_numbers SET is_primary = false WHERE usuario_id = $1`,
+        [usuarioId]
+      );
+      sets.push(`is_primary = $${i++}`);
+      vals.push(true);
+    }
+
+    if (!sets.length) return res.status(400).json({ error: "Nenhum campo para atualizar." });
+
+    vals.push(id, usuarioId);
     const { rows } = await query(
       `UPDATE whatsapp_authorized_numbers
           SET ${sets.join(", ")}, updated_at = NOW()
         WHERE id = $${i} AND usuario_id = $${i + 1}
-        RETURNING id, phone_number, label, active, verified_at, last_used_at, created_at`,
+        RETURNING id, phone_number, label, active, is_primary, verified_at, last_used_at, created_at`,
       vals
     );
     if (!rows.length) return res.status(404).json({ error: "Numero nao encontrado." });

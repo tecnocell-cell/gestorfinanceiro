@@ -13,6 +13,8 @@ import { getIntegracaoOperacaoLabel } from "../integracaoPfPjLabels.js";
 import { labelInstituicaoConta } from "../bancosBrasil.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
+import ExportPdfButton from "../components/ExportPdfButton.jsx";
+import { useAuth } from "../AuthContext.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import {
@@ -1559,6 +1561,7 @@ export function FechamentoPage() {
 }
 
 export function RelatoriosPage() {
+  const { user } = useAuth();
   const { fluxoCaixa, mensal, filterPeriodo, contas, planoContas, lancamentos } = useGestor();
   const [relConta, setRelConta] = useState("");
   const [relTipo, setRelTipo] = useState("Todos");
@@ -1613,9 +1616,33 @@ export function RelatoriosPage() {
               </tbody>
             </table>
           </div>
-          <button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => exportRelatorioCSV(fluxoFiltrado.map((l) => ({
-            data: l.data, historico: l.historico, tipo: l.tipo, valor: l.valor, saldo: l.saldoAcumulado,
-          })), `fluxo_${filterPeriodo.ano}.csv`)}>Exportar fluxo CSV</button>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-secondary" onClick={() => exportRelatorioCSV(fluxoFiltrado.map((l) => ({
+              data: l.data, historico: l.historico, tipo: l.tipo, valor: l.valor, saldo: l.saldoAcumulado,
+            })), `fluxo_${filterPeriodo.ano}.csv`)}>Exportar fluxo CSV</button>
+            <ExportPdfButton
+              getExportData={() => ({
+                title: "Fluxo de caixa",
+                periodo: String(filterPeriodo.ano || ""),
+                usuario: user?.email || "",
+                columns: [
+                  { header: "Data", dataKey: "data" },
+                  { header: "Histórico", dataKey: "historico" },
+                  { header: "Tipo", dataKey: "tipo" },
+                  { header: "Valor", dataKey: "valor" },
+                  { header: "Saldo", dataKey: "saldo" },
+                ],
+                rows: fluxoFiltrado.map((l) => ({
+                  data: fmtDate(l.data),
+                  historico: l.historico,
+                  tipo: l.tipo,
+                  valor: fmtBRL(l.valor),
+                  saldo: fmtBRL(l.saldoAcumulado),
+                })),
+                filename: `fluxo_${filterPeriodo.ano}.pdf`,
+              })}
+            />
+          </div>
         </div>
         <div className="card">
           <div className="card-title">Resumo Mensal</div>
@@ -1639,7 +1666,31 @@ export function RelatoriosPage() {
               </tbody>
             </table>
           </div>
-          <button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => exportRelatorioCSV(mensal.map((m) => ({ ...m, "Lucro %": fmtPct(m["Lucro %"] || 0) })), `mensal_${filterPeriodo.ano}.csv`)}>Exportar mensal CSV</button>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-secondary" onClick={() => exportRelatorioCSV(mensal.map((m) => ({ ...m, "Lucro %": fmtPct(m["Lucro %"] || 0) })), `mensal_${filterPeriodo.ano}.csv`)}>Exportar mensal CSV</button>
+            <ExportPdfButton
+              getExportData={() => ({
+                title: "Resumo mensal",
+                periodo: String(filterPeriodo.ano || ""),
+                usuario: user?.email || "",
+                columns: [
+                  { header: "Mês", dataKey: "mes" },
+                  { header: "Receita", dataKey: "receita" },
+                  { header: "Custo", dataKey: "custo" },
+                  { header: "Despesas", dataKey: "despesas" },
+                  { header: "Lucro", dataKey: "lucro" },
+                ],
+                rows: mensal.map((m) => ({
+                  mes: m.name,
+                  receita: fmtBRL(m.Receita),
+                  custo: fmtBRL(m.Custo),
+                  despesas: fmtBRL(m.Despesas),
+                  lucro: fmtBRL(m["Lucro Líquido"]),
+                })),
+                filename: `mensal_${filterPeriodo.ano}.pdf`,
+              })}
+            />
+          </div>
         </div>
       </div>
     </div>

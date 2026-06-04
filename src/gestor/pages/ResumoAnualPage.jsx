@@ -4,6 +4,8 @@ import { addMoney, fmtBRL } from "../finance.js";
 import { MESES } from "../constants.js";
 import { buildResumoAnual } from "../resumoAnual.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
+import { useAuth } from "../AuthContext.jsx";
+import { exportResumoAnualPdf } from "../export/pdfExport.js";
 import {
   LineChart,
   Target,
@@ -90,6 +92,7 @@ function KpiStrip({ items }) {
 
 export default function ResumoAnualPage({ variant = "pf" }) {
   const isPF = variant === "pf";
+  const { user } = useAuth();
   const {
     lancamentos,
     planoContas,
@@ -179,6 +182,29 @@ export default function ResumoAnualPage({ variant = "pf" }) {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              const headers = ["", ...MESES];
+              const sections = [
+                {
+                  title: "Resumo",
+                  headers,
+                  rows: resumoRows.map((r) => [r.label, ...r.meses.map((v) => fmtBRL(v))]),
+                },
+              ];
+              exportResumoAnualPdf({
+                ano,
+                usuario: user?.email || user?.nome || "",
+                kpis: kpis.map((k) => ({ label: k.label, value: k.value })),
+                sections,
+                filename: `resumo_anual_${ano}.pdf`,
+              });
+            }}
+          >
+            Exportar PDF
+          </button>
         </div>
       </header>
 

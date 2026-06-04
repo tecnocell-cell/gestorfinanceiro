@@ -13,6 +13,8 @@ import CustomTooltip from "../components/CustomTooltip.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import { integracaoPfPjApi } from "../api.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
+import ExportPdfButton from "../components/ExportPdfButton.jsx";
+import { useAuth } from "../AuthContext.jsx";
 import { ContasPage } from "./Pages.jsx";
 import { getDueDate, getLancamentoSituacao } from "../pfDueDates.js";
 import {
@@ -866,6 +868,7 @@ export function MetasPage() {
 // ─── Relatórios PF ────────────────────────────────────────────────────────────
 
 export function RelatoriosPFPage() {
+  const { user } = useAuth();
   const { lancamentos, planoContas, filterPeriodo } = useGestor();
 
   const mensal = useMemo(() =>
@@ -911,6 +914,27 @@ export function RelatoriosPFPage() {
       <div className="toolbar">
         <PeriodToolbar />
         <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇ CSV</button>
+        <ExportPdfButton
+          className="btn btn-secondary btn-sm"
+          getExportData={() => ({
+            title: "Relatório PF",
+            periodo: String(filterPeriodo.ano || ""),
+            usuario: user?.email || "",
+            columns: [
+              { header: "Mês", dataKey: "mes" },
+              { header: "Receitas", dataKey: "receitas" },
+              { header: "Despesas", dataKey: "despesas" },
+              { header: "Saldo", dataKey: "saldo" },
+            ],
+            rows: mensal.map((m) => ({
+              mes: m.name,
+              receitas: fmtBRL(m.Receitas),
+              despesas: fmtBRL(m.Despesas),
+              saldo: fmtBRL(m.Saldo),
+            })),
+            filename: `relatorio_pf_${filterPeriodo.ano}.pdf`,
+          })}
+        />
       </div>
 
       <div className="charts-grid">

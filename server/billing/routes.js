@@ -90,7 +90,8 @@ export function registerBillingRoutes(app) {
   app.post('/api/billing/checkout', ...billingGuard, async (req, res) => {
     if (!pagamentosReais()) {
       return res.status(503).json({
-        error: 'Cobrança real indisponível. Configure ASAAS_API_KEY ou use simulação em ambiente de teste.',
+        error: 'Assinaturas online em fase de ativação. Para contratar agora, fale com o suporte.',
+        code: 'BILLING_NOT_CONFIGURED',
       });
     }
 

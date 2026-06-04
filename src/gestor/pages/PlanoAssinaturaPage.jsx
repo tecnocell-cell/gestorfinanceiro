@@ -3,7 +3,9 @@ import { useAuth } from "../AuthContext.jsx";
 import { billingApi } from "../api.js";
 import { AlertTriangle, CircleCheck, Sparkles } from "../components/icons.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
+import BillingActivationModal from "../components/BillingActivationModal.jsx";
 import useConfigStatus from "../hooks/useConfigStatus.js";
+import { PUBLIC_MESSAGES, sanitizePublicMessage } from "../planRules.js";
 import {
   PLAN_BADGES,
   planIconSlug,
@@ -256,6 +258,7 @@ function PlanCard({
   busy,
   onSimulate,
   onCheckout,
+  onActivate,
 }) {
   const isCurrent = plano.slug === currentSlug && assinatura?.status !== "trial";
   const isTrialCurrent = plano.slug === currentSlug && assinatura?.status === "trial";
@@ -298,16 +301,15 @@ function PlanCard({
             <button
               type="button"
               className="btn btn-primary"
-              style={{ width: "100%", opacity: pagamentosReais ? 1 : 0.65 }}
-              disabled={!!busy || !pagamentosReais}
-              title={pagamentosReais ? undefined : "Configure Asaas (ASAAS_API_KEY) no servidor"}
-              onClick={() => pagamentosReais && onCheckout(plano.slug)}
+              style={{ width: "100%" }}
+              disabled={!!busy}
+              onClick={() => (pagamentosReais ? onCheckout(plano.slug) : onActivate?.())}
             >
               {busy === `checkout-${plano.slug}` ? "Gerando PIX…" : "Assinar plano"}
             </button>
             {!pagamentosReais && (
               <p style={{ fontSize: 11, margin: 0, color: "var(--muted-foreground, #64748b)", textAlign: "center" }}>
-                Cobrança real indisponível — configure Asaas
+                {PUBLIC_MESSAGES.billing}
               </p>
             )}
             {allowSimulate && (
@@ -390,6 +392,7 @@ export default function PlanoAssinaturaPage() {
   const [pixCheckout, setPixCheckout] = useState(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [usage, setUsage] = useState(null);
+  const [activationOpen, setActivationOpen] = useState(false);
 
   const allowSimulate =
     configStatus?.billing?.allowSimulate ??
@@ -455,7 +458,7 @@ export default function PlanoAssinaturaPage() {
       setMsg("Cobrança PIX gerada. Pague para ativar o plano automaticamente.");
       await load();
     } catch (e) {
-      setError(e.message || "Falha ao gerar checkout.");
+      setError(sanitizePublicMessage(e.message) || PUBLIC_MESSAGES.billing);
     } finally {
       setBusy(null);
     }
@@ -524,13 +527,12 @@ export default function PlanoAssinaturaPage() {
             }}
           >
             <AlertTriangle size={18} strokeWidth={2} aria-hidden />
-            Cobrança real não configurada
+            Assinaturas online
           </div>
           <p style={{ fontSize: 13, margin: 0, color: "var(--muted-foreground, #475569)" }}>
-            Configure <code>ASAAS_API_KEY</code> no servidor para PIX e webhooks. O uso do plano e
-            limites continuam visíveis abaixo.
+            {PUBLIC_MESSAGES.billing} Limites e uso do plano continuam visíveis abaixo.
             {allowSimulate &&
-              " Em dev/staging, use «Simular upgrade» para testar planos sem cobrança."}
+              " Em ambiente de testes, use «Simular upgrade» para experimentar outros planos."}
           </p>
         </div>
       )}
@@ -656,6 +658,7 @@ export default function PlanoAssinaturaPage() {
                 busy={busy}
                 onSimulate={handleSimulate}
                 onCheckout={handleCheckout}
+                onActivate={() => setActivationOpen(true)}
               />
             ))}
           </div>
@@ -727,6 +730,8 @@ export default function PlanoAssinaturaPage() {
           </div>
         )}
       </div>
+
+      <BillingActivationModal open={activationOpen} onClose={() => setActivationOpen(false)} />
     </div>
   );
 }

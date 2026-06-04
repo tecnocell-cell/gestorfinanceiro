@@ -25,6 +25,7 @@ import SegurancaPage from "./pages/SegurancaPage.jsx";
 import PlanoAssinaturaPage from "./pages/PlanoAssinaturaPage.jsx";
 import EquipePage from "./pages/EquipePage.jsx";
 import { useEmpresaPermissions } from "./hooks/useEmpresaPermissions.js";
+import { usePlanMenu } from "./hooks/usePlanMenu.js";
 import SuportePage           from "./pages/SuportePage.jsx";
 import TutoriaisPage         from "./pages/TutoriaisPage.jsx";
 // Dashboard V2 — premium. Rollback: remover estas 2 linhas e restaurar DashboardPage/DashboardPFPage nas page maps.
@@ -156,14 +157,17 @@ export default function GestorApp() {
   };
 
   const { canAccessMenu } = useEmpresaPermissions();
+  const { filterNavSections } = usePlanMenu(tipo);
   const isPF = isPessoaFisica(tipo);
   const rawSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
-  const navSections = rawSections
-    .map((block) => ({
-      ...block,
-      items: block.items.filter((n) => canAccessMenu(n.id)),
-    }))
-    .filter((block) => block.items.length > 0);
+  const navSections = filterNavSections(
+    rawSections
+      .map((block) => ({
+        ...block,
+        items: block.items.filter((n) => canAccessMenu(n.id)),
+      }))
+      .filter((block) => block.items.length > 0)
+  );
   const navItems = navSections.flatMap((s) => s.items);
   const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
 
@@ -250,19 +254,23 @@ export default function GestorApp() {
               <div key={block.section} className="nav-section-block">
                 <div className="nav-label">{block.section}</div>
                 <div className="nav-list">
-                  {block.items.map((n) => (
-                    <div
-                      key={n.id}
-                      className={`nav-item${currentPage === n.id ? " active" : ""}`}
-                      onClick={() => goTo(n.id)}
-                      onKeyDown={(e) => e.key === "Enter" && goTo(n.id)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <span className="nav-icon"><NavIcon name={n.id} /></span>
-                      <span className="nav-text">{n.label}</span>
-                    </div>
-                  ))}
+                  {block.items.map((n) => {
+                    const blocked = n.planAccess === "blocked";
+                    return (
+                      <div
+                        key={n.id}
+                        className={`nav-item${currentPage === n.id ? " active" : ""}${blocked ? " nav-item--plan-blocked" : ""}`}
+                        onClick={() => (blocked ? goTo("plano-assinatura") : goTo(n.id))}
+                        onKeyDown={(e) => e.key === "Enter" && (blocked ? goTo("plano-assinatura") : goTo(n.id))}
+                        role="button"
+                        tabIndex={0}
+                        title={blocked ? "Ver planos" : undefined}
+                      >
+                        <span className="nav-icon"><NavIcon name={n.id} /></span>
+                        <span className="nav-text">{n.label}{blocked ? " · Plano" : ""}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}

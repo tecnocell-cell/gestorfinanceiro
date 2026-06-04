@@ -10,6 +10,8 @@ import {
   applyRecursosByStatus,
   canUseOpenFinanceReal,
   buildLimiteAvisos,
+  PUBLIC_MESSAGES,
+  sanitizePublicMessage,
 } from './planResources.js';
 import { countEmpresaUsuariosAtivos } from '../empresa/empresaService.js';
 import { getStateOwnerId } from '../auth/permissions.js';
@@ -139,7 +141,7 @@ export function checkLimit(recursos, recurso, quantidadeAtual) {
     return {
       allowed: false,
       reason: 'feature',
-      message: 'Seu plano atual não inclui este recurso.',
+      message: PUBLIC_MESSAGES.planBlocked,
       recurso,
     };
   }
@@ -175,7 +177,7 @@ export async function checkLimitForUser(usuarioId, recurso, quantidadeAtual) {
 export async function assertCanUseResource(usuarioId, recurso) {
   const ok = await canUseResource(usuarioId, recurso);
   if (!ok) {
-    throw new PlanAccessError('Seu plano atual não inclui este recurso.', {
+    throw new PlanAccessError(PUBLIC_MESSAGES.planBlocked, {
       code: 'PLAN_FEATURE',
       recurso,
     });
@@ -418,7 +420,7 @@ export async function validateStateSave(usuarioId, oldDados, newDados) {
 export function handlePlanAccessError(res, err) {
   if (err instanceof PlanAccessError) {
     return res.status(err.status).json({
-      error: err.message,
+      error: sanitizePublicMessage(err.message),
       code: err.code,
       recurso: err.recurso,
       limite: err.limite,

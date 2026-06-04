@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { billingApi } from "../api.js";
+import { PUBLIC_MESSAGES, FEATURE_LABELS, sanitizePublicMessage } from "../planRules.js";
 import { AlertTriangle } from "./icons.jsx";
-
-const FEATURE_LABELS = {
-  openFinance: "Open Finance automático (Pluggy)",
-  integracaoPfPj: "Integração PF/PJ",
-  projetos: "Projetos financeiros",
-  centroCusto: "Centros de custo",
-  whatsappAudio: "WhatsApp com áudio",
-  whatsappComprovante: "WhatsApp com comprovante",
-  iaComprovante: "Leitura de comprovante por IA",
-};
 
 const LIMIT_LABELS = {
   lancamentos: "lançamentos",
@@ -24,10 +15,15 @@ function goToPlanos() {
   window.dispatchEvent(new CustomEvent("gestor-navigate", { detail: { page: "plano-assinatura" } }));
 }
 
+const NOTICE_STYLE = {
+  marginBottom: 16,
+  border: "1px solid oklch(0.88 0.02 85)",
+  background: "oklch(0.98 0.015 95)",
+  color: "oklch(0.28 0.03 155)",
+};
+
 /**
  * @param {{ feature?: string, limitKey?: string, className?: string }} props
- * feature — flag booleana (projetos, centroCusto, integracaoPfPj, openFinance)
- * limitKey — chave em uso/limites (lancamentos, clientes, projetos, centrosCusto, whatsappNumeros)
  */
 export default function PlanLimitNotice({ feature, limitKey, className = "" }) {
   const [usage, setUsage] = useState(null);
@@ -56,7 +52,7 @@ export default function PlanLimitNotice({ feature, limitKey, className = "" }) {
   if (feature) {
     const key = feature === "centrosCusto" ? "centroCusto" : feature;
     if (!usage.recursos?.[key]) {
-      message = "Seu plano atual não inclui este recurso.";
+      message = PUBLIC_MESSAGES.planBlocked;
     }
   }
 
@@ -64,7 +60,7 @@ export default function PlanLimitNotice({ feature, limitKey, className = "" }) {
     const lim = usage.limites?.[limitKey];
     const usado = usage.uso?.[limitKey];
     if (lim != null && usado != null && usado >= lim) {
-      message = "Você atingiu o limite do seu plano.";
+      message = PUBLIC_MESSAGES.whatsappLimit;
     }
   }
 
@@ -78,24 +74,19 @@ export default function PlanLimitNotice({ feature, limitKey, className = "" }) {
         : null;
 
   return (
-    <div
-      className={`card ${className}`.trim()}
-      style={{
-        marginBottom: 16,
-        borderColor: "var(--amber-dark, #b45309)",
-        background: "oklch(0.98 0.02 85)",
-      }}
-      role="status"
-    >
-      <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+    <div className={`card plan-limit-notice ${className}`.trim()} style={NOTICE_STYLE} role="status">
+      <div
+        className="card-title"
+        style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "inherit" }}
+      >
         <AlertTriangle size={16} strokeWidth={2} aria-hidden />
         Limite do plano
       </div>
-      <p style={{ fontSize: 13, margin: "0 0 10px", color: "var(--muted)" }}>
-        {message}
-        {detail ? ` (${detail})` : ""}
+      <p style={{ fontSize: 13, margin: "0 0 10px", color: "inherit" }}>
+        {sanitizePublicMessage(message)}
+        {detail ? ` — ${detail}` : ""}
       </p>
-      <button type="button" className="btn btn-secondary" style={{ fontSize: 12 }} onClick={goToPlanos}>
+      <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={goToPlanos}>
         Ver planos
       </button>
     </div>

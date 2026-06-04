@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setProfileReady(true);
+    window.location.href = "https://fluxiva.app";
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
