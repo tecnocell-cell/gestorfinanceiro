@@ -14,6 +14,7 @@ import {
   listFaturasUsuario,
   listPagamentosUsuario,
   processAsaasWebhook,
+  trocarPlano,
 } from './billingService.js';
 import { verifyWebhookToken } from './gateways/asaas.js';
 import { getBillingUsage } from './accessControl.js';
@@ -85,6 +86,21 @@ export function registerBillingRoutes(app) {
     } catch (err) {
       console.error('billing/pagamentos:', err.message);
       res.status(500).json({ error: 'Erro ao listar pagamentos.' });
+    }
+  });
+
+  app.post('/api/billing/trocar-plano', ...billingGuard, async (req, res) => {
+    const { plano_slug, planoSlug } = req.body || {};
+    const slug = (plano_slug || planoSlug || '').toLowerCase().trim();
+    if (!slug) return res.status(400).json({ error: 'Informe plano_slug.' });
+
+    try {
+      const result = await trocarPlano(ownerId(req), slug);
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      res.json({ pagamentos_reais: pagamentosReais(), ...result });
+    } catch (err) {
+      console.error('billing/trocar-plano:', err.message);
+      res.status(500).json({ error: err.message || 'Erro ao trocar plano.' });
     }
   });
 

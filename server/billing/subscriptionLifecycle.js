@@ -49,12 +49,8 @@ export async function refreshSubscriptionLifecycle(usuarioId) {
           [sub.id]
         );
       }
-    } else if (status === 'atrasada') {
-      await query(
-        `UPDATE assinaturas SET status = 'ativa', updated_at = NOW() WHERE id = $1`,
-        [sub.id]
-      );
     }
+    /* status 'atrasada' só volta a 'ativa' via pagamento confirmado (webhook), não por data de vencimento local */
   }
 }
 

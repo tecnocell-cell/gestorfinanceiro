@@ -165,6 +165,8 @@ export const billingApi = {
   pagamentos: () => request("/billing/pagamentos"),
   checkout: (plano_slug) =>
     request("/billing/checkout", { method: "POST", body: { plano_slug } }),
+  trocarPlano: (plano_slug) =>
+    request("/billing/trocar-plano", { method: "POST", body: { plano_slug } }),
   cancelar: () => request("/billing/cancelar", { method: "POST", body: {} }),
   simularUpgrade: (plano_slug) =>
     request("/billing/assinatura/simular", { method: "POST", body: { plano_slug } }),
@@ -198,6 +200,20 @@ export const supportApi = {
 export const adminApi = {
   overview: () => request("/admin/overview"),
   billingHealth: () => request("/admin/billing-health"),
+  listClientes: (query = "") =>
+    request(`/admin/clientes${query ? `?${query}` : ""}`),
+  getCliente: (id) => request(`/admin/clientes/${id}`),
+  changeClientePlano: (id, plano_slug) =>
+    request(`/admin/clientes/${id}/plano`, { method: "POST", body: { plano_slug } }),
+  reenviarCobranca: (id) =>
+    request(`/admin/clientes/${id}/reenviar-cobranca`, { method: "POST", body: {} }),
+  marcarFaturaPaga: (id, fatura_id) =>
+    request(`/admin/clientes/${id}/marcar-pago`, { method: "POST", body: { fatura_id } }),
+  cancelarAssinaturaCliente: (id) =>
+    request(`/admin/clientes/${id}/cancelar-assinatura`, { method: "POST", body: {} }),
+  clienteWebhooks: (id) => request(`/admin/clientes/${id}/webhooks`),
+  cobrancaAlertas: () => request("/admin/cobranca-alertas"),
+  saasMetrics: () => request("/admin/saas-metrics"),
   listUsers:     ()           => request("/admin/users"),
   createUser:    (data)       => request("/admin/users", { method: "POST", body: data }),
   toggleUser:    (id)         => request(`/admin/users/${id}/toggle`, { method: "PATCH" }),

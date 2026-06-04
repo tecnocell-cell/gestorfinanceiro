@@ -15,6 +15,14 @@ import {
   buildWebhookIdempotencyKey,
 } from './gateways/asaas.js';
 import { refreshSubscriptionLifecycle } from './subscriptionLifecycle.js';
+import { BILLING_RULES_DOC, isUpgrade, isDowngrade } from './billingRules.js';
+import {
+  emailCobrancaCriada,
+  emailPagamentoConfirmado,
+  emailAssinaturaAtrasada,
+  emailAssinaturaCancelada,
+} from './billingEmails.js';
+import { insertAdminSaasAudit } from './adminPlanoChange.js';
 
 export function isPagamentosReaisEnabled() {
   return isAsaasConfigured();
@@ -130,6 +138,8 @@ export async function createCheckout(usuarioId, planoSlug) {
       JSON.stringify({
         billingType: 'PIX',
         mock: payment.mock || false,
+        target_plano_id: plano.id,
+        target_plano_slug: plano.slug,
         pix: {
           copy_paste: payment.payload || null,
           encoded_image: payment.encodedImage || null,
@@ -139,10 +149,16 @@ export async function createCheckout(usuarioId, planoSlug) {
     ]
   );
 
-  await query(
-    `UPDATE assinaturas SET plano_id = $1, updated_at = NOW() WHERE id = $2`,
-    [plano.id, assinaturaId]
-  );
+  const invoiceUrl =
+    payment.invoiceUrl ||
+    (payment.id ? `https://www.asaas.com/i/${payment.id}` : null);
+
+  emailCobrancaCriada(usuarioId, {
+    planoNome: plano.nome,
+    valorCentavos: plano.preco_centavos,
+    vencimento: fatura.vencimento,
+    invoiceUrl,
+  }).catch(() => {});
 
   return {
     ok: true,
@@ -154,16 +170,17 @@ export async function createCheckout(usuarioId, planoSlug) {
     pix: {
       encoded_image: payment.encodedImage || null,
       copy_paste: payment.payload || null,
-      invoice_url: payment.invoiceUrl || null,
+      invoice_url: invoiceUrl,
     },
     plano_slug: plano.slug,
+    regra: BILLING_RULES_DOC.upgrade,
   };
 }
 
 export async function activateSubscriptionFromPayment(faturaId, paidAt = new Date()) {
   const { rows } = await query(
     `SELECT f.id, f.usuario_id, f.assinatura_id, f.valor_centavos, f.status,
-            a.plano_id, p.intervalo AS plano_intervalo, p.slug AS plano_slug
+            a.plano_id, p.intervalo AS plano_intervalo, p.slug AS plano_slug, p.nome AS plano_nome
      FROM faturas f
      JOIN assinaturas a ON a.id = f.assinatura_id
      JOIN planos p ON p.id = a.plano_id
@@ -174,7 +191,30 @@ export async function activateSubscriptionFromPayment(faturaId, paidAt = new Dat
   if (!fatura) return { ok: false, error: 'Fatura não encontrada.' };
   if (fatura.status === 'paga') return { ok: true, already: true };
 
-  const fim = periodEndFromInterval(fatura.plano_intervalo, paidAt);
+  const { rows: payRows } = await query(
+    `SELECT payload FROM pagamentos WHERE fatura_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [faturaId]
+  );
+  const payload =
+    typeof payRows[0]?.payload === 'string'
+      ? JSON.parse(payRows[0].payload)
+      : payRows[0]?.payload || {};
+  const targetPlanoId = payload.target_plano_id || null;
+  let intervalo = fatura.plano_intervalo;
+  let planoNome = fatura.plano_nome;
+
+  if (targetPlanoId) {
+    const { rows: tp } = await query(
+      `SELECT id, intervalo, nome, slug FROM planos WHERE id = $1`,
+      [targetPlanoId]
+    );
+    if (tp[0]) {
+      intervalo = tp[0].intervalo;
+      planoNome = tp[0].nome;
+    }
+  }
+
+  const fim = periodEndFromInterval(intervalo, paidAt);
   const proxima = new Date(fim);
 
   await query(
@@ -185,6 +225,7 @@ export async function activateSubscriptionFromPayment(faturaId, paidAt = new Dat
   await query(
     `UPDATE assinaturas
      SET status = 'ativa',
+         plano_id = COALESCE($4, plano_id),
          trial_ate = NULL,
          fim_em = $1,
          proxima_cobranca = $2,
@@ -192,10 +233,30 @@ export async function activateSubscriptionFromPayment(faturaId, paidAt = new Dat
          acesso_ate = NULL,
          updated_at = NOW()
      WHERE id = $3`,
-    [fim, proxima, fatura.assinatura_id]
+    [fim, proxima, fatura.assinatura_id, targetPlanoId]
   );
 
-  return { ok: true, usuario_id: fatura.usuario_id };
+  emailPagamentoConfirmado(fatura.usuario_id, { planoNome }).catch(() => {});
+
+  return { ok: true, usuario_id: fatura.usuario_id, plano_nome: planoNome };
+}
+
+const OVERDUE_EVENTS = new Set(['PAYMENT_OVERDUE']);
+const CANCEL_PAYMENT_EVENTS = new Set(['PAYMENT_DELETED', 'PAYMENT_REFUNDED']);
+const IGNORE_AFTER_LOG = new Set(['PAYMENT_CREATED']);
+
+async function resolveFaturaFromWebhook(body) {
+  const payment = body.payment || body;
+  const paymentId = payment?.id;
+  let faturaId = parsePaymentExternalRef(payment?.externalReference);
+  if (!faturaId && paymentId) {
+    const { rows } = await query(
+      `SELECT fatura_id FROM pagamentos WHERE gateway_payment_id = $1 LIMIT 1`,
+      [paymentId]
+    );
+    faturaId = rows[0]?.fatura_id;
+  }
+  return { payment, paymentId, faturaId };
 }
 
 export async function processAsaasWebhook(body) {
@@ -214,21 +275,52 @@ export async function processAsaasWebhook(body) {
     return { ok: true, duplicate: true, message: 'Evento já processado.' };
   }
 
-  if (!PAYMENT_CONFIRM_EVENTS.has(evento)) {
-    return { ok: true, ignored: true, evento };
+  const { payment, paymentId, faturaId } = await resolveFaturaFromWebhook(body);
+
+  if (IGNORE_AFTER_LOG.has(evento)) {
+    return { ok: true, logged: true, evento };
   }
 
-  const payment = body.payment || body;
-  const paymentId = payment?.id;
-  const externalRef = payment?.externalReference;
-  let faturaId = parsePaymentExternalRef(externalRef);
+  if (OVERDUE_EVENTS.has(evento)) {
+    if (faturaId) {
+      const { rows: fr } = await query(
+        `SELECT usuario_id FROM faturas WHERE id = $1`,
+        [faturaId]
+      );
+      if (fr[0]) {
+        await query(
+          `UPDATE assinaturas SET status = 'atrasada', updated_at = NOW() WHERE usuario_id = $1 AND status IN ('ativa', 'trial')`,
+          [fr[0].usuario_id]
+        );
+        emailAssinaturaAtrasada(fr[0].usuario_id).catch(() => {});
+      }
+    }
+    return { ok: true, overdue: true, evento, fatura_id: faturaId };
+  }
 
-  if (!faturaId && paymentId) {
-    const { rows } = await query(
-      `SELECT fatura_id FROM pagamentos WHERE gateway_payment_id = $1 LIMIT 1`,
-      [paymentId]
-    );
-    faturaId = rows[0]?.fatura_id;
+  if (CANCEL_PAYMENT_EVENTS.has(evento)) {
+    if (paymentId) {
+      const st = evento === 'PAYMENT_REFUNDED' ? 'estornado' : 'cancelado';
+      await query(
+        `UPDATE pagamentos SET status = $1, payload = payload || $2::jsonb WHERE gateway_payment_id = $3`,
+        [
+          st,
+          JSON.stringify({ webhook: evento, at: new Date().toISOString() }),
+          paymentId,
+        ]
+      );
+    }
+    if (faturaId) {
+      await query(
+        `UPDATE faturas SET status = 'cancelada' WHERE id = $1 AND status = 'pendente'`,
+        [faturaId]
+      );
+    }
+    return { ok: true, cancelled: true, evento, fatura_id: faturaId };
+  }
+
+  if (!PAYMENT_CONFIRM_EVENTS.has(evento)) {
+    return { ok: true, ignored: true, evento };
   }
 
   if (!faturaId) {
@@ -244,8 +336,143 @@ export async function processAsaasWebhook(body) {
   }
 
   const result = await activateSubscriptionFromPayment(faturaId);
-  await refreshSubscriptionLifecycle(result.usuario_id);
-  return { ok: true, activated: true, fatura_id: faturaId };
+  if (result.usuario_id) await refreshSubscriptionLifecycle(result.usuario_id);
+  return { ok: true, activated: true, fatura_id: faturaId, evento };
+}
+
+export async function trocarPlano(usuarioId, planoSlug) {
+  const plano = await getPlanoBySlug(planoSlug);
+  if (!plano) return { ok: false, error: 'Plano não encontrado.' };
+
+  const usuario = await getUsuario(usuarioId);
+  if (!planoMatchesTipoPerfil(plano.slug, usuario.tipo_perfil)) {
+    return { ok: false, error: 'Plano não disponível para seu perfil (PF/PJ).' };
+  }
+
+  const assinatura = await getAssinaturaUsuario(usuarioId);
+  const precoAtual = assinatura?.plano?.preco_centavos || 0;
+  const statusAtual = assinatura?.status || 'trial';
+
+  if (isDowngrade({
+    precoAtualCentavos: precoAtual,
+    precoNovoCentavos: plano.preco_centavos,
+    slugAtual: assinatura?.plano?.slug,
+    slugNovo: plano.slug,
+  })) {
+    await query(
+      `UPDATE assinaturas SET plano_id = $1, updated_at = NOW() WHERE usuario_id = $2`,
+      [plano.id, usuarioId]
+    );
+    const updated = await getAssinaturaUsuario(usuarioId);
+    return {
+      ok: true,
+      tipo: 'downgrade',
+      regra: BILLING_RULES_DOC.downgrade,
+      message:
+        'Downgrade aplicado. O novo valor passa a valer na próxima renovação; não há reembolso do ciclo atual.',
+      assinatura: updated,
+    };
+  }
+
+  if (
+    !isUpgrade({
+      statusAtual,
+      precoAtualCentavos: precoAtual,
+      precoNovoCentavos: plano.preco_centavos,
+    }) &&
+    assinatura?.plano?.slug === plano.slug &&
+    statusAtual === 'ativa'
+  ) {
+    return { ok: false, error: 'Você já está neste plano.' };
+  }
+
+  const checkout = await createCheckout(usuarioId, plano.slug);
+  if (!checkout.ok) return checkout;
+  return {
+    ok: true,
+    tipo: 'upgrade',
+    regra: BILLING_RULES_DOC.upgrade,
+    ...checkout,
+  };
+}
+
+export async function adminReenviarCobranca(alvoUsuarioId, adminUsuarioId) {
+  const { rows } = await query(
+    `SELECT f.id,
+            COALESCE(pg.payload->>'target_plano_slug', pl.slug) AS slug
+     FROM faturas f
+     JOIN assinaturas a ON a.id = f.assinatura_id
+     JOIN planos pl ON pl.id = a.plano_id
+     LEFT JOIN LATERAL (
+       SELECT payload FROM pagamentos WHERE fatura_id = f.id ORDER BY created_at DESC LIMIT 1
+     ) pg ON true
+     WHERE f.usuario_id = $1 AND f.status = 'pendente'
+     ORDER BY f.created_at DESC LIMIT 1`,
+    [alvoUsuarioId]
+  );
+  if (!rows.length) {
+    return { ok: false, error: 'Nenhuma fatura pendente para reenviar.' };
+  }
+  const checkout = await createCheckout(alvoUsuarioId, rows[0].slug);
+  if (!checkout.ok) return checkout;
+  await insertAdminSaasAudit({
+    adminUsuarioId,
+    alvoUsuarioId,
+    acao: 'reenviar_cobranca',
+    detalhes: { fatura_id: rows[0].id },
+  });
+  return { ok: true, ...checkout };
+}
+
+export async function adminMarcarFaturaPaga(alvoUsuarioId, faturaId, adminUsuarioId) {
+  const { rows } = await query(
+    `SELECT id, usuario_id, status FROM faturas WHERE id = $1 AND usuario_id = $2`,
+    [faturaId, alvoUsuarioId]
+  );
+  if (!rows.length) return { ok: false, error: 'Fatura não encontrada.' };
+  if (rows[0].status === 'paga') {
+    return { ok: true, already: true, message: 'Fatura já estava paga.' };
+  }
+  const result = await activateSubscriptionFromPayment(faturaId);
+  await refreshSubscriptionLifecycle(alvoUsuarioId);
+  await insertAdminSaasAudit({
+    adminUsuarioId,
+    alvoUsuarioId,
+    acao: 'marcar_pago_manual',
+    detalhes: { fatura_id: faturaId },
+  });
+  const assinatura = await getAssinaturaUsuario(alvoUsuarioId);
+  return { ok: true, assinatura, ...result };
+}
+
+export async function adminCancelarAssinatura(alvoUsuarioId, adminUsuarioId) {
+  const result = await cancelarAssinatura(alvoUsuarioId);
+  if (result.ok) {
+    await insertAdminSaasAudit({
+      adminUsuarioId,
+      alvoUsuarioId,
+      acao: 'cancelar_assinatura',
+      detalhes: {},
+    });
+    const { rows } = await query(
+      `SELECT acesso_ate FROM assinaturas WHERE usuario_id = $1`,
+      [alvoUsuarioId]
+    );
+    emailAssinaturaCancelada(alvoUsuarioId, { acessoAte: rows[0]?.acesso_ate }).catch(() => {});
+  }
+  return result;
+}
+
+export async function listWebhookEventsForUsuario(usuarioId, { limit = 30 } = {}) {
+  const { rows } = await query(
+    `SELECT e.id, e.evento, e.idempotency_key, e.created_at
+     FROM eventos_pagamento e
+     WHERE e.payload::text LIKE $1
+     ORDER BY e.created_at DESC
+     LIMIT $2`,
+    [`%${usuarioId}%`, limit]
+  );
+  return rows;
 }
 
 export async function cancelarAssinatura(usuarioId) {
@@ -275,9 +502,12 @@ export async function cancelarAssinatura(usuarioId) {
   );
 
   const assinatura = await getAssinaturaUsuario(usuarioId);
+  const ateFmt = new Date(acessoAte).toLocaleDateString('pt-BR');
+  emailAssinaturaCancelada(usuarioId, { acessoAte }).catch(() => {});
   return {
     ok: true,
-    message: `Cancelamento registrado. Acesso até ${new Date(acessoAte).toLocaleDateString('pt-BR')}.`,
+    message: `Sua assinatura ficará ativa até ${ateFmt}.`,
+    acesso_ate: acessoAte,
     assinatura,
   };
 }

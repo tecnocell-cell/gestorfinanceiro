@@ -2431,7 +2431,11 @@ export const css = `
   .loading-text { color: var(--muted-foreground); font-size: 14px; }
 
   /* ─── ADMIN ─── */
-  .admin-page { animation: rn-pop-in 0.3s ease-out; }
+  .admin-page {
+    animation: rn-pop-in 0.3s ease-out;
+    max-width: 100%;
+    min-width: 0;
+  }
 
   .super-admin-card {
     background: color-mix(in oklab, var(--gold) 8%, var(--card));
@@ -2496,6 +2500,20 @@ export const css = `
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-card);
+    max-width: 100%;
+  }
+  .admin-table-wrap--scroll {
+    overflow: visible;
+    width: 100%;
+  }
+  .admin-tenant-scroll {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.35rem 1rem 0.65rem 0.5rem;
+    box-sizing: border-box;
   }
 
   .modal-header-forest {
@@ -2528,19 +2546,243 @@ export const css = `
     letter-spacing: -0.005em;
   }
 
-  .admin-tenant-table table { font-size: 12px; }
-  .admin-tenant-table thead th { padding: 0.5rem 0.625rem; font-size: 10px; }
-  .admin-tenant-table tbody td {
-    padding: 0.4375rem 0.625rem;
-    white-space: nowrap;
-    vertical-align: middle;
+  table.admin-tenant-table {
+    font-size: 11px;
+    width: 100%;
+    min-width: 920px;
+    table-layout: fixed;
+    border-collapse: collapse;
   }
-  .admin-tenant-table .td-ellipsis {
-    max-width: 140px;
+  table.admin-tenant-table col.saas-col-cliente { width: 200px; }
+  table.admin-tenant-table col.saas-col-plan { width: 92px; }
+  table.admin-tenant-table col.saas-col-status { width: 76px; }
+  table.admin-tenant-table col.saas-col-billing { width: 128px; }
+  table.admin-tenant-table col.saas-col-tipo { width: 52px; }
+  table.admin-tenant-table col.saas-col-conta { width: 84px; }
+  table.admin-tenant-table col.saas-col-access { width: 84px; }
+  table.admin-tenant-table col.saas-col-actions { width: 176px; }
+
+  .admin-tenant-table thead th {
+    padding: 0.5rem 0.4rem;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    vertical-align: bottom;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .admin-tenant-table .td-compact { font-size: 11px; }
+  .admin-tenant-table tbody td {
+    padding: 0.5rem 0.4rem;
+    vertical-align: middle;
+    overflow: visible;
+  }
+  .admin-tenant-table .saas-col-cliente {
+    overflow: hidden;
+  }
+  .admin-tenant-table .saas-col-plan,
+  .admin-tenant-table .saas-col-status,
+  .admin-tenant-table .saas-col-billing,
+  .admin-tenant-table .saas-col-tipo,
+  .admin-tenant-table .saas-col-conta,
+  .admin-tenant-table .saas-col-access {
+    overflow: visible;
+  }
+  .admin-tenant-table .saas-col-actions {
+    overflow: visible;
+    padding-right: 0.15rem;
+  }
+  .saas-badge-conta {
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    min-width: 4.25rem;
+    justify-content: flex-start;
+  }
+  .saas-badge-conta.badge-green::before,
+  .saas-badge-conta.badge-red::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px color-mix(in oklab, currentColor 20%, transparent);
+  }
+  .admin-tenant-table .saas-col-access {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .saas-cliente-nome {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .saas-cliente-meta {
+    font-size: 10px;
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.35;
+  }
+  .saas-billing-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 3px 8px;
+    font-size: 10px;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+  .saas-billing-compact span,
+  .saas-billing-compact strong {
+    white-space: nowrap;
+  }
+  .saas-billing-dias {
+    font-weight: 700;
+    color: var(--foreground);
+    flex: 1 1 100%;
+  }
+  .admin-tenant-table .td-compact { font-size: 10px; }
+
+  .saas-row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 5px;
+    width: 100%;
+    max-width: 168px;
+    margin-left: auto;
+  }
+  .saas-act-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .saas-act-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .saas-act-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .saas-act-btn--neutral {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--foreground);
+  }
+  .saas-act-btn--primary {
+    background: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 80%, black);
+    color: var(--primary-foreground);
+  }
+  .saas-act-btn--warn {
+    background: color-mix(in oklab, var(--gold) 18%, var(--card));
+    border-color: color-mix(in oklab, var(--gold) 40%, transparent);
+    color: color-mix(in oklab, var(--gold) 90%, black);
+  }
+  .saas-act-btn--danger {
+    background: var(--danger-soft);
+    border-color: color-mix(in oklab, var(--danger) 35%, transparent);
+    color: var(--danger-fg);
+  }
+
+  @media (min-width: 1280px) {
+    table.admin-tenant-table { min-width: 100%; }
+    table.admin-tenant-table col.saas-col-cliente { width: 18%; }
+    table.admin-tenant-table col.saas-col-plan { width: 9%; }
+    table.admin-tenant-table col.saas-col-status { width: 8%; }
+    table.admin-tenant-table col.saas-col-billing { width: 14%; }
+    table.admin-tenant-table col.saas-col-tipo { width: 5%; }
+    table.admin-tenant-table col.saas-col-conta { width: 8%; }
+    table.admin-tenant-table col.saas-col-access { width: 9%; }
+    table.admin-tenant-table col.saas-col-actions { width: 17%; }
+    .saas-row-actions { max-width: none; }
+  }
+
+  .saas-alerts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .saas-alert-card { min-height: 120px; }
+  .saas-alert-list { margin: 0; padding: 0 0 0 18px; font-size: 13px; }
+  .saas-alert-item { margin-bottom: 6px; }
+  .saas-alert-item--error { color: var(--danger-fg, #b91c1c); }
+  .saas-alert-item--warn { color: oklch(0.55 0.14 65); }
+  .saas-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .saas-filter-chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .saas-filter-chip--active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+  }
+  .saas-badge-plan, .saas-badge-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .saas-badge-plan--gray { background: oklch(0.94 0.005 0); color: oklch(0.45 0.01 0); }
+  .saas-badge-plan--blue { background: oklch(0.93 0.06 250); color: oklch(0.38 0.14 250); }
+  .saas-badge-plan--purple { background: oklch(0.93 0.08 300); color: oklch(0.38 0.16 300); }
+  .saas-badge-plan--green { background: oklch(0.94 0.06 155); color: oklch(0.38 0.12 155); }
+  .saas-badge-plan--orange { background: oklch(0.94 0.08 55); color: oklch(0.45 0.14 55); }
+  .saas-badge-plan--gold { background: oklch(0.94 0.06 85); color: oklch(0.42 0.12 85); }
+  .saas-badge-status--trial { background: oklch(0.94 0.05 270); color: oklch(0.42 0.12 270); }
+  .saas-badge-status--ativa { background: oklch(0.94 0.06 155); color: oklch(0.38 0.12 155); }
+  .saas-badge-status--atrasada { background: oklch(0.96 0.06 65); color: oklch(0.48 0.14 65); }
+  .saas-badge-status--vencida { background: oklch(0.96 0.05 27); color: oklch(0.48 0.18 27); }
+  .saas-badge-status--cancelada { background: oklch(0.96 0.005 0); color: oklch(0.5 0.01 0); }
+  .saas-link-name {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  .saas-link-name:hover strong { text-decoration: underline; }
+  .saas-detail-modal .saas-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    font-size: 13px;
+  }
+  .saas-detail-h3 { margin: 0 0 8px; font-size: 14px; }
+  .saas-detail-full { grid-column: 1 / -1; }
+  .saas-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .saas-mini-list { margin: 0; padding-left: 18px; font-size: 12px; }
 
   .tenant-name-cell {
     display: flex;

@@ -551,9 +551,18 @@ export default function PlanoAssinaturaPage() {
     setError("");
     setBusy(`checkout-${slug}`);
     try {
-      const data = await billingApi.checkout(slug);
-      setPixCheckout(data);
-      setMsg("Cobrança PIX gerada. Pague para ativar o plano automaticamente.");
+      const data = await billingApi.trocarPlano(slug);
+      if (data.tipo === "downgrade") {
+        setPixCheckout(null);
+        setAssinatura(data.assinatura);
+        setMsg(data.message || "Plano alterado.");
+      } else {
+        setPixCheckout(data);
+        setMsg(
+          data.regra ||
+            "Cobrança PIX gerada. Pague para ativar o plano automaticamente."
+        );
+      }
       await load();
     } catch (e) {
       setError(sanitizePublicMessage(e.message) || PUBLIC_MESSAGES.billing);
@@ -703,34 +712,63 @@ export default function PlanoAssinaturaPage() {
         <PlanSummaryBar assinatura={assinatura} usage={usage} segmentoLabel={segmentoLabel} />
       )}
 
-      {(tab === "plano" || tab === "planos") && pixCheckout?.pix?.copy_paste && (
+      {(tab === "plano" || tab === "planos") && pixCheckout && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">PIX — pagamento pendente</div>
-          <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-            Plano: {pixCheckout.plano_slug} · Vencimento: {formatDate(pixCheckout.vencimento)}
+          <p style={{ fontSize: 13, margin: "0 0 8px" }}>
+            <strong>{formatCentavos(pixCheckout.valor_centavos)}</strong>
+            {" · "}Vencimento: {formatDate(pixCheckout.vencimento)}
+            {" · "}Plano: {pixCheckout.plano_slug}
           </p>
-          <textarea
-            readOnly
-            value={pixCheckout.pix.copy_paste}
-            rows={4}
-            style={{ width: "100%", fontSize: 11, marginTop: 8 }}
-          />
-          {pixCheckout.pix.encoded_image && (
+          {pixCheckout.pix?.encoded_image && (
             <img
               src={`data:image/png;base64,${pixCheckout.pix.encoded_image}`}
               alt="QR Code PIX"
-              style={{ maxWidth: 200, marginTop: 8 }}
+              style={{ maxWidth: 200, marginBottom: 8, display: "block" }}
             />
           )}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ marginTop: 10 }}
-            disabled={refreshing}
-            onClick={handleRefreshStatus}
-          >
-            Já paguei — atualizar status
-          </button>
+          {pixCheckout.pix?.copy_paste ? (
+            <textarea
+              readOnly
+              value={pixCheckout.pix.copy_paste}
+              rows={3}
+              style={{ width: "100%", fontSize: 11, marginBottom: 8 }}
+            />
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+              QR Code indisponível — use o link de pagamento abaixo.
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {pixCheckout.pix?.copy_paste && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => copyText(pixCheckout.pix.copy_paste)}
+              >
+                Copiar PIX
+              </button>
+            )}
+            {pixCheckout.pix?.invoice_url && (
+              <a
+                href={pixCheckout.pix.invoice_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary btn-sm"
+                style={{ textDecoration: "none" }}
+              >
+                Abrir cobrança
+              </a>
+            )}
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={refreshing}
+              onClick={handleRefreshStatus}
+            >
+              {refreshing ? "Atualizando…" : "Atualizar status"}
+            </button>
+          </div>
         </div>
       )}
 

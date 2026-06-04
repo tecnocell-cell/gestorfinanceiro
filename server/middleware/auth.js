@@ -25,6 +25,23 @@ export function adminMiddleware(req, res, next) {
   next();
 }
 
+/** Marcação manual de pagamento — restrito se ADMIN_MASTER_EMAILS estiver definido. */
+export function adminMasterMiddleware(req, res, next) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ error: "Acesso restrito ao administrador." });
+  }
+  const masters = (process.env.ADMIN_MASTER_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (masters.length === 0) return next();
+  const email = (req.user?.email || "").toLowerCase();
+  if (!masters.includes(email)) {
+    return res.status(403).json({ error: "Somente admin master pode executar esta ação." });
+  }
+  next();
+}
+
 // Verifica se a conta está ativa (bloqueia usuários desativados)
 export async function activeMiddleware(req, res, next) {
   try {
