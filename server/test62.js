@@ -62,6 +62,7 @@ async function cleanup(emails) {
     const { rows } = await query('SELECT id FROM usuarios WHERE email = $1', [email]);
     if (!rows.length) continue;
     const id = rows[0].id;
+    await query('DELETE FROM otps WHERE usuario_id = $1', [id]);
     await query('DELETE FROM login_audits WHERE usuario_id = $1', [id]);
     await query('DELETE FROM password_resets WHERE usuario_id = $1', [id]);
     await query('DELETE FROM verificacoes WHERE usuario_id = $1', [id]);

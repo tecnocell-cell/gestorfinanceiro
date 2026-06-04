@@ -117,6 +117,7 @@ async function testHttpMockMode(token) {
   assert(typeof st.providerLabel === 'string', 'status: providerLabel');
   assert(typeof st.canStartPluggyConnect === 'boolean', 'status: canStartPluggyConnect');
   assert(typeof st.credentialsMissing === 'boolean', 'status: credentialsMissing');
+  assert(st.credentialsScope === 'server', 'status: credenciais são escopo servidor');
 
   const { status: initStatus, data: initData } = await req('/open-finance/connect/init', {
     token,

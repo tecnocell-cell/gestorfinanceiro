@@ -7,15 +7,17 @@ import {
   PF_PLAN_OPTIONS,
   PJ_PLAN_OPTIONS,
 } from "./saasBadges.jsx";
+import { User } from "../components/icons.jsx";
 
 const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
 const fmtDt = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 const fmtShort = (iso) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
-const fmtAccess = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+const diasLabel = (d) => {
+  if (d == null) return "—";
+  if (d < 0) return `${Math.abs(d)}d atraso`;
+  if (d === 0) return "Hoje";
+  return `${d}d`;
 };
 const fmtBRL = (c) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((c || 0) / 100);
@@ -161,129 +163,231 @@ function ModalClienteDetalhe({ clienteId, onClose }) {
   const c = data?.cliente;
   const faturaPendente = (data?.faturas || []).find((f) => f.status === "pendente");
 
+  const assinatura = data?.assinatura;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal saas-detail-modal" style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">Cliente — detalhes</h2>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Fechar</button>
+      <div className="modal saas-detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header modal-header-forest">
+          <div>
+            <h2 className="modal-title" style={{ color: "var(--primary-foreground)" }}>
+              Cliente — detalhes
+            </h2>
+            {c?.email && (
+              <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.85 }}>{c.email}</p>
+            )}
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+            Fechar
+          </button>
         </div>
         <div className="modal-body">
-          {loading && <p>Carregando…</p>}
+          {loading && <p className="admin-loading">Carregando…</p>}
           {error && <div className="alert alert-warn">{error}</div>}
-          {c && (
-            <div className="saas-detail-grid">
-              <section>
-                <h3 className="saas-detail-h3">Cadastro</h3>
-                <p><strong>{c.nome}</strong> — {c.email}</p>
-                <p>Empresa/perfil: {c.nome_perfil || "—"}</p>
-                <p>Telefone: {c.telefone || "—"}</p>
-                <p>Último login: {fmtDt(c.ultimo_acesso)}</p>
-                <p>Última atividade: {fmtDt(c.ultima_atividade)}</p>
-              </section>
-              <section>
-                <h3 className="saas-detail-h3">Plano e assinatura</h3>
-                <p>
-                  <PlanBadge slug={c.plano_slug} nome={c.plano_nome} />{" "}
-                  <SubscriptionStatusBadge status={c.assinatura_status} />
-                </p>
-                {c.trial_ate && <p>Trial até: {fmt(c.trial_ate)}</p>}
-                {c.proxima_cobranca && <p>Próxima cobrança: {fmt(c.proxima_cobranca)}</p>}
-              </section>
-              <section>
-                <h3 className="saas-detail-h3">Faturas ({data.faturas?.length || 0})</h3>
-                <ul className="saas-mini-list">
-                  {(data.faturas || []).slice(0, 6).map((f) => (
-                    <li key={f.id}>{fmtBRL(f.valor_centavos)} — {f.status} — venc. {fmt(f.vencimento)}</li>
-                  ))}
-                </ul>
-              </section>
-              <section>
-                <h3 className="saas-detail-h3">Pagamentos ({data.pagamentos?.length || 0})</h3>
-                <ul className="saas-mini-list">
-                  {(data.pagamentos || []).slice(0, 6).map((p) => (
-                    <li key={p.id}>{fmtBRL(p.valor_centavos)} — {p.status} — {fmtDt(p.created_at)}</li>
-                  ))}
-                </ul>
-              </section>
-              <section>
-                <h3 className="saas-detail-h3">Equipe ({data.equipe?.length || 0})</h3>
-                <ul className="saas-mini-list">
-                  {(data.equipe || []).map((m, i) => (
-                    <li key={i}>{m.nome} ({m.perfil}) — {m.email}</li>
-                  ))}
-                </ul>
-              </section>
-              <section>
-                <h3 className="saas-detail-h3">WhatsApp ({data.whatsapps?.length || 0})</h3>
-                <ul className="saas-mini-list">
-                  {(data.whatsapps || []).map((w) => (
-                    <li key={w.id}>{w.phone_number}{w.is_primary ? " ★" : ""}{!w.active ? " (inativo)" : ""}</li>
-                  ))}
-                </ul>
-              </section>
-              <section className="saas-detail-full">
-                <h3 className="saas-detail-h3">Cobrança (admin)</h3>
-                <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 10px" }}>
-                  Upgrade: cobrança cheia PIX; plano após pagamento. Downgrade: imediato, sem reembolso.
-                </p>
-                <div className="saas-admin-actions">
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={!!actBusy}
-                    onClick={() =>
-                      runAdminAction("reenviar", () => adminApi.reenviarCobranca(clienteId))
-                    }
+          {c && data && (
+            <>
+              <div className="saas-detail-kpis">
+                <div className="saas-detail-kpi">
+                  <span className="saas-detail-kpi-label">Valor do plano</span>
+                  <span className="saas-detail-kpi-value">{c.plano_valor_formatado || "—"}</span>
+                </div>
+                <div className="saas-detail-kpi">
+                  <span className="saas-detail-kpi-label">Total pago</span>
+                  <span className="saas-detail-kpi-value">{c.total_pago_formatado || "—"}</span>
+                </div>
+                <div className="saas-detail-kpi">
+                  <span className="saas-detail-kpi-label">Faturas vencidas</span>
+                  <span
+                    className={`saas-detail-kpi-value${c.faturas_vencidas > 0 ? " saas-detail-kpi-value--danger" : ""}`}
                   >
-                    {actBusy === "reenviar" ? "…" : "Reenviar cobrança"}
-                  </button>
-                  {faturaPendente && (
+                    {c.faturas_vencidas ?? 0}
+                  </span>
+                </div>
+                <div className="saas-detail-kpi">
+                  <span className="saas-detail-kpi-label">Vencimento</span>
+                  <span className="saas-detail-kpi-value">{diasLabel(c.dias_para_vencimento)}</span>
+                </div>
+              </div>
+
+              <div className="saas-detail-grid">
+                <section className="card admin-inner-card">
+                  <h3 className="saas-detail-h3">Cadastro</h3>
+                  <table className="admin-kv-table">
+                    <tbody>
+                      <tr><th>Perfil</th><td>{c.nome_perfil || "—"}</td></tr>
+                      <tr><th>Telefone</th><td>{c.telefone || "—"}</td></tr>
+                      <tr><th>Tipo</th><td>{c.tipo_perfil === "fisica" ? "PF" : "PJ"}</td></tr>
+                      <tr><th>Conta</th><td>{c.ativo ? "Ativa" : "Inativa"}</td></tr>
+                      <tr><th>Último login</th><td>{fmtDt(c.ultimo_acesso)}</td></tr>
+                      <tr><th>Última atividade</th><td>{fmtDt(c.ultima_atividade)}</td></tr>
+                    </tbody>
+                  </table>
+                </section>
+
+                <section className="card admin-inner-card">
+                  <h3 className="saas-detail-h3">Plano e assinatura</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                    <PlanBadge slug={c.plano_slug} nome={c.plano_nome} />
+                    <SubscriptionStatusBadge status={c.assinatura_status} />
+                  </div>
+                  <table className="admin-kv-table">
+                    <tbody>
+                      {c.trial_ate && (
+                        <tr><th>Trial até</th><td>{fmt(c.trial_ate)}</td></tr>
+                      )}
+                      {c.proxima_cobranca && (
+                        <tr><th>Próxima cobrança</th><td>{fmt(c.proxima_cobranca)}</td></tr>
+                      )}
+                      {assinatura?.plano?.preco_centavos != null && (
+                        <tr>
+                          <th>Preço cadastro</th>
+                          <td>{fmtBRL(assinatura.plano.preco_centavos)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </section>
+
+                <section className="card admin-inner-card saas-detail-full" id="saas-detail-faturas">
+                  <h3 className="saas-detail-h3">Faturas ({data.faturas?.length || 0})</h3>
+                  {(data.faturas || []).length === 0 ? (
+                    <p className="admin-empty">Nenhuma fatura.</p>
+                  ) : (
+                    <div className="admin-table-wrap" style={{ boxShadow: "none", border: "none" }}>
+                      <table className="data-table" style={{ width: "100%", fontSize: 12 }}>
+                        <thead>
+                          <tr>
+                            <th>Vencimento</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Pago em</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(data.faturas || []).map((f) => (
+                            <tr key={f.id}>
+                              <td>{fmt(f.vencimento)}</td>
+                              <td>{fmtBRL(f.valor_centavos)}</td>
+                              <td>{f.status}</td>
+                              <td>{f.pago_em ? fmtDt(f.pago_em) : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="card admin-inner-card saas-detail-full">
+                  <h3 className="saas-detail-h3">Pagamentos ({data.pagamentos?.length || 0})</h3>
+                  {(data.pagamentos || []).length === 0 ? (
+                    <p className="admin-empty">Nenhum pagamento.</p>
+                  ) : (
+                    <ul className="saas-mini-list">
+                      {(data.pagamentos || []).map((p) => (
+                        <li key={p.id}>
+                          {fmtBRL(p.valor_centavos)} — {p.status} — {fmtDt(p.created_at)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                {(data.equipe?.length > 0 || data.whatsapps?.length > 0) && (
+                  <>
+                    {data.equipe?.length > 0 && (
+                      <section className="card admin-inner-card">
+                        <h3 className="saas-detail-h3">Equipe ({data.equipe.length})</h3>
+                        <ul className="saas-mini-list">
+                          {data.equipe.map((m, i) => (
+                            <li key={i}>
+                              {m.nome} ({m.perfil}) — {m.email}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                    {data.whatsapps?.length > 0 && (
+                      <section className="card admin-inner-card">
+                        <h3 className="saas-detail-h3">WhatsApp ({data.whatsapps.length})</h3>
+                        <ul className="saas-mini-list">
+                          {data.whatsapps.map((w) => (
+                            <li key={w.id}>
+                              {w.phone_number}
+                              {w.is_primary ? " ★" : ""}
+                              {!w.active ? " (inativo)" : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                  </>
+                )}
+
+                <section className="card admin-inner-card saas-detail-full">
+                  <h3 className="saas-detail-h3">Ações de cobrança</h3>
+                  <p className="admin-card-hint">
+                    Upgrade: cobrança PIX integral; plano após pagamento. Downgrade: imediato.
+                  </p>
+                  <div className="admin-card-actions">
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
                       disabled={!!actBusy}
                       onClick={() =>
-                        runAdminAction("pago", () =>
-                          adminApi.marcarFaturaPaga(clienteId, faturaPendente.id)
-                        )
+                        runAdminAction("reenviar", () => adminApi.reenviarCobranca(clienteId))
                       }
                     >
-                      {actBusy === "pago" ? "…" : "Marcar como pago"}
+                      {actBusy === "reenviar" ? "…" : "Reenviar cobrança"}
                     </button>
+                    {faturaPendente && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={!!actBusy}
+                        onClick={() =>
+                          runAdminAction("pago", () =>
+                            adminApi.marcarFaturaPaga(clienteId, faturaPendente.id)
+                          )
+                        }
+                      >
+                        {actBusy === "pago" ? "…" : "Marcar como pago"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      disabled={!!actBusy || c.assinatura_status === "cancelada"}
+                      onClick={() => {
+                        if (!window.confirm("Cancelar assinatura deste cliente?")) return;
+                        runAdminAction("cancelar", () =>
+                          adminApi.cancelarAssinaturaCliente(clienteId)
+                        );
+                      }}
+                    >
+                      {actBusy === "cancelar" ? "…" : "Cancelar assinatura"}
+                    </button>
+                  </div>
+                  {actMsg && <p className="admin-card-hint" style={{ marginTop: 10 }}>{actMsg}</p>}
+                </section>
+
+                <section className="card admin-inner-card saas-detail-full">
+                  <h3 className="saas-detail-h3">Eventos recentes ({webhooks.length})</h3>
+                  {webhooks.length === 0 ? (
+                    <p className="admin-empty">Nenhum evento registrado.</p>
+                  ) : (
+                    <ul className="saas-mini-list admin-log-list">
+                      {webhooks.slice(0, 12).map((e) => (
+                        <li key={e.id}>
+                          {e.evento}
+                          <span className="admin-log-time">{fmtDt(e.created_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={!!actBusy || c?.assinatura_status === "cancelada"}
-                    onClick={() => {
-                      if (!window.confirm("Cancelar assinatura deste cliente?")) return;
-                      runAdminAction("cancelar", () =>
-                        adminApi.cancelarAssinaturaCliente(clienteId)
-                      );
-                    }}
-                  >
-                    {actBusy === "cancelar" ? "…" : "Cancelar assinatura"}
-                  </button>
-                </div>
-                {actMsg && (
-                  <p style={{ fontSize: 12, marginTop: 8, color: "var(--muted-foreground)" }}>{actMsg}</p>
-                )}
-              </section>
-              <section className="saas-detail-full">
-                <h3 className="saas-detail-h3">Histórico webhook Asaas ({webhooks.length})</h3>
-                <ul className="saas-mini-list">
-                  {webhooks.slice(0, 12).map((e) => (
-                    <li key={e.id}>
-                      {e.evento} — {fmtDt(e.created_at)}
-                    </li>
-                  ))}
-                  {!webhooks.length && (
-                    <li style={{ color: "var(--muted-foreground)" }}>Nenhum evento registrado.</li>
-                  )}
-                </ul>
-              </section>
-            </div>
+                </section>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -291,7 +395,9 @@ function ModalClienteDetalhe({ clienteId, onClose }) {
   );
 }
 
+/** mode: 'saas' = métricas/alertas · 'tenants' = tabela clientes · 'full' = tudo */
 export default function AdminSaasSection({
+  mode = "full",
   onEnterTenant,
   showNovo,
   setShowNovo,
@@ -301,6 +407,8 @@ export default function AdminSaasSection({
   setResetTarget,
   onUserCreated,
 }) {
+  const showSaas = mode === "full" || mode === "saas";
+  const showTenants = mode === "full" || mode === "tenants";
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -320,7 +428,7 @@ export default function AdminSaasSection({
       const params = new URLSearchParams({ filtro });
       if (q) params.set("q", q);
       const { clientes: list } = await adminApi.listClientes(params.toString());
-      setClientes(list);
+      setClientes(Array.isArray(list) ? list : []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -358,13 +466,6 @@ export default function AdminSaasSection({
     }
   };
 
-  const diasLabel = (d) => {
-    if (d == null) return "—";
-    if (d < 0) return `${Math.abs(d)}d atraso`;
-    if (d === 0) return "Hoje";
-    return `${d}d`;
-  };
-
   const metricCards = metrics
     ? [
         { label: "MRR estimado", value: metrics.mrr_formatado },
@@ -377,8 +478,8 @@ export default function AdminSaasSection({
 
   return (
     <>
-      <h2 className="admin-section-title">Gestão comercial SaaS</h2>
-
+      {showSaas && (
+      <div className="admin-saas-dashboard">
       <div className="saas-alerts-row">
         <AlertCard title="Alertas do sistema" items={systemAlerts} loading={false} />
         <AlertCard
@@ -398,7 +499,11 @@ export default function AdminSaasSection({
           ))}
         </div>
       )}
+      </div>
+      )}
 
+      {showTenants && (
+      <div className="admin-tenants-panel">
       <div className="saas-filter-chips">
         {FILTROS.map(([id, label]) => (
           <button
@@ -412,8 +517,10 @@ export default function AdminSaasSection({
         ))}
       </div>
 
-      <div className="toolbar">
-        <h2 className="admin-section-title" style={{ margin: 0 }}>Clientes / Tenants</h2>
+      <div className="toolbar admin-tenants-toolbar">
+        <p className="admin-tenants-count">
+          {loading ? "Carregando…" : `${clientes.length} cliente${clientes.length !== 1 ? "s" : ""}`}
+        </p>
         <div className="toolbar-right">
           <div className="search-wrap">
             <span className="search-icon">⌕</span>
@@ -424,7 +531,7 @@ export default function AdminSaasSection({
               onChange={(e) => setBusca(e.target.value)}
             />
           </div>
-          <button type="button" onClick={() => setShowNovo(true)} className="btn btn-primary">
+          <button type="button" onClick={() => setShowNovo?.(true)} className="btn btn-primary">
             ➕ Novo Cliente
           </button>
         </div>
@@ -439,15 +546,15 @@ export default function AdminSaasSection({
           <div className="empty-state">Nenhum cliente encontrado</div>
         ) : (
           <div className="admin-tenant-scroll">
-            <table className="admin-tenant-table">
+            <table className="admin-tenant-table admin-tenant-table--compact">
               <colgroup>
                 <col className="saas-col-cliente" />
                 <col className="saas-col-plan" />
                 <col className="saas-col-status" />
-                <col className="saas-col-billing" />
+                <col className="saas-col-venc" />
                 <col className="saas-col-tipo" />
                 <col className="saas-col-conta" />
-                <col className="saas-col-access" />
+                <col className="saas-col-detalhe" />
                 <col className="saas-col-actions" />
               </colgroup>
               <thead>
@@ -455,10 +562,10 @@ export default function AdminSaasSection({
                   <th className="saas-col-cliente">Cliente</th>
                   <th className="saas-col-plan">Plano</th>
                   <th className="saas-col-status">Status</th>
-                  <th className="saas-col-billing">Vencimento</th>
+                  <th className="saas-col-venc">Vencimento</th>
                   <th className="saas-col-tipo">Tipo</th>
                   <th className="saas-col-conta">Conta</th>
-                  <th className="saas-col-access">Acesso</th>
+                  <th className="saas-col-detalhe">Detalhe</th>
                   <th className="saas-col-actions">Ações</th>
                 </tr>
               </thead>
@@ -470,25 +577,49 @@ export default function AdminSaasSection({
                         type="button"
                         className="saas-link-name"
                         onClick={() => setDetailId(u.id)}
-                        title="Ver detalhes"
+                        title="Ver cliente"
                       >
                         <strong className="saas-cliente-nome">{u.nome}</strong>
                       </button>
                       <div className="saas-cliente-meta" title={u.email}>{u.email}</div>
-                      <div className="saas-cliente-meta">{u.nome_perfil || "—"}</div>
                     </td>
                     <td className="saas-col-plan"><PlanBadge slug={u.plano_slug} nome={u.plano_nome} /></td>
-                    <td className="saas-col-status"><SubscriptionStatusBadge status={u.assinatura_status} /></td>
-                    <td className="saas-col-billing">
-                      <div className="saas-billing-compact" title={`Trial: ${fmt(u.trial_ate)} · Cobrança: ${fmt(u.proxima_cobranca)}`}>
-                        <span>T: {fmtShort(u.trial_ate)}</span>
-                        <span>C: {fmtShort(u.proxima_cobranca)}</span>
-                        <strong className="saas-billing-dias">{diasLabel(u.dias_para_vencimento)}</strong>
+                    <td className="saas-col-status">
+                      <div className="saas-status-cell">
+                        <SubscriptionStatusBadge status={u.assinatura_status} />
+                        {u.faturas_vencidas > 0 && (
+                          <span className="badge badge-red" title="Faturas vencidas">
+                            {u.faturas_vencidas} venc.
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="saas-col-venc">
+                      <div
+                        className="saas-venc-cell"
+                        title={`Trial: ${fmt(u.trial_ate)} · Cobrança: ${fmt(u.proxima_cobranca)}`}
+                      >
+                        <strong>{diasLabel(u.dias_para_vencimento)}</strong>
+                        <span className="saas-venc-date">
+                          {u.assinatura_status === "trial"
+                            ? fmtShort(u.trial_ate)
+                            : fmtShort(u.proxima_cobranca)}
+                        </span>
                       </div>
                     </td>
                     <td className="saas-col-tipo"><Badge tipo={u.tipo_perfil} /></td>
                     <td className="saas-col-conta"><StatusBadge ativo={u.ativo} /></td>
-                    <td className="saas-col-access td-mono" title={fmtDt(u.ultimo_acesso)}>{fmtAccess(u.ultimo_acesso)}</td>
+                    <td className="saas-col-detalhe">
+                      <button
+                        type="button"
+                        className="saas-ver-cliente-btn"
+                        title="Ver cliente"
+                        aria-label={`Ver cliente — ${u.nome}`}
+                        onClick={() => setDetailId(u.id)}
+                      >
+                        <User size={15} strokeWidth={1.75} aria-hidden />
+                      </button>
+                    </td>
                     <td className="saas-col-actions">
                       <div className="saas-row-actions" role="group" aria-label={`Ações — ${u.nome}`}>
                         <button
@@ -504,7 +635,7 @@ export default function AdminSaasSection({
                         <button
                           type="button"
                           className="saas-act-btn saas-act-btn--primary"
-                          title="Editar plano"
+                          title="Alterar plano"
                           aria-label="Editar plano"
                           onClick={() => setEditPlano(u)}
                         >
@@ -568,6 +699,8 @@ export default function AdminSaasSection({
       )}
       {detailId && (
         <ModalClienteDetalhe clienteId={detailId} onClose={() => setDetailId(null)} />
+      )}
+      </div>
       )}
     </>
   );

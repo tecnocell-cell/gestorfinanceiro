@@ -10,7 +10,16 @@ import {
   ModalCliente, ModalFornecedor, ModalCategoriaPF, ModalMeta,
   ModalCentroCusto, ModalProjetoFinanceiro, ModalOrcamentoMensal,
 } from "./components/Modals.jsx";
-import AdminPanel        from "./pages/AdminPage.jsx";
+import AdminOperacoesPage from "./pages/AdminOperacoesPage.jsx";
+import AdminHomologacaoPage from "./pages/AdminHomologacaoPage.jsx";
+import AdminSaasPage from "./pages/AdminSaasPage.jsx";
+import AdminTenantsPage from "./pages/AdminTenantsPage.jsx";
+import {
+  ADMIN_NAV,
+  DEFAULT_ADMIN_PAGE,
+  isAdminPageId,
+  adminPageLabel,
+} from "./admin/adminNav.js";
 import RecorrenciasPage  from "./pages/RecorrenciasPage.jsx";
 import WhatsAppPage      from "./pages/WhatsAppPage.jsx";
 import ContasAPagarPage       from "./pages/ContasAPagarPage.jsx";
@@ -23,6 +32,8 @@ import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import OrcadoRealizadoPage from "./pages/OrcadoRealizadoPage.jsx";
 import SegurancaPage from "./pages/SegurancaPage.jsx";
 import PlanoAssinaturaPage from "./pages/PlanoAssinaturaPage.jsx";
+import NotificationsPage from "./pages/NotificationsPage.jsx";
+import NotificationBell from "./components/NotificationBell.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import AjudaPage from "./pages/AjudaPage.jsx";
 import GuidedTour from "./components/GuidedTour.jsx";
@@ -49,7 +60,14 @@ import {
 } from "./pages/PagesPF.jsx";
 import PfDueAlert from "./components/pf/PfDueAlert.jsx";
 import { BrandLogo } from "./components/BrandLogo.jsx";
-import { NavIcon, Shield, Menu, LogOut, Eye } from "./components/icons.jsx";
+import { NavIcon, AdminNavIcon, Menu, LogOut, Eye, ChevronLeft } from "./components/icons.jsx";
+
+const ADMIN_PAGE_MAP = {
+  "admin-operacoes": AdminOperacoesPage,
+  "admin-homologacao": AdminHomologacaoPage,
+  "admin-saas": AdminSaasPage,
+  "admin-tenants": AdminTenantsPage,
+};
 
 const PAGE_MAP_PJ = {
   // dashboard → V2 premium. Rollback: trocar DashboardV2Page por DashboardPage
@@ -74,6 +92,7 @@ const PAGE_MAP_PJ = {
   empresa: EmpresaPage,
   equipe: EquipePage,
   seguranca: SegurancaPage,
+  notificacoes: NotificationsPage,
   "plano-assinatura": PlanoAssinaturaPage,
   onboarding: OnboardingPage,
 };
@@ -98,6 +117,7 @@ const PAGE_MAP_PF = {
   suporte: () => <SuportePage pfMode />,
   perfil: PerfilPFPage,
   seguranca: SegurancaPage,
+  notificacoes: NotificationsPage,
   "plano-assinatura": PlanoAssinaturaPage,
   onboarding: OnboardingPage,
 };
@@ -134,7 +154,11 @@ function SyncPill({ syncing, lastSyncAt, onClick, apiOnline }) {
 // ─── App Shell ────────────────────────────────────────────────────────────────
 export default function GestorApp() {
   const { user, logout, isSuperAdmin } = useAuth();
-  const [page, setPage] = useState(() => (user?.role === "admin" ? "super-admin" : "dashboard"));
+  const [page, setPage] = useState(() => {
+    if (user?.role !== "admin") return "dashboard";
+    const saved = typeof sessionStorage !== "undefined" && sessionStorage.getItem("admin_page");
+    return isAdminPageId(saved) ? saved : DEFAULT_ADMIN_PAGE;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {
     empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
@@ -142,10 +166,24 @@ export default function GestorApp() {
     lastSyncAt, syncing, reloadAppState, patchEmpresa,
   } = useGestor();
 
-  const goTo = (p) => { setPage(p); setSidebarOpen(false); };
-  const goToAdmin = () => { exitAsTenant(); goTo("super-admin"); };
+  const goTo = (p) => {
+    setPage(p);
+    setSidebarOpen(false);
+    if (isAdminPageId(p)) {
+      try {
+        sessionStorage.setItem("admin_page", p);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+  const goToAdmin = (section = DEFAULT_ADMIN_PAGE) => {
+    exitAsTenant();
+    goTo(isAdminPageId(section) ? section : DEFAULT_ADMIN_PAGE);
+  };
 
-  const showTour = !viewOnly && empresa && !empresa.tourConcluido && page !== "super-admin";
+  const showTour =
+    !viewOnly && empresa && !empresa.tourConcluido && !isAdminPageId(page);
   const finishTour = () => patchEmpresa({ tourConcluido: true });
 
   useEffect(() => {
@@ -181,21 +219,27 @@ export default function GestorApp() {
   const navItems = navSections.flatMap((s) => s.items);
   const pageMap  = isPF ? PAGE_MAP_PF : PAGE_MAP_PJ;
 
-  const isAdminPage = page === "super-admin";
+  const isAdminPage = isAdminPageId(page);
+  const AdminPageComponent = ADMIN_PAGE_MAP[page] || ADMIN_PAGE_MAP[DEFAULT_ADMIN_PAGE];
   const currentPage = (!isAdminPage && pageMap[page]) ? page : "dashboard";
   const PageComponent = pageMap[currentPage] || pageMap.dashboard;
+
+  useEffect(() => {
+    if (page === "super-admin") setPage(DEFAULT_ADMIN_PAGE);
+  }, [page]);
 
   useEffect(() => {
     if (isAdminPage) return;
     if (!pageMap[page]) setPage("dashboard");
   }, [isPF, isAdminPage, page, pageMap]);
+
   const pageLabel = isAdminPage
-    ? "Painel Administrativo"
-    : (navItems.find(n => n.id === currentPage)?.label || "Dashboard");
+    ? adminPageLabel(page)
+    : (navItems.find((n) => n.id === currentPage)?.label || "Dashboard");
 
   const displayName = isPF
-    ? (pessoa?.nome || empresa.nome)
-    : (company?.nomeFantasia || empresa.nome);
+    ? (pessoa?.nome || empresa?.nome || "")
+    : (company?.nomeFantasia || empresa?.nome || "");
   const displaySub = isPF
     ? (pessoa?.cpf || "CPF não informado")
     : (company?.cnpj || "");
@@ -217,43 +261,54 @@ export default function GestorApp() {
             </div>
           </div>
 
-          {/* ── SUPER ADMIN — abre por padrão para role=admin ───── */}
-          {isSuperAdmin && (
-            <div style={{ padding: "0 12px 4px" }}>
-              <div style={{
-                fontSize: 9, fontWeight: 800, letterSpacing: "0.1em",
-                textTransform: "uppercase", color: "rgba(253,230,138,0.85)",
-                padding: "6px 4px 6px",
-              }}>Super Admin</div>
+          {/* ── Super Admin: menu completo OU só voltar (modo visualização do cliente) ─ */}
+          {isSuperAdmin && impersonatingUser && (
+            <div className="admin-sidebar-block">
               <div
-                role="button" tabIndex={0}
-                className={`admin-nav-btn${isAdminPage ? " active" : ""}`}
+                role="button"
+                tabIndex={0}
+                className="admin-nav-btn admin-nav-btn--back"
                 onClick={goToAdmin}
-                onKeyDown={e => e.key === "Enter" && goToAdmin()}
+                onKeyDown={(e) => e.key === "Enter" && goToAdmin()}
+                aria-label="Voltar ao Super Admin"
               >
-                <span className="admin-nav-icon" aria-hidden><Shield size={18} strokeWidth={1.75} /></span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>Painel Admin</div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 1 }}>Clientes · Tenants · SaaS</div>
-                </div>
-              </div>
-
-              {false && isAdminPage && (
-                <div
-                  role="button" tabIndex={0}
-                  onClick={() => goTo("dashboard")}
-                  onKeyDown={e => e.key === "Enter" && goTo("dashboard")}
-                  className="gestor-link-btn"
-                >
-                  <span style={{ fontSize: 16 }}>📊</span>
-                  <div>
-                    <div className="gestor-link-btn-title">Gestor Financeiro</div>
-                    <div className="gestor-link-btn-sub">Dashboard · Lançamentos · DRE</div>
+                <span className="admin-nav-icon" aria-hidden>
+                  <ChevronLeft size={18} strokeWidth={1.75} />
+                </span>
+                <div className="admin-nav-text">
+                  <div className="admin-nav-title">Voltar ao Super Admin</div>
+                  <div className="admin-nav-sub">
+                    {impersonatingUser.nome_perfil || impersonatingUser.nome}
                   </div>
                 </div>
-              )}
-
-              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "10px 0 6px" }} />
+              </div>
+              <div className="admin-sidebar-divider" />
+            </div>
+          )}
+          {isSuperAdmin && !impersonatingUser && (
+            <div className="admin-sidebar-block">
+              <div className="admin-sidebar-label">Super Admin</div>
+              <nav className="admin-nav-list" aria-label="Menu administrativo">
+                {ADMIN_NAV.map((item) => (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    className={`admin-nav-btn${page === item.id ? " active" : ""}`}
+                    onClick={() => goToAdmin(item.id)}
+                    onKeyDown={(e) => e.key === "Enter" && goToAdmin(item.id)}
+                  >
+                    <span className="admin-nav-icon" aria-hidden>
+                      <AdminNavIcon name={item.icon} />
+                    </span>
+                    <div className="admin-nav-text">
+                      <div className="admin-nav-title">{item.label}</div>
+                      <div className="admin-nav-sub">{item.sub}</div>
+                    </div>
+                  </div>
+                ))}
+              </nav>
+              <div className="admin-sidebar-divider" />
             </div>
           )}
 
@@ -319,6 +374,9 @@ export default function GestorApp() {
               <span className="topbar-title">{pageLabel}</span>
             </div>
             <div className="topbar-right">
+              {!isAdminPage && !viewOnly && (
+                <NotificationBell onOpenCenter={() => goTo("notificacoes")} />
+              )}
               <SyncPill
                 syncing={syncing}
                 lastSyncAt={lastSyncAt}
@@ -328,17 +386,14 @@ export default function GestorApp() {
               <span className={`status-dot ${apiOnline ? "online" : "offline"}`}
                 title={apiOnline ? "Servidor PostgreSQL online" : "Servidor offline — execute npm run dev:all"} />
               <span className="topbar-user">{user?.nome || user?.email}</span>
-              {isSuperAdmin && <span className="badge-super-admin">SUPER ADMIN</span>}
+              {isSuperAdmin && !impersonatingUser && (
+                <span className="badge-super-admin">SUPER ADMIN</span>
+              )}
               {impersonatingUser && (
-                <>
-                  <span className="company-badge badge-view-only" title="Somente leitura">
-                    <Eye size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: -2 }} />
-                    {impersonatingUser.nome_perfil || impersonatingUser.nome}
-                  </span>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={goToAdmin}>
-                    Voltar ao admin
-                  </button>
-                </>
+                <span className="company-badge badge-view-only" title="Somente leitura">
+                  <Eye size={12} strokeWidth={2} style={{ marginRight: 4, verticalAlign: -2 }} />
+                  {impersonatingUser.nome_perfil || impersonatingUser.nome}
+                </span>
               )}
               {!isAdminPage && !impersonatingUser && (
                 <>
@@ -384,7 +439,11 @@ export default function GestorApp() {
 
           <div className={`content${viewOnly ? " content-view-only" : ""}`}>
             {isAdminPage ? (
-              <AdminPanel embedded onEnterTenant={handleEnterTenant} />
+              page === "admin-tenants" ? (
+                <AdminTenantsPage onEnterTenant={handleEnterTenant} />
+              ) : (
+                <AdminPageComponent />
+              )
             ) : currentPage === "onboarding" ? (
               <OnboardingPage onDone={() => goTo("dashboard")} />
             ) : (

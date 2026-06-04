@@ -30,6 +30,7 @@ import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
 import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
+import CommercialDashboardBlock from "../components/dashboard/CommercialDashboardBlock.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
 import {
   TrendingUp,
@@ -83,8 +84,13 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   );
 });
 
-export default function DashboardPFV2Page() {
+import OnboardingDashboardCard from "../components/OnboardingDashboardCard.jsx";
+import { DashboardGuideCardsPF } from "../components/DashboardGuideCards.jsx";
+import { isOnboardingDone } from "../onboarding.js";
+
+export default function DashboardPFV2Page({ onNavigate }) {
   const {
+    empresa,
     contas, planoContas, lancamentos,
     getSaldoConta, getSaldoTotal,
     filterPeriodo,
@@ -342,6 +348,14 @@ export default function DashboardPFV2Page() {
 
   return (
     <div className="dash-v2-root">
+      <OnboardingDashboardCard
+        empresa={empresa}
+        isPF
+        onContinue={() => onNavigate?.("onboarding")}
+      />
+      {isOnboardingDone(empresa) && onNavigate && (
+        <DashboardGuideCardsPF onNavigate={onNavigate} />
+      )}
 
       <div className="dash-hero">
         <DashPeriodToolbar
@@ -362,6 +376,8 @@ export default function DashboardPFV2Page() {
 
       {/* ── Hero chart + widgets laterais ─────────────────────────────────── */}
       <div className="dash-section">
+
+        <CommercialDashboardBlock isPF onNavigate={onNavigate} />
 
         <div className="dash-alerts-row">
           <RecorrenciaAlert />

@@ -181,11 +181,22 @@ export async function sendEmail({ to, subject, text, logLabel = 'E-MAIL' }) {
 /** Garante que objetos de status não vazam segredos. */
 export function sanitizeForPublic(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) =>
+      typeof item === 'object' && item !== null ? sanitizeForPublic(item) : item
+    );
+  }
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
     if (SECRET_KEYS.has(k)) continue;
     if (typeof v === 'string' && /key|secret|pass|token/i.test(k)) continue;
-    out[k] = typeof v === 'object' && v !== null ? sanitizeForPublic(v) : v;
+    if (Array.isArray(v)) {
+      out[k] = v.map((item) =>
+        typeof item === 'object' && item !== null ? sanitizeForPublic(item) : item
+      );
+    } else {
+      out[k] = typeof v === 'object' && v !== null ? sanitizeForPublic(v) : v;
+    }
   }
   return out;
 }

@@ -105,7 +105,14 @@ export function GestorProvider({ children }) {
       return;
     }
     if (impersonatingUser) return;
-    if (!profileReady || !user?.tipo_perfil) return;
+    if (!profileReady) return;
+    if (!user?.tipo_perfil) {
+      if (user?.role === "admin") {
+        setAppLoading(false);
+        isFirstLoad.current = false;
+      }
+      return;
+    }
 
     const profile = buildProfile(user);
     isFirstLoad.current = true;
@@ -235,7 +242,12 @@ export function GestorProvider({ children }) {
     return () => clearInterval(t);
   }, []);
 
-  const empresa = useMemo(() => getEmpresaAtiva(state), [state]);
+  const empresa = useMemo(() => {
+    const active = getEmpresaAtiva(state);
+    if (active) return active;
+    if (state.empresas?.[0]) return state.empresas[0];
+    return defaultState().empresas[0];
+  }, [state]);
   const { company, contas, planoContas, clientes, fornecedores } = empresa;
 
   // Retrocompatibilidade: normaliza tipo "Despesa"→"Saida" e "Receita"→"Entrada"

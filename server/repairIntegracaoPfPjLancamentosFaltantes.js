@@ -68,10 +68,7 @@ function syncValoresIntegracao(dados, ops, profile) {
     const lancamentos = (emp.lancamentos || []).map((l) => {
       const op = byLancId.get(String(l.id));
       if (!op || String(l.source || '') !== 'integracao_pf_pj') return l;
-      let cents = Math.round(Number(op.valor_centavos));
-      const drift = cents % 100;
-      if (drift >= 98) cents += 100 - drift;
-      const esperado = reaisFromCentavos(cents);
+      const esperado = reaisFromCentavos(Math.round(Number(op.valor_centavos)));
       if (Math.abs(Number(l.valor) - esperado) < 0.005) return l;
       corrigidos += 1;
       console.log(`  ~ valor ${l.valor} → ${esperado} (${l.historico})`);

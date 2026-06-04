@@ -110,9 +110,10 @@ export async function sendEmpresaConviteEmail({
     `Olá!\n\n` +
     `${convidadoPorNome || 'Um administrador'} convidou você para a equipe da empresa ${empresaNome} ` +
     `com o perfil "${perfil}".\n\n` +
-    `Para aceitar, faça login na Fluxiva e use o token abaixo em Equipe, ` +
-    `ou acesse:\n${appUrl}/gestor?aceitar_convite=${token}\n\n` +
-    `Token: ${token}\n\n` +
+    `Para aceitar, acesse o link (recomendado):\n` +
+    `https://financeiro.fluxiva.app/aceitar-convite?token=${token}\n\n` +
+    `Ou faça login e use o token em Equipe:\n${appUrl}?aceitar_convite=${token}\n\n` +
+    `Token (somente se o link não funcionar): ${token}\n\n` +
     `O convite expira em ${parseInt(process.env.EMPRESA_CONVITE_TTL_DAYS || '7', 10)} dias.\n`;
 
   return sendEmail({ to: email, subject, text, logLabel: 'CONVITE EQUIPE EMPRESA' });

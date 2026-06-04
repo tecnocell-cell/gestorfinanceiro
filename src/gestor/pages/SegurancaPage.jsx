@@ -271,8 +271,8 @@ export default function SegurancaPage() {
             color: "var(--text, #0f172a)",
           }}
         >
-          Envio de e-mail não configurado — em produção, tokens aparecerão apenas se o
-          administrador configurar SMTP ou Resend.
+          Envio automático de e-mail em ativação. Se precisar redefinir senha agora, fale com o
+          suporte.
         </div>
       )}
 

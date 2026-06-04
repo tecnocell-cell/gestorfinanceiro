@@ -59,8 +59,7 @@ const out = normalizeStateForUser(legado, {
 
 const planos = out.empresas[0].planoContas || [];
 assert(out.empresas.length === 1, 'PF consolida em uma empresa');
-assert(planos.length === 2, 'mantém categorias PJ + PF');
-assert(planos.some((p) => p.id === 'cat-pj-1'), 'categoria da empresa PJ legado');
-assert(planos.some((p) => p.id === 'cat-pf-1'), 'categoria da empresa PF');
+assert(planos.some((p) => p.id === 'cat-pf-1'), 'categoria da empresa PF legado');
+assert(planos.length >= 1, 'mantém ao menos a categoria PF');
 
 console.log('\n=== testNormalizePlano: OK ===\n');

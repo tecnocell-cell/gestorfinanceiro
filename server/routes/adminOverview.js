@@ -10,6 +10,10 @@ import {
   isAsaasRealKeyConfigured,
   isWebhookConfigured,
 } from '../billing/gateways/asaas.js';
+import { expectedWebhookUrl } from '../billing/billingHealthLib.js';
+import { getGoLiveStatus } from '../homologacao/goLiveStatus.js';
+import { runProductionChecks } from '../homologacao/productionCheck.js';
+import { getBetaHomologacao, setBetaHomologacaoItem } from '../homologacao/betaChecklist.js';
 
 const router = Router();
 
@@ -123,12 +127,59 @@ router.get('/billing-health', authMiddleware, adminMiddleware, async (_req, res)
       configured,
       environment,
       webhookConfigured: isWebhookConfigured(),
+      webhookUrl: expectedWebhookUrl(),
       activeSubscriptions: subRows[0]?.n || 0,
       pendingInvoices: fatRows[0]?.n || 0,
     });
   } catch (err) {
     console.error('admin/billing-health:', err.message);
     res.status(500).json({ error: 'Erro ao diagnosticar cobrança.' });
+  }
+});
+
+router.get('/go-live', authMiddleware, adminMiddleware, async (_req, res) => {
+  try {
+    const status = await getGoLiveStatus();
+    res.json(status);
+  } catch (err) {
+    console.error('admin/go-live:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar status go-live.' });
+  }
+});
+
+router.get('/production-check', authMiddleware, adminMiddleware, async (_req, res) => {
+  try {
+    const result = await runProductionChecks({});
+    res.json(result);
+  } catch (err) {
+    console.error('admin/production-check:', err.message);
+    res.status(500).json({ error: 'Erro no checklist de produção.' });
+  }
+});
+
+router.get('/beta-homologacao', authMiddleware, adminMiddleware, async (_req, res) => {
+  try {
+    res.json(await getBetaHomologacao());
+  } catch (err) {
+    console.error('admin/beta-homologacao GET:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar checklist beta.' });
+  }
+});
+
+router.patch('/beta-homologacao', authMiddleware, adminMiddleware, async (req, res) => {
+  const { segment, key, checked } = req.body || {};
+  try {
+    const result = await setBetaHomologacaoItem({
+      segment,
+      key,
+      checked: !!checked,
+      adminEmail: req.user?.email,
+    });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json(result);
+  } catch (err) {
+    console.error('admin/beta-homologacao PATCH:', err.message);
+    res.status(500).json({ error: 'Erro ao atualizar checklist beta.' });
   }
 });
 

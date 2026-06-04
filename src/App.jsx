@@ -4,6 +4,7 @@ import { GestorProvider, useGestor } from './gestor/GestorContext.jsx';
 import GestorApp from './gestor/GestorApp.jsx';
 import LoginPage from './gestor/pages/LoginPage.jsx';
 import RegisterPage from './gestor/pages/RegisterPage.jsx';
+import AcceptInvitePage, { isAcceptInviteRoute } from './gestor/pages/AcceptInvitePage.jsx';
 import { css } from './gestor/styles.js';
 
 function LoadingScreen() {
@@ -43,6 +44,10 @@ function AuthScreen() {
 
 function AppInner() {
   const { token, profileReady } = useAuth();
+
+  if (isAcceptInviteRoute()) {
+    return <AcceptInvitePage />;
+  }
 
   if (!token) return <AuthScreen />;
   if (!profileReady) return <LoadingScreen />;

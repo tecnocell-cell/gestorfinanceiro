@@ -93,7 +93,7 @@ export default function EquipePage() {
   useEffect(() => {
     load();
     const params = new URLSearchParams(window.location.search);
-    const t = params.get("aceitar_convite");
+    const t = params.get("token") || params.get("aceitar_convite");
     if (t) setAceiteToken(t);
   }, [load]);
 
@@ -277,12 +277,13 @@ export default function EquipePage() {
         <div className="eq-card">
           <div className="card-title">Convidar membro</div>
           <p className="eq-invite-hint">
-            Enviamos um e-mail com link e token. Se o envio não estiver configurado no servidor,
-            copie o token gerado e compartilhe manualmente com o convidado.
+            O convidado recebe um e-mail com link{" "}
+            <code style={{ fontSize: 11 }}>financeiro.fluxiva.app/aceitar-convite?token=…</code>.
+            O token manual abaixo é apenas fallback.
           </p>
           {!configStatus?.email?.configured && (
             <p className="eq-invite-hint" style={{ color: "oklch(0.45 0.08 75)" }}>
-              E-mail não configurado — após convidar, copie o token manualmente.
+              Envio automático de e-mail em ativação — use o token manual se necessário.
             </p>
           )}
           <form onSubmit={handleConvidar} className="form-grid" style={{ maxWidth: 520, gap: 12 }}>
@@ -328,8 +329,8 @@ export default function EquipePage() {
       <div className="eq-card">
         <div className="card-title">Aceitar convite</div>
         <p className="eq-invite-hint">
-          Recebeu um convite? Faça login com o <strong>mesmo e-mail</strong> do convite, cole o
-          token abaixo ou use o link recebido por e-mail.
+          Prefira o link do e-mail. Se não recebeu, cole o token abaixo (fallback) após entrar com o
+          mesmo e-mail do convite.
         </p>
         <form onSubmit={handleAceitar} className="form-grid" style={{ maxWidth: 520, gap: 12 }}>
           <div>

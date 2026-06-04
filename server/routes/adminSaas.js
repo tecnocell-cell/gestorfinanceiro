@@ -23,6 +23,13 @@ function diasParaVencimento(row) {
   return Math.ceil((end - now) / 86400000);
 }
 
+function formatCentavos(centavos) {
+  if (centavos == null) return null;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    Number(centavos) / 100
+  );
+}
+
 function formatClienteRow(row) {
   const dias = diasParaVencimento(row);
   return {
@@ -38,10 +45,15 @@ function formatClienteRow(row) {
     created_at: row.created_at,
     plano_slug: row.plano_slug,
     plano_nome: row.plano_nome,
+    plano_valor_centavos: row.plano_valor_centavos ?? row.preco_centavos ?? null,
+    plano_valor_formatado: formatCentavos(row.plano_valor_centavos ?? row.preco_centavos),
     assinatura_status: row.assinatura_status,
     trial_ate: row.trial_ate,
     proxima_cobranca: row.proxima_cobranca,
     dias_para_vencimento: dias,
+    total_pago_centavos: Number(row.total_pago_centavos || 0),
+    total_pago_formatado: formatCentavos(row.total_pago_centavos || 0),
+    faturas_vencidas: Number(row.faturas_vencidas || 0),
   };
 }
 
@@ -78,8 +90,20 @@ router.get('/clientes', authMiddleware, adminMiddleware, async (req, res) => {
       `SELECT u.id, u.email, u.nome, u.telefone, u.tipo_perfil, u.nome_perfil, u.ativo,
               u.ultimo_acesso, u.created_at,
               e.updated_at AS ultima_atividade,
-              p.slug AS plano_slug, p.nome AS plano_nome,
-              a.status AS assinatura_status, a.trial_ate, a.proxima_cobranca
+              p.slug AS plano_slug, p.nome AS plano_nome, p.preco_centavos AS plano_valor_centavos,
+              a.status AS assinatura_status, a.trial_ate, a.proxima_cobranca,
+              COALESCE((
+                SELECT SUM(pg.valor_centavos)::bigint
+                FROM pagamentos pg
+                WHERE pg.usuario_id = u.id AND pg.status = 'confirmado'
+              ), 0) AS total_pago_centavos,
+              COALESCE((
+                SELECT COUNT(*)::int
+                FROM faturas f
+                WHERE f.usuario_id = u.id
+                  AND f.status IN ('pendente', 'vencida')
+                  AND f.vencimento < CURRENT_DATE
+              ), 0) AS faturas_vencidas
        FROM usuarios u
        LEFT JOIN assinaturas a ON a.usuario_id = u.id
        LEFT JOIN planos p ON p.id = a.plano_id

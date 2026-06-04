@@ -5,9 +5,13 @@ import { getResultadoPorProjeto } from "../projetoFinanceiro.js";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
 import { Briefcase } from "../components/icons.jsx";
 import { PeriodoHint, ResultadoFinanceiroTable } from "../components/ResultadoFinanceiroTable.jsx";
+import ExportPdfButton from "../components/ExportPdfButton.jsx";
+import { useAuth } from "../AuthContext.jsx";
+import { fmtBRL } from "../finance.js";
 
 function Conteudo({ pfMode }) {
-  const { lancamentos, planoContas, projetos, clientes, filterPeriodo, tipo } = useGestor();
+  const { user } = useAuth();
+  const { lancamentos, planoContas, projetos, clientes, filterPeriodo, tipo, company, pessoa } = useGestor();
   const isPF = pfMode || isPessoaFisica(tipo);
 
   const { rows, totais } = useMemo(
@@ -32,6 +36,34 @@ function Conteudo({ pfMode }) {
           Resultado por Projeto
         </div>
         <ResultadoFinanceiroTable rows={rows} totais={totais} showClienteColumn />
+        <div style={{ marginTop: 12 }}>
+          <ExportPdfButton
+            getExportData={() => ({
+              title: "Resultado por Projeto",
+              periodo: [filterPeriodo.mes, filterPeriodo.ano].filter(Boolean).join("/"),
+              usuario: user?.email || "",
+              empresa: company?.nomeFantasia || pessoa?.nome || "",
+              columns: [
+                { header: "Projeto", dataKey: "projeto" },
+                { header: "Cliente", dataKey: "cliente" },
+                { header: "Receitas", dataKey: "receitas" },
+                { header: "Despesas", dataKey: "despesas" },
+                { header: "Resultado", dataKey: "resultado" },
+              ],
+              rows: rows.map((r) => ({
+                projeto: r.nome,
+                cliente: r.clienteNome || "—",
+                receitas: fmtBRL(r.receitas),
+                despesas: fmtBRL(r.despesas),
+                resultado: fmtBRL(r.resultado),
+              })),
+              totals: [
+                { label: "Resultado", value: fmtBRL(totais.resultado) },
+              ],
+              filename: "resultado_projeto.pdf",
+            })}
+          />
+        </div>
       </div>
     </div>
   );

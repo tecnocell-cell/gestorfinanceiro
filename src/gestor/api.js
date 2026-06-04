@@ -157,6 +157,16 @@ export const empresaApi = {
   removerMembro: (id) => request(`/empresa/membros/${id}`, { method: "DELETE" }),
 };
 
+export const notificationsApi = {
+  list: (query = "") => {
+    const q = query ? (query.startsWith("?") ? query : `?${query}`) : "";
+    return request(`/notifications${q}`);
+  },
+  markRead: (id) => request(`/notifications/${id}/lida`, { method: "PATCH" }),
+  markAllRead: () =>
+    request("/notifications/marcar-todas-lidas", { method: "POST", body: {} }),
+};
+
 export const billingApi = {
   planos: () => request("/billing/planos"),
   assinatura: () => request("/billing/assinatura"),
@@ -200,6 +210,11 @@ export const supportApi = {
 export const adminApi = {
   overview: () => request("/admin/overview"),
   billingHealth: () => request("/admin/billing-health"),
+  goLive: () => request("/admin/go-live"),
+  productionCheck: () => request("/admin/production-check"),
+  betaHomologacao: () => request("/admin/beta-homologacao"),
+  patchBetaHomologacao: (body) =>
+    request("/admin/beta-homologacao", { method: "PATCH", body }),
   listClientes: (query = "") =>
     request(`/admin/clientes${query ? `?${query}` : ""}`),
   getCliente: (id) => request(`/admin/clientes/${id}`),

@@ -117,7 +117,20 @@ export const NAV_ICON_MAP = {
   tutoriais: GraduationCap,
   ajuda: MessageCircle,
   suporte: Ticket,
+  notificacoes: Bell,
 };
+
+export const ADMIN_ICON_MAP = {
+  operacoes: LayoutDashboard,
+  homologacao: CheckCircle,
+  saas: CircleDollarSign,
+  tenants: Users,
+};
+
+export function AdminNavIcon({ name, size = 18, strokeWidth = 1.75, className = "" }) {
+  const Icon = ADMIN_ICON_MAP[name] || Shield;
+  return <Icon size={size} strokeWidth={strokeWidth} className={className} aria-hidden />;
+}
 
 export function NavIcon({ name, size = 16, strokeWidth = 2, className = "" }) {
   const Icon = NAV_ICON_MAP[name];

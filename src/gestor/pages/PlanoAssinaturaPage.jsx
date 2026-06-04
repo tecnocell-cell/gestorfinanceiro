@@ -8,6 +8,8 @@ import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 import BillingActivationModal from "../components/BillingActivationModal.jsx";
 import useConfigStatus from "../hooks/useConfigStatus.js";
 import { PUBLIC_MESSAGES, sanitizePublicMessage } from "../planRules.js";
+import TrialBanner from "../components/TrialBanner.jsx";
+import { exportPortalComercialPdf } from "../export/pdfExport.js";
 import {
   PLAN_BADGES,
   planIconSlug,
@@ -410,6 +412,47 @@ function PlanCard({
   );
 }
 
+function SubscriptionStatusPill({ status }) {
+  if (!status) return null;
+  return (
+    <span className={`sub-status-pill sub-status-pill--${status}`}>
+      {STATUS_LABEL[status] || status}
+    </span>
+  );
+}
+
+function PortalStatusHero({ assinatura }) {
+  if (!assinatura) return null;
+  const venc =
+    assinatura.status === "trial"
+      ? assinatura.trial_ate
+      : assinatura.proxima_cobranca;
+  const vencLabel =
+    assinatura.status === "trial" ? "Fim do trial" : "Próximo vencimento";
+
+  return (
+    <div className="portal-status-hero">
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
+          Plano atual
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 800 }}>{assinatura.plano?.nome || "—"}</div>
+      </div>
+      <SubscriptionStatusPill status={assinatura.status} />
+      <div>
+        <div className="plan-summary-label">Valor mensal</div>
+        <div className="plan-summary-value">
+          {formatCentavos(assinatura.plano?.preco_centavos)}
+        </div>
+      </div>
+      <div>
+        <div className="plan-summary-label">{vencLabel}</div>
+        <div className="plan-summary-value">{formatDate(venc)}</div>
+      </div>
+    </div>
+  );
+}
+
 function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
   if (!assinatura) return null;
   const usuarios = usageMetric(usage?.uso?.usuarios, true);
@@ -418,6 +461,7 @@ function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
 
   const items = [
     { label: "Plano atual", value: assinatura.plano?.nome || "—" },
+    { label: "Valor mensal", value: formatCentavos(assinatura.plano?.preco_centavos) },
     { label: "Status", value: STATUS_LABEL[assinatura.status] || assinatura.status },
     { label: "Trial até", value: formatDate(assinatura.trial_ate) },
     { label: "Próxima cobrança", value: formatDate(assinatura.proxima_cobranca) },
@@ -517,7 +561,7 @@ export default function PlanoAssinaturaPage() {
       setFaturas(fat.faturas || []);
       setPagamentos(pays.pagamentos || []);
     } catch (e) {
-      setError(e.message || "Erro ao carregar planos.");
+      setError(sanitizePublicMessage(e.message) || "Não foi possível carregar seu plano.");
     } finally {
       setLoading(false);
     }
@@ -539,7 +583,7 @@ export default function PlanoAssinaturaPage() {
       setPixCheckout(null);
       await load();
     } catch (e) {
-      setError(e.message || "Falha ao simular upgrade.");
+      setError(sanitizePublicMessage(e.message) || "Não foi possível alterar o plano.");
     } finally {
       setBusy(null);
     }
@@ -584,7 +628,7 @@ export default function PlanoAssinaturaPage() {
       setAssinatura(data.assinatura);
       await load();
     } catch (e) {
-      setError(e.message || "Falha ao cancelar.");
+      setError(sanitizePublicMessage(e.message) || "Não foi possível cancelar a assinatura.");
     } finally {
       setBusy(null);
     }
@@ -614,6 +658,24 @@ export default function PlanoAssinaturaPage() {
   const canCancel =
     assinatura && ["ativa", "atrasada", "trial"].includes(assinatura.status);
 
+  const handleExportPdf = () => {
+    if (!assinatura) return;
+    const pdfUsage = usageRows.map(({ key, label, nested }) => {
+      const { usado, limite } = usageMetric(usage?.uso?.[key], nested);
+      const lim = nested ? limite : usage?.limites?.[key];
+      return { label, usado, limite: lim };
+    });
+    exportPortalComercialPdf({
+      empresa: empresaNome,
+      usuario: user?.nome || user?.email,
+      assinatura,
+      faturas,
+      pagamentos,
+      usageRows: pdfUsage,
+      filename: `fluxiva-portal-${new Date().toISOString().slice(0, 10)}.pdf`,
+    });
+  };
+
   const usageRows = [
     { key: "lancamentos", label: "Lançamentos" },
     { key: "clientes", label: "Clientes" },
@@ -641,6 +703,14 @@ export default function PlanoAssinaturaPage() {
             onClick={handleRefreshStatus}
           >
             {refreshing ? "Atualizando…" : "Atualizar status"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={loading || !assinatura}
+            onClick={handleExportPdf}
+          >
+            Exportar PDF
           </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => goNav("seguranca")}>
             Segurança
@@ -698,10 +768,17 @@ export default function PlanoAssinaturaPage() {
 
       {loading && <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando…</p>}
 
+      {!loading && assinatura && (
+        <>
+          <TrialBanner assinatura={assinatura} onGoPortal={() => setTab("planos")} />
+          <PortalStatusHero assinatura={assinatura} />
+        </>
+      )}
+
       {error && (
         <div className="login-error" style={{ marginBottom: 12 }}>
           <AlertTriangle size={15} strokeWidth={2} aria-hidden />
-          <span>{error}</span>
+          <span>{sanitizePublicMessage(error)}</span>
         </div>
       )}
       {msg && (

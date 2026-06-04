@@ -138,6 +138,36 @@ export async function convidarMembro({ empresaOwnerId, email, perfil, convidadoP
   };
 }
 
+/** Pré-visualização pública do convite (sem auth) — Etapa 7.1 */
+export async function previewConvite(token) {
+  const tokenNorm = String(token || '').trim();
+  if (!tokenNorm) {
+    throw new PermissionError('Token do convite é obrigatório.', { status: 400 });
+  }
+  const { rows } = await query(
+    `SELECT c.email, c.perfil, c.expires_at, c.accepted_at,
+            u.nome_perfil AS empresa_nome, u.nome AS owner_nome
+     FROM convites_empresa c
+     JOIN usuarios u ON u.id = c.empresa_usuario_id
+     WHERE c.token = $1`,
+    [tokenNorm]
+  );
+  const row = rows[0];
+  if (!row) {
+    throw new PermissionError('Convite não encontrado ou inválido.', { status: 404 });
+  }
+  const expired = new Date(row.expires_at) < new Date();
+  return {
+    empresaNome: row.empresa_nome || row.owner_nome || 'Empresa',
+    perfil: row.perfil,
+    emailConvidado: row.email,
+    expiresAt: row.expires_at,
+    accepted: Boolean(row.accepted_at),
+    expired,
+    valid: !row.accepted_at && !expired,
+  };
+}
+
 export async function aceitarConvite({ token, membroUsuarioId }) {
   const tokenNorm = String(token || '').trim();
   if (!tokenNorm) {

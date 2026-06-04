@@ -14,6 +14,9 @@ import {
   getOrcadoRealizadoPorCliente,
   getOrcadoRealizadoPorProjeto,
 } from "../orcamentoRealizado.js";
+import ExportPdfButton from "../components/ExportPdfButton.jsx";
+import { useAuth } from "../AuthContext.jsx";
+import { fmtBRL } from "../finance.js";
 
 const TABS_RELATORIO = [
   { id: "centro", label: "Centro de Custo" },
@@ -55,6 +58,7 @@ function PeriodToolbar() {
 }
 
 function Conteudo({ pfMode }) {
+  const { user } = useAuth();
   const {
     viewOnly,
     lancamentos,
@@ -67,6 +71,8 @@ function Conteudo({ pfMode }) {
     filterPeriodo,
     tipo,
     openModal,
+    company,
+    pessoa,
   } = useGestor();
 
   const isPF = pfMode || isPessoaFisica(tipo);
@@ -207,6 +213,33 @@ function Conteudo({ pfMode }) {
           totais={relAtivo.totais}
           showClienteColumn={tabRel === "projeto"}
         />
+        <div style={{ marginTop: 12 }}>
+          <ExportPdfButton
+            getExportData={() => ({
+              title: `Orçado x Realizado — ${TABS_RELATORIO.find((t) => t.id === tabRel)?.label || tabRel}`,
+              periodo: [filterPeriodo.mes, filterPeriodo.ano].filter(Boolean).join("/"),
+              usuario: user?.email || "",
+              empresa: company?.nomeFantasia || pessoa?.nome || "",
+              columns: [
+                { header: "Nome", dataKey: "nome" },
+                { header: "Orçado", dataKey: "orcado" },
+                { header: "Realizado", dataKey: "realizado" },
+                { header: "Variação", dataKey: "variacao" },
+              ],
+              rows: relAtivo.rows.map((r) => ({
+                nome: r.nome,
+                orcado: fmtBRL(r.orcado),
+                realizado: fmtBRL(r.realizado),
+                variacao: fmtBRL(r.variacao),
+              })),
+              totals: [
+                { label: "Orçado", value: fmtBRL(relAtivo.totais?.orcado) },
+                { label: "Realizado", value: fmtBRL(relAtivo.totais?.realizado) },
+              ],
+              filename: `orcado_realizado_${tabRel}.pdf`,
+            })}
+          />
+        </div>
         {tabRel === "cliente" && (
           <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 12, marginBottom: 0 }}>
             Previsto por cliente agrega os orçamentos mensais dos projetos daquele cliente.

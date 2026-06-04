@@ -52,6 +52,7 @@ import systemRouter from "./routes/system.js";
 import adminOverviewRouter from "./routes/adminOverview.js";
 import adminSaasRouter from "./routes/adminSaas.js";
 import adminBillingRouter from "./routes/adminBilling.js";
+import notificationsRouter from "./routes/notifications.js";
 import { registerSupportRoutes } from "./routes/support.js";
 import { getPublicPlanCatalog } from "./billing/planCatalogExport.js";
 
@@ -551,6 +552,7 @@ app.use("/api/system", systemRouter);
 app.use("/api/admin", adminOverviewRouter);
 app.use("/api/admin", adminSaasRouter);
 app.use("/api/admin", adminBillingRouter);
+app.use("/api/notifications", notificationsRouter);
 app.use("/api/integracao-pf-pj", integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────

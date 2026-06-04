@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { query, pool } from './db.js';
 import { collectAllLancamentos } from './integracaoPfPj/estadoMerge.js';
 import { reaisFromCentavos, reaisToCentavos } from './utils/money.js';
+import { AUDIT_ACAO, insertIntegracaoAuditoria } from './integracaoPfPj/auditoria.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -145,11 +146,22 @@ async function main() {
   );
   console.log('\nBackup:', backupFile);
 
+  const vinculoId = vincRows[0].id;
   for (const d of divergentes) {
     await query('UPDATE integracao_pf_pj_operacoes SET valor_centavos = $2 WHERE id = $1', [
       d.op.id,
       d.esperado,
     ]);
+    await insertIntegracaoAuditoria(null, {
+      operacaoId: d.op.id,
+      vinculoId,
+      usuarioPjId: pj.id,
+      usuarioPfId: pfId,
+      acao: AUDIT_ACAO.REPAIR,
+      tipoOperacao: d.op.tipo_operacao,
+      valorCentavos: d.esperado,
+      payload: { valorCentavosAntes: d.centsOp, valorCentavosDepois: d.esperado },
+    });
   }
 
   console.log(`Atualizadas ${divergentes.length} operação(ões).`);

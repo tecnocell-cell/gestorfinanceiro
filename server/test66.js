@@ -128,36 +128,58 @@ async function main() {
   assert(projSt === 403, 'PJ Start novo projeto 403');
   assert(projData.code === 'PLAN_FEATURE' || projData.recurso === 'projetos', 'código feature projetos');
 
-  console.log('\n--- Limite de lançamentos (pf_basico temporário) ---');
+  console.log('\n--- Limite lançamentos: comercial ignora override DB ---');
   await query(
     `UPDATE planos SET recursos = recursos || '{"limiteLancamentos": 2}'::jsonb WHERE slug = 'pf_basico'`
   );
-  const { data: usageLim } = await req('/billing/usage', { token: tokenPf });
-  assert(usageLim.limites?.lancamentos === 2, 'limite lançamentos 2 no usage');
-
-  const dadosPf = await getState(tokenPf);
-  const empPf = dadosPf.empresas[0];
-  empPf.lancamentos = [
-    { id: randomUUID(), tipo: 'Saida', valor: 10, data: '2026-01-01', descricao: 'L1' },
-    { id: randomUUID(), tipo: 'Saida', valor: 20, data: '2026-01-02', descricao: 'L2' },
-  ];
-  await putState(tokenPf, dadosPf);
-
-  const dadosPf2 = await getState(tokenPf);
-  dadosPf2.empresas[0].lancamentos.push({
-    id: randomUUID(),
-    tipo: 'Saida',
-    valor: 30,
-    data: '2026-01-03',
-    descricao: 'L3',
-  });
-  const { status: lancSt, data: lancData } = await putState(tokenPf, dadosPf2);
-  assert(lancSt === 403, `terceiro lançamento bloqueado (got ${lancSt})`);
-  assert(lancData.code === 'PLAN_LIMIT', 'código PLAN_LIMIT lançamentos');
-
+  const { data: usageCom } = await req('/billing/usage', { token: tokenPf });
+  assert(
+    usageCom.limites?.lancamentos == null || usageCom.limites?.lancamentos > 2,
+    'pf_basico não usa limite 2 do DB (planRules fonte única)'
+  );
   await query(
     `UPDATE planos SET recursos = recursos - 'limiteLancamentos' WHERE slug = 'pf_basico'`
   );
+
+  const { rows: planFree } = await query(`SELECT id FROM planos WHERE slug = 'free' LIMIT 1`);
+  if (planFree.length) {
+    const { rows: uPf } = await query('SELECT id FROM usuarios WHERE email = $1', [emailPf]);
+    await query(`UPDATE assinaturas SET plano_id = $1 WHERE usuario_id = $2`, [
+      planFree[0].id,
+      uPf[0].id,
+    ]);
+    const { data: usageFree } = await req('/billing/usage', { token: tokenPf });
+    assert(usageFree.limites?.lancamentos === 100, 'plano legado free limite 100');
+
+    const dadosPf = await getState(tokenPf);
+    const empPf = dadosPf.empresas[0];
+    empPf.lancamentos = Array.from({ length: 100 }, (_, i) => ({
+      id: randomUUID(),
+      tipo: 'Saida',
+      valor: 1,
+      data: '2026-01-01',
+      descricao: `L${i}`,
+    }));
+    await putState(tokenPf, dadosPf);
+    const dadosPf2 = await getState(tokenPf);
+    dadosPf2.empresas[0].lancamentos.push({
+      id: randomUUID(),
+      tipo: 'Saida',
+      valor: 30,
+      data: '2026-01-03',
+      descricao: 'L101',
+    });
+    const { status: lancSt, data: lancData } = await putState(tokenPf, dadosPf2);
+    assert(lancSt === 403, `101º lançamento bloqueado no free (got ${lancSt})`);
+    assert(lancData.code === 'PLAN_LIMIT', 'código PLAN_LIMIT lançamentos');
+    const { rows: planBasico } = await query(`SELECT id FROM planos WHERE slug = 'pf_basico' LIMIT 1`);
+    await query(`UPDATE assinaturas SET plano_id = $1 WHERE usuario_id = $2`, [
+      planBasico[0].id,
+      uPf[0].id,
+    ]);
+  } else {
+    console.log('  (skip limite 100: plano free não encontrado)');
+  }
 
   console.log('\n--- PF: integração PF/PJ indisponível no plano ---');
   assert(usagePf.recursos?.integracaoPfPj === false, 'PF básico sem integracaoPfPj');

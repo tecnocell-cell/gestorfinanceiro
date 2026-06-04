@@ -28,6 +28,7 @@ import DashPeriodToolbar    from "../components/dashboard/DashPeriodToolbar.jsx"
 import DashInsight          from "../components/dashboard/DashInsight.jsx";
 import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
 import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx";
+import CommercialDashboardBlock from "../components/dashboard/CommercialDashboardBlock.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
@@ -84,12 +85,19 @@ const PieLegend = memo(function PieLegend({ payload, categoriasData }) {
   );
 });
 
-export default function DashboardV2Page() {
+import OnboardingDashboardCard from "../components/OnboardingDashboardCard.jsx";
+import { DashboardGuideCardsPJ } from "../components/DashboardGuideCards.jsx";
+import { isOnboardingDone } from "../onboarding.js";
+import { useEmpresaPermissions } from "../hooks/useEmpresaPermissions.js";
+
+export default function DashboardV2Page({ onNavigate }) {
   const {
+    empresa,
     dreAtual, mensal, contas, planoContas, lancamentos,
     getSaldoConta, getSaldoTotal,
     filterPeriodo,
   } = useGestor();
+  const { hasPermission } = useEmpresaPermissions();
 
   const { recorrencias, loading: recLoading } = useRecorrencias();
 
@@ -305,8 +313,18 @@ export default function DashboardV2Page() {
     },
   ];
 
+  const showEquipe = hasPermission("equipe.view");
+
   return (
     <div className="dash-v2-root">
+      <OnboardingDashboardCard
+        empresa={empresa}
+        isPF={false}
+        onContinue={() => onNavigate?.("onboarding")}
+      />
+      {isOnboardingDone(empresa) && onNavigate && (
+        <DashboardGuideCardsPJ onNavigate={onNavigate} showEquipe={showEquipe} />
+      )}
 
       <div className="dash-hero">
         <DashPeriodToolbar
@@ -326,6 +344,8 @@ export default function DashboardV2Page() {
       </div>
 
       <div className="dash-section">
+
+        <CommercialDashboardBlock isPF={false} onNavigate={onNavigate} />
 
         <div className="dash-alerts-row">
           <RecorrenciaAlert />

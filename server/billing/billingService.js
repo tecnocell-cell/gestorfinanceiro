@@ -23,6 +23,7 @@ import {
   emailAssinaturaCancelada,
 } from './billingEmails.js';
 import { insertAdminSaasAudit } from './adminPlanoChange.js';
+import { logBillingOp, BILLING_OPS_TYPES } from './billingOpsLog.js';
 
 export function isPagamentosReaisEnabled() {
   return isAsaasConfigured();
@@ -160,6 +161,12 @@ export async function createCheckout(usuarioId, planoSlug) {
     invoiceUrl,
   }).catch(() => {});
 
+  logBillingOp(BILLING_OPS_TYPES.CHECKOUT_CRIADO, {
+    usuarioId,
+    faturaId: fatura.id,
+    detalhes: { plano_slug: plano.slug, gateway_payment_id: payment.id },
+  }).catch(() => {});
+
   return {
     ok: true,
     fatura_id: fatura.id,
@@ -277,6 +284,17 @@ export async function processAsaasWebhook(body) {
 
   const { payment, paymentId, faturaId } = await resolveFaturaFromWebhook(body);
 
+  let usuarioIdLog = null;
+  if (faturaId) {
+    const { rows: ur } = await query(`SELECT usuario_id FROM faturas WHERE id = $1`, [faturaId]);
+    usuarioIdLog = ur[0]?.usuario_id;
+  }
+  logBillingOp(BILLING_OPS_TYPES.WEBHOOK_RECEBIDO, {
+    usuarioId: usuarioIdLog,
+    faturaId,
+    detalhes: { evento, payment_id: paymentId, duplicate: false },
+  }).catch(() => {});
+
   if (IGNORE_AFTER_LOG.has(evento)) {
     return { ok: true, logged: true, evento };
   }
@@ -324,6 +342,9 @@ export async function processAsaasWebhook(body) {
   }
 
   if (!faturaId) {
+    logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+      detalhes: { evento, payment_id: paymentId, reason: 'fatura_nao_identificada' },
+    }).catch(() => {});
     return { ok: false, error: 'Fatura não identificada no webhook.' };
   }
 
@@ -337,6 +358,13 @@ export async function processAsaasWebhook(body) {
 
   const result = await activateSubscriptionFromPayment(faturaId);
   if (result.usuario_id) await refreshSubscriptionLifecycle(result.usuario_id);
+  if (result.ok) {
+    logBillingOp(BILLING_OPS_TYPES.ASSINATURA_ATIVADA, {
+      usuarioId: result.usuario_id,
+      faturaId,
+      detalhes: { evento, plano_nome: result.plano_nome },
+    }).catch(() => {});
+  }
   return { ok: true, activated: true, fatura_id: faturaId, evento };
 }
 
@@ -364,6 +392,10 @@ export async function trocarPlano(usuarioId, planoSlug) {
       [plano.id, usuarioId]
     );
     const updated = await getAssinaturaUsuario(usuarioId);
+    logBillingOp(BILLING_OPS_TYPES.TROCA_PLANO, {
+      usuarioId,
+      detalhes: { tipo: 'downgrade', plano_slug: plano.slug },
+    }).catch(() => {});
     return {
       ok: true,
       tipo: 'downgrade',
@@ -388,6 +420,11 @@ export async function trocarPlano(usuarioId, planoSlug) {
 
   const checkout = await createCheckout(usuarioId, plano.slug);
   if (!checkout.ok) return checkout;
+  logBillingOp(BILLING_OPS_TYPES.TROCA_PLANO, {
+    usuarioId,
+    faturaId: checkout.fatura_id,
+    detalhes: { tipo: 'upgrade', plano_slug: plano.slug },
+  }).catch(() => {});
   return {
     ok: true,
     tipo: 'upgrade',
@@ -504,6 +541,10 @@ export async function cancelarAssinatura(usuarioId) {
   const assinatura = await getAssinaturaUsuario(usuarioId);
   const ateFmt = new Date(acessoAte).toLocaleDateString('pt-BR');
   emailAssinaturaCancelada(usuarioId, { acessoAte }).catch(() => {});
+  logBillingOp(BILLING_OPS_TYPES.CANCELAMENTO, {
+    usuarioId,
+    detalhes: { acesso_ate: acessoAte },
+  }).catch(() => {});
   return {
     ok: true,
     message: `Sua assinatura ficará ativa até ${ateFmt}.`,

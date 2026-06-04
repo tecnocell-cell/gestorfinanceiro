@@ -21,13 +21,20 @@ export const SUPPORT_WHATSAPP_URL = 'https://wa.me/5594981406316';
 
 const TECHNICAL_PATTERNS = [
   /ASAAS_API_KEY/i,
+  /api[_\s-]?key/i,
   /asaas/i,
   /pluggy/i,
   /smtp/i,
   /resend/i,
-  /provider\s*mock/i,
+  /provider/i,
+  /gateway/i,
+  /webhook/i,
+  /\bmock\b/i,
+  /stack\s*trace/i,
   /evolution\s*api/i,
   /OPENFINANCE_/i,
+  /ECONNREFUSED/i,
+  /ENOTFOUND/i,
 ];
 
 export function sanitizePublicMessage(msg) {
