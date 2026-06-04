@@ -146,6 +146,8 @@ export const authApi = {
 // ─── Billing (planos e assinatura) ───────────────────────────────────────────
 export const empresaApi = {
   context: () => request("/empresa/context"),
+  conviteInfo: (token) =>
+    request(`/empresa/convite-info?token=${encodeURIComponent(token)}`),
   membros: () => request("/empresa/membros"),
   convidar: (body) => request("/empresa/convidar", { method: "POST", body }),
   aceitarConvite: (token) =>
@@ -166,6 +168,8 @@ export const billingApi = {
   cancelar: () => request("/billing/cancelar", { method: "POST", body: {} }),
   simularUpgrade: (plano_slug) =>
     request("/billing/assinatura/simular", { method: "POST", body: { plano_slug } }),
+  atualizarStatus: () =>
+    request("/billing/atualizar-status", { method: "POST", body: {} }),
 };
 
 // ─── Estado do App ────────────────────────────────────────────────────────────
@@ -184,7 +188,16 @@ export const systemApi = {
 };
 
 // ─── Admin — gestão de tenants ────────────────────────────────────────────────
+export const supportApi = {
+  list: () => request("/support/tickets"),
+  create: (body) => request("/support/tickets", { method: "POST", body }),
+  updateStatus: (id, status) =>
+    request(`/support/tickets/${id}`, { method: "PATCH", body: { status } }),
+};
+
 export const adminApi = {
+  overview: () => request("/admin/overview"),
+  billingHealth: () => request("/admin/billing-health"),
   listUsers:     ()           => request("/admin/users"),
   createUser:    (data)       => request("/admin/users", { method: "POST", body: data }),
   toggleUser:    (id)         => request(`/admin/users/${id}/toggle`, { method: "PATCH" }),

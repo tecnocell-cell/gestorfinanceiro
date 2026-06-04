@@ -136,6 +136,25 @@ export async function getPayment(paymentId) {
   return asaasFetch(`/payments/${paymentId}`);
 }
 
+/** Cancela cobrança no sandbox/produção (Etapa 7.2 — test:asaas). */
+export async function cancelPayment(paymentId) {
+  if (useMock()) {
+    return { id: paymentId, status: 'CANCELLED', deleted: true, mock: true };
+  }
+  if (getAsaasEnv() === 'production' && process.env.ASAAS_ALLOW_CANCEL_PRODUCTION !== 'true') {
+    throw new Error('Cancelamento em produção bloqueado (use sandbox ou ASAAS_ALLOW_CANCEL_PRODUCTION).');
+  }
+  return asaasFetch(`/payments/${paymentId}`, { method: 'DELETE' });
+}
+
+export function isAsaasRealKeyConfigured() {
+  return Boolean(process.env.ASAAS_API_KEY) && process.env.BILLING_USE_MOCK_GATEWAY !== 'true';
+}
+
+export function isWebhookConfigured() {
+  return Boolean(process.env.ASAAS_WEBHOOK_TOKEN);
+}
+
 export function paymentExternalRef(faturaId) {
   return `fluxiva:fatura:${faturaId}`;
 }

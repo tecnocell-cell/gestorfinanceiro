@@ -22,7 +22,7 @@ import { runMigrations } from "./migrate.js";
 import { registerAuthRoutes } from "./authPublic.js";
 import { registerSecurityRoutes } from "./authSecurity/routes.js";
 import { registerBillingRoutes } from "./billing/routes.js";
-import { registerEmpresaRoutes } from "./routes/empresa.js";
+import { registerEmpresaRoutes, handleConviteInfo } from "./routes/empresa.js";
 import { validateStateSave } from "./billing/accessControl.js";
 import {
   attachEmpresaContext,
@@ -49,6 +49,9 @@ import { integracaoPfPjRouter } from "./routes/integracaoPfPj.js";
 import whatsappRouter from "./routes/whatsapp.js";
 import { whatsappAdminRouter } from "./routes/whatsappAdmin.js";
 import systemRouter from "./routes/system.js";
+import adminOverviewRouter from "./routes/adminOverview.js";
+import { registerSupportRoutes } from "./routes/support.js";
+import { getPublicPlanCatalog } from "./billing/planCatalogExport.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -84,9 +87,14 @@ if (existsSync(DIST)) {
 
 // ─── Health ──────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get("/api/billing/catalog", (_req, res) => {
+  res.json({ catalog: getPublicPlanCatalog() });
+});
 app.get("/api/status", (_req, res) =>
   res.json({ online: true, version: "2.0", port: PORT })
 );
+
+app.get("/api/empresa/convite-info", handleConviteInfo);
 
 // ─── Auth: Login ─────────────────────────────────────────────────────────────
 app.post("/api/auth/login", async (req, res) => {
@@ -199,6 +207,7 @@ registerAuthRoutes(app);
 registerSecurityRoutes(app);
 registerBillingRoutes(app);
 registerEmpresaRoutes(app);
+registerSupportRoutes(app);
 
 // ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
 app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, async (req, res) => {
@@ -537,6 +546,7 @@ app.use("/api/conexoes", conexoesRouter);
 app.use("/api/importacoes", importacoesRouter);
 app.use("/api/open-finance", openFinanceRouter);
 app.use("/api/system", systemRouter);
+app.use("/api/admin", adminOverviewRouter);
 app.use("/api/integracao-pf-pj", integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────

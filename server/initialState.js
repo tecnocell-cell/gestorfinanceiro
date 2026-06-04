@@ -44,6 +44,9 @@ function createEmpresaPJ(nome) {
   return {
     empresas: [{
       id: empId, nome, tipo: "juridica",
+      onboardingConcluido: false,
+      onboardingEtapa: "pj-1",
+      tourConcluido: false,
       company: defaultCompany(nome),
       pessoa: null,
       contas: defaultContasPJ(),
@@ -89,6 +92,9 @@ function createPerfilPF(nome) {
   return {
     empresas: [{
       id: empId, nome, tipo: "fisica",
+      onboardingConcluido: false,
+      onboardingEtapa: "pf-1",
+      tourConcluido: false,
       pessoa: { nome, cpf: "", email: "", telefone: "", dataNascimento: "", profissao: "" },
       company: defaultCompany(nome),
       contas: defaultContasPF(),

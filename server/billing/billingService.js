@@ -127,7 +127,15 @@ export async function createCheckout(usuarioId, planoSlug) {
       fatura.id,
       payment.id,
       plano.preco_centavos,
-      JSON.stringify({ billingType: 'PIX', mock: payment.mock || false }),
+      JSON.stringify({
+        billingType: 'PIX',
+        mock: payment.mock || false,
+        pix: {
+          copy_paste: payment.payload || null,
+          encoded_image: payment.encodedImage || null,
+          invoice_url: payment.invoiceUrl || null,
+        },
+      }),
     ]
   );
 
@@ -276,13 +284,52 @@ export async function cancelarAssinatura(usuarioId) {
 
 export async function listFaturasUsuario(usuarioId, { limit = 50 } = {}) {
   const { rows } = await query(
-    `SELECT id, assinatura_id, gateway, gateway_invoice_id, valor_centavos, status,
-            vencimento, pago_em, created_at
-     FROM faturas WHERE usuario_id = $1
-     ORDER BY created_at DESC LIMIT $2`,
+    `SELECT f.id, f.assinatura_id, f.gateway, f.gateway_invoice_id, f.valor_centavos, f.status,
+            f.vencimento, f.pago_em, f.created_at,
+            p.gateway_payment_id, p.payload AS pagamento_payload
+     FROM faturas f
+     LEFT JOIN LATERAL (
+       SELECT gateway_payment_id, payload
+       FROM pagamentos
+       WHERE fatura_id = f.id
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) p ON true
+     WHERE f.usuario_id = $1
+     ORDER BY f.created_at DESC LIMIT $2`,
     [usuarioId, limit]
   );
-  return rows;
+  return rows.map((row) => {
+    let pix = null;
+    let invoice_url = null;
+    if (row.pagamento_payload) {
+      const pl =
+        typeof row.pagamento_payload === 'string'
+          ? JSON.parse(row.pagamento_payload)
+          : row.pagamento_payload;
+      pix = pl?.pix?.copy_paste || pl?.copy_paste || null;
+      invoice_url = pl?.pix?.invoice_url || pl?.invoice_url || null;
+    }
+    const venc = row.vencimento ? new Date(`${row.vencimento}T12:00:00`) : null;
+    const hoje = new Date();
+    hoje.setHours(12, 0, 0, 0);
+    let displayStatus = row.status;
+    if (row.status === 'pendente' && venc && venc < hoje) {
+      displayStatus = 'atrasado';
+    } else if (row.status === 'paga') {
+      displayStatus = 'pago';
+    }
+    return {
+      ...row,
+      display_status: displayStatus,
+      pix_copy_paste: pix,
+      invoice_url:
+        invoice_url ||
+        (row.gateway_invoice_id
+          ? `https://www.asaas.com/i/${row.gateway_invoice_id}`
+          : null),
+    };
+  });
 }
 
 export async function listPagamentosUsuario(usuarioId, { limit = 50 } = {}) {

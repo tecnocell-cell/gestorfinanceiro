@@ -4,6 +4,7 @@ import {
   Wallet, User, Mail, Phone, ArrowRight, ArrowLeft, Check,
   Users, Smartphone, Bot, Sparkles, MailCheck,
 } from "lucide-react";
+import { PLAN_CATALOG_LANDING } from "../data/planCatalog";
 
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
@@ -15,18 +16,53 @@ export const Route = createFileRoute("/cadastro")({
   component: CadastroPage,
 });
 
-type PlanKey = "PF_BASICO" | "PF_PLUS" | "PF_PREMIUM" | "PJ_START" | "PJ_PRO" | "PJ_BUSINESS";
+type PlanKey =
+  | "pf_basico"
+  | "pf_plus"
+  | "pf_premium"
+  | "pj_start"
+  | "pj_pro"
+  | "pj_business";
 
-const PLANS: Record<PlanKey, {
-  label: string; price: string; type: "PF" | "PJ"; users: string; numbers: string; ai: string; features: string[];
-}> = {
-  PF_BASICO:   { label: "PF Básico",   price: "R$ 19,90", type: "PF", users: "1 usuário", numbers: "1 número WhatsApp",    ai: "Texto",                     features: ["Relatórios essenciais", "Metas pessoais"] },
-  PF_PLUS:     { label: "PF Plus",     price: "R$ 29,90", type: "PF", users: "1 usuário", numbers: "Até 3 números",        ai: "Texto + áudio",             features: ["Relatórios completos", "Categorias avançadas"] },
-  PF_PREMIUM:  { label: "PF Premium",  price: "R$ 49,90", type: "PF", users: "1 usuário", numbers: "Até 5 números",        ai: "Texto + áudio + comprovante", features: ["Leitura por IA", "Suporte prioritário"] },
-  PJ_START:    { label: "PJ Start",    price: "R$ 59,90", type: "PJ", users: "Até 3 usuários", numbers: "Até 2 números",   ai: "Texto + áudio",             features: ["Centro de custo básico", "Relatórios PJ"] },
-  PJ_PRO:      { label: "PJ Pro",      price: "R$ 99,90", type: "PJ", users: "Até 8 usuários", numbers: "Até 5 números",   ai: "Texto + áudio + comprovante", features: ["Automações", "DRE simplificado"] },
-  PJ_BUSINESS: { label: "PJ Business", price: "R$ 199,90", type: "PJ", users: "Até 20 usuários", numbers: "Até 15 números", ai: "Recursos completos com IA", features: ["Governança", "Suporte dedicado"] },
-};
+const fmt = (centavos: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(centavos / 100);
+
+const PLANS: Record<
+  PlanKey,
+  { label: string; price: string; type: "PF" | "PJ"; users: string; numbers: string; ai: string; features: string[] }
+> = Object.fromEntries(
+  PLAN_CATALOG_LANDING.map((p) => {
+    const type = p.segmento === "pf" ? "PF" : "PJ";
+    const ai = [
+      p.whatsappTexto && "Texto",
+      p.whatsappAudio && "áudio",
+      p.whatsappComprovante && "comprovante",
+    ]
+      .filter(Boolean)
+      .join(" + ");
+    return [
+      p.slug,
+      {
+        label: p.nome,
+        price: `${fmt(p.precoCentavos)}/mês`,
+        type,
+        users:
+          p.limiteUsuarios === 1
+            ? "1 usuário"
+            : `Até ${p.limiteUsuarios} usuários`,
+        numbers:
+          p.limiteWhatsappNumeros === 1
+            ? "1 número WhatsApp"
+            : `Até ${p.limiteWhatsappNumeros} números`,
+        ai: ai || "WhatsApp",
+        features:
+          type === "PF"
+            ? ["Relatórios", "Metas pessoais"]
+            : ["Centro de custo", "Relatórios PJ"],
+      },
+    ];
+  })
+) as Record<PlanKey, { label: string; price: string; type: "PF" | "PJ"; users: string; numbers: string; ai: string; features: string[] }>;
 
 const STEPS = ["Dados", "Plano", "Resumo", "Confirmação"];
 
@@ -34,7 +70,7 @@ function CadastroPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", confirm: "" });
   const [tipo, setTipo] = useState<"PF" | "PJ">("PF");
-  const [plan, setPlan] = useState<PlanKey>("PF_PLUS");
+  const [plan, setPlan] = useState<PlanKey>("pf_plus");
 
   const planos = useMemo(
     () => (Object.entries(PLANS) as [PlanKey, typeof PLANS[PlanKey]][]).filter(([, v]) => v.type === tipo),

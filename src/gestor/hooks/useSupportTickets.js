@@ -1,81 +1,71 @@
 import { useState, useCallback, useEffect } from "react";
-import { generateId } from "../finance.js";
-import { tokenStorage } from "../api.js";
-
-const STORAGE_PREFIX = "gestor_suporte_tickets_";
-
-function storageKey() {
-  const user = tokenStorage.getUser();
-  const id = user?.id ?? user?.email ?? "anon";
-  return `${STORAGE_PREFIX}${id}`;
-}
-
-function loadTickets() {
-  try {
-    const raw = localStorage.getItem(storageKey());
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTickets(tickets) {
-  localStorage.setItem(storageKey(), JSON.stringify(tickets));
-}
+import { supportApi } from "../api.js";
 
 /**
- * Tickets de suporte — persistência local até API dedicada.
+ * Chamados de suporte — API (Etapa 7.2)
  */
 export function useSupportTickets() {
-  const [tickets, setTickets] = useState(loadTickets);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { tickets: list } = await supportApi.list();
+      setTickets(
+        (list || []).map((t) => ({
+          id: t.id,
+          assunto: t.assunto,
+          descricao: t.descricao,
+          categoria: t.categoria,
+          status: t.status,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at,
+          anexoNome: t.anexo_nome,
+          anexoDataUrl: t.anexo_data,
+          mensagens: 1,
+        }))
+      );
+    } catch (e) {
+      setError(e.message || "Erro ao carregar chamados.");
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setTickets(loadTickets());
+    refresh();
+  }, [refresh]);
+
+  const createTicket = useCallback(
+    async (payload) => {
+      const { ticket } = await supportApi.create({
+        categoria: payload.categoria || "outro",
+        assunto: payload.assunto,
+        descricao: payload.descricao,
+        anexo_nome: payload.anexoNome || null,
+        anexo_data: payload.anexoDataUrl || null,
+      });
+      await refresh();
+      return ticket;
+    },
+    [refresh]
+  );
+
+  const updateStatus = useCallback(
+    async (id, status) => {
+      await supportApi.updateStatus(id, status);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const removeTicket = useCallback(() => {
+    /* remoção não exposta na API — mantido por compatibilidade de UI */
   }, []);
 
-  const refresh = useCallback(() => {
-    setTickets(loadTickets());
-  }, []);
-
-  const createTicket = useCallback((payload) => {
-    const ticket = {
-      id: generateId(),
-      assunto: payload.assunto.trim(),
-      descricao: payload.descricao.trim(),
-      status: "aberto",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      anexoNome: payload.anexoNome || null,
-      anexoDataUrl: payload.anexoDataUrl || null,
-      mensagens: 1,
-    };
-    setTickets((prev) => {
-      const next = [ticket, ...prev];
-      saveTickets(next);
-      return next;
-    });
-    return ticket;
-  }, []);
-
-  const updateStatus = useCallback((id, status) => {
-    setTickets((prev) => {
-      const next = prev.map((t) =>
-        t.id === id ? { ...t, status, updatedAt: new Date().toISOString() } : t
-      );
-      saveTickets(next);
-      return next;
-    });
-  }, []);
-
-  const removeTicket = useCallback((id) => {
-    setTickets((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      saveTickets(next);
-      return next;
-    });
-  }, []);
-
-  return { tickets, refresh, createTicket, updateStatus, removeTicket };
+  return { tickets, loading, error, refresh, createTicket, updateStatus, removeTicket };
 }

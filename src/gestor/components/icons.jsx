@@ -115,6 +115,7 @@ export const NAV_ICON_MAP = {
   fechamento: Lock,
   empresa: Building2,
   tutoriais: GraduationCap,
+  ajuda: MessageCircle,
   suporte: Ticket,
 };
 

@@ -23,11 +23,19 @@ import {
   Trash2,
 } from "../components/icons.jsx";
 
+const CATEGORIAS = [
+  { value: "financeiro", label: "Financeiro" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "assinatura", label: "Assinatura" },
+  { value: "equipe", label: "Equipe" },
+  { value: "outro", label: "Outro" },
+];
+
 const STATUS_OPTS = [
   { value: "todos", label: "Todos os status" },
-  { value: "aberto", label: "Em aberto" },
+  { value: "aberto", label: "Aberto" },
   { value: "em_andamento", label: "Em andamento" },
-  { value: "resolvido", label: "Resolvidos" },
+  { value: "resolvido", label: "Resolvido" },
 ];
 
 const STATUS_BADGE = {
@@ -45,6 +53,7 @@ const STATUS_LABEL = {
 const MAX_ANEXO_BYTES = 5 * 1024 * 1024;
 
 function NovoTicketModal({ onClose, onCreate, viewOnly }) {
+  const [categoria, setCategoria] = useState("outro");
   const [assunto, setAssunto] = useState("");
   const [descricao, setDescricao] = useState("");
   const [anexo, setAnexo] = useState(null);
@@ -73,18 +82,22 @@ function NovoTicketModal({ onClose, onCreate, viewOnly }) {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!assunto.trim()) return setError("Informe o assunto.");
     if (!descricao.trim()) return setError("Informe a descrição.");
     setLoading(true);
+    setError(null);
     try {
-      onCreate({
+      await onCreate({
+        categoria,
         assunto,
         descricao,
         anexoNome: anexo?.nome || null,
         anexoDataUrl: anexo?.dataUrl || null,
       });
       onClose();
+    } catch (e) {
+      setError(e.message || "Erro ao enviar chamado.");
     } finally {
       setLoading(false);
     }
@@ -94,7 +107,7 @@ function NovoTicketModal({ onClose, onCreate, viewOnly }) {
     <ModalShell
       onClose={onClose}
       title="Novo ticket de suporte"
-      subtitle="Descreva seu problema ou dúvida. Nossa equipe responderá pelo canal cadastrado no perfil."
+      subtitle="Abra um chamado. Nossa equipe acompanha pelo e-mail cadastrado na conta."
       tone="conta"
       size="md"
       footer={
@@ -107,6 +120,13 @@ function NovoTicketModal({ onClose, onCreate, viewOnly }) {
       }
     >
       <ModalSection label="Chamado">
+        <ModalField label="Categoria" required>
+          <select className="form-input" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+            {CATEGORIAS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </ModalField>
         <ModalField label="Assunto" required>
           <input
             className="form-input"
@@ -170,8 +190,8 @@ function SuportePageInner() {
     <div className="sys-page">
       <div className="sys-hero sys-hero--toolbar">
         <div className="sys-hero-inner">
-          <h1 className="sys-hero-title">Tickets de suporte</h1>
-          <p className="sys-hero-sub">Abra novos tickets e acompanhe seus chamados</p>
+          <h1 className="sys-hero-title">Central de Suporte</h1>
+          <p className="sys-hero-sub">Abra chamados e acompanhe o status do atendimento</p>
         </div>
         <div className="sys-hero-actions">
           <button

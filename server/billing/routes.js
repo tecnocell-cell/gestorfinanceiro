@@ -17,6 +17,7 @@ import {
 } from './billingService.js';
 import { verifyWebhookToken } from './gateways/asaas.js';
 import { getBillingUsage } from './accessControl.js';
+import { refreshSubscriptionLifecycle } from './subscriptionLifecycle.js';
 
 async function tipoPerfilFromRequest(req) {
   if (req.user?.tipo_perfil) return req.user.tipo_perfil;
@@ -147,6 +148,26 @@ export function registerBillingRoutes(app) {
     } catch (err) {
       console.error('billing/simular:', err.message);
       res.status(500).json({ error: 'Erro ao simular upgrade.' });
+    }
+  });
+
+  app.post('/api/billing/atualizar-status', ...billingGuard, async (req, res) => {
+    try {
+      const uid = ownerId(req);
+      await refreshSubscriptionLifecycle(uid);
+      const assinatura = await getAssinaturaUsuario(uid);
+      const faturas = await listFaturasUsuario(uid);
+      const pagamentos = await listPagamentosUsuario(uid);
+      res.json({
+        ok: true,
+        assinatura,
+        faturas,
+        pagamentos,
+        pagamentos_reais: pagamentosReais(),
+      });
+    } catch (err) {
+      console.error('billing/atualizar-status:', err.message);
+      res.status(500).json({ error: 'Erro ao atualizar status da assinatura.' });
     }
   });
 

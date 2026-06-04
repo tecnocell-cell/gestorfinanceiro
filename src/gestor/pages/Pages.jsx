@@ -540,7 +540,8 @@ function DRETable({ dre, planoContas, label }) {
 }
 
 export function DREPage() {
-  const { dreAtual, consultaDRE, planoContas, filterPeriodo, getDRE, getDREByRange, getConsultaDREByRange, contas } = useGestor();
+  const { user } = useAuth();
+  const { dreAtual, consultaDRE, planoContas, filterPeriodo, getDRE, getDREByRange, getConsultaDREByRange, contas, company } = useGestor();
   const [tab, setTab] = useState("periodo");
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
@@ -586,7 +587,29 @@ export function DREPage() {
 
       {tab === "periodo" && (
         <>
-          <div className="toolbar"><PeriodToolbar /></div>
+          <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <PeriodToolbar />
+            <ExportPdfButton
+              getExportData={() => ({
+                title: "D.R.E.",
+                periodo: [filterPeriodo.mes, filterPeriodo.ano].filter(Boolean).join("/"),
+                usuario: user?.email || "",
+                empresa: company?.nomeFantasia || "",
+                columns: [
+                  { header: "Indicador", dataKey: "indicador" },
+                  { header: "Valor", dataKey: "valor" },
+                ],
+                rows: [
+                  { indicador: "Receitas", valor: fmtBRL(dreAtual.receitas) },
+                  { indicador: "Custos", valor: fmtBRL(dreAtual.custos) },
+                  { indicador: "Despesas", valor: fmtBRL(dreAtual.despesas) },
+                  { indicador: "Impostos", valor: fmtBRL(dreAtual.impostos) },
+                  { indicador: "Lucro líquido", valor: fmtBRL(dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido) },
+                ],
+                filename: `dre_${filterPeriodo.ano || "periodo"}.pdf`,
+              })}
+            />
+          </div>
           <div className="charts-grid">
             <DRETable dre={dreAtual} planoContas={planoContas} label={`D.R.E. ? ${filterPeriodo.mes ? MESES[parseInt(filterPeriodo.mes, 10) - 1] : "Acumulado"} ${filterPeriodo.ano}`} />
             <div className="card">

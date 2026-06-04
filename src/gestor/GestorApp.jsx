@@ -23,6 +23,9 @@ import ResultadoProjetoPage from "./pages/ResultadoProjetoPage.jsx";
 import OrcadoRealizadoPage from "./pages/OrcadoRealizadoPage.jsx";
 import SegurancaPage from "./pages/SegurancaPage.jsx";
 import PlanoAssinaturaPage from "./pages/PlanoAssinaturaPage.jsx";
+import OnboardingPage from "./pages/OnboardingPage.jsx";
+import AjudaPage from "./pages/AjudaPage.jsx";
+import GuidedTour from "./components/GuidedTour.jsx";
 import EquipePage from "./pages/EquipePage.jsx";
 import { useEmpresaPermissions } from "./hooks/useEmpresaPermissions.js";
 import { usePlanMenu } from "./hooks/usePlanMenu.js";
@@ -66,11 +69,13 @@ const PAGE_MAP_PJ = {
   "integracao-pf-pj": IntegracaoPfPjPage,
   "open-finance": ConexoesBancariasPage,
   tutoriais: () => <TutoriaisPage />,
+  ajuda: AjudaPage,
   suporte: () => <SuportePage />,
   empresa: EmpresaPage,
   equipe: EquipePage,
   seguranca: SegurancaPage,
   "plano-assinatura": PlanoAssinaturaPage,
+  onboarding: OnboardingPage,
 };
 
 const PAGE_MAP_PF = {
@@ -89,10 +94,12 @@ const PAGE_MAP_PF = {
   relatorios: RelatoriosPFPage, whatsapp: WhatsAppPage,
   "open-finance": ConexoesBancariasPage,
   tutoriais: () => <TutoriaisPage pfMode />,
+  ajuda: (props) => <AjudaPage pfMode {...props} />,
   suporte: () => <SuportePage pfMode />,
   perfil: PerfilPFPage,
   seguranca: SegurancaPage,
   "plano-assinatura": PlanoAssinaturaPage,
+  onboarding: OnboardingPage,
 };
 
 // ─── SyncPill: indicador discreto de auto-sincronização ─────────────────────
@@ -132,11 +139,14 @@ export default function GestorApp() {
   const {
     empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
     viewOnly, impersonatingUser, enterAsTenant, exitAsTenant,
-    lastSyncAt, syncing, reloadAppState,
+    lastSyncAt, syncing, reloadAppState, patchEmpresa,
   } = useGestor();
 
   const goTo = (p) => { setPage(p); setSidebarOpen(false); };
   const goToAdmin = () => { exitAsTenant(); goTo("super-admin"); };
+
+  const showTour = !viewOnly && empresa && !empresa.tourConcluido && page !== "super-admin";
+  const finishTour = () => patchEmpresa({ tourConcluido: true });
 
   useEffect(() => {
     const onNavigate = (e) => {
@@ -373,10 +383,13 @@ export default function GestorApp() {
           )}
 
           <div className={`content${viewOnly ? " content-view-only" : ""}`}>
-            {isAdminPage
-              ? <AdminPanel embedded onEnterTenant={handleEnterTenant} />
-              : <PageComponent onNavigate={goTo} />
-            }
+            {isAdminPage ? (
+              <AdminPanel embedded onEnterTenant={handleEnterTenant} />
+            ) : currentPage === "onboarding" ? (
+              <OnboardingPage onDone={() => goTo("dashboard")} />
+            ) : (
+              <PageComponent onNavigate={goTo} />
+            )}
           </div>
         </main>
 
@@ -393,6 +406,10 @@ export default function GestorApp() {
         {!isAdminPage && modalOpen === "orcamento-mensal" && <ModalOrcamentoMensal />}
 
         {!isAdminPage && !viewOnly && <PfDueAlert />}
+
+        {showTour && (
+          <GuidedTour isPF={isPF} onNavigate={goTo} onDone={finishTour} />
+        )}
       </div>
     </>
   );

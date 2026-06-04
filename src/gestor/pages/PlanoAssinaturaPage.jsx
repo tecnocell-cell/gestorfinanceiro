@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
+import { useGestor } from "../GestorContext.jsx";
+import { useEmpresaPermissions } from "../hooks/useEmpresaPermissions.js";
 import { billingApi } from "../api.js";
 import { AlertTriangle, CircleCheck, Sparkles } from "../components/icons.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
@@ -171,6 +173,12 @@ const PAGE_CSS = `
   border: 1px dashed oklch(0.85 0.02 150);
   border-radius: 14px;
 }
+.portal-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.portal-tab {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid oklch(0.9 0.02 150);
+  background: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.portal-tab--active { background: var(--green-dark, #166534); color: #fff; border-color: transparent; }
 `;
 
 function formatDate(value) {
@@ -199,10 +207,82 @@ const STATUS_LABEL = {
 
 const FATURA_STATUS = {
   pendente: "Pendente",
-  paga: "Paga",
+  pago: "Pago",
+  paga: "Pago",
+  atrasado: "Atrasado",
+  cancelado: "Cancelado",
   cancelada: "Cancelada",
   vencida: "Vencida",
 };
+
+function copyText(text) {
+  if (!text) return;
+  navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+function FaturaRow({ fatura, onRefresh, busy }) {
+  const st = fatura.display_status || fatura.status;
+  const label = FATURA_STATUS[st] || st;
+  const canPay = st === "pendente" || st === "atrasado";
+
+  return (
+    <tr>
+      <td>{formatDate(fatura.vencimento)}</td>
+      <td>{formatCentavos(fatura.valor_centavos)}</td>
+      <td>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color:
+              st === "pago" || st === "paga"
+                ? "var(--green-dark)"
+                : st === "atrasado" || st === "vencida"
+                  ? "var(--danger)"
+                  : undefined,
+          }}
+        >
+          {label}
+        </span>
+      </td>
+      <td>{formatDate(fatura.pago_em)}</td>
+      <td>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {canPay && fatura.pix_copy_paste && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => copyText(fatura.pix_copy_paste)}
+            >
+              Copiar PIX
+            </button>
+          )}
+          {fatura.invoice_url && (
+            <a
+              href={fatura.invoice_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-sm"
+              style={{ textDecoration: "none" }}
+            >
+              Abrir cobrança
+            </a>
+          )}
+          {canPay && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={busy}
+              onClick={onRefresh}
+            >
+              Atualizar status
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 const PAGAMENTO_STATUS = {
   pendente: "Pendente",
@@ -377,9 +457,20 @@ function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
   );
 }
 
+const TABS = [
+  { id: "plano", label: "Plano atual" },
+  { id: "uso", label: "Uso do plano" },
+  { id: "faturas", label: "Faturas" },
+  { id: "pagamentos", label: "Pagamentos" },
+  { id: "planos", label: "Alterar plano" },
+];
+
 export default function PlanoAssinaturaPage() {
   const { user } = useAuth();
+  const { company, pessoa, tipo } = useGestor();
+  const { hasPermission } = useEmpresaPermissions();
   const { status: configStatus } = useConfigStatus();
+  const [tab, setTab] = useState("plano");
   const [assinatura, setAssinatura] = useState(null);
   const [planos, setPlanos] = useState([]);
   const [faturas, setFaturas] = useState([]);
@@ -393,6 +484,13 @@ export default function PlanoAssinaturaPage() {
   const [showHistorico, setShowHistorico] = useState(false);
   const [usage, setUsage] = useState(null);
   const [activationOpen, setActivationOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const empresaNome =
+    user?.tipo_perfil === "fisica"
+      ? pessoa?.nome || user?.nome
+      : company?.nomeFantasia || user?.nome_perfil;
+  const showEquipeTab = tipo === "juridica" && hasPermission("equipe.view");
 
   const allowSimulate =
     configStatus?.billing?.allowSimulate ??
@@ -483,6 +581,26 @@ export default function PlanoAssinaturaPage() {
     }
   };
 
+  const handleRefreshStatus = async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const data = await billingApi.atualizarStatus();
+      if (data.assinatura) setAssinatura(data.assinatura);
+      if (data.faturas) setFaturas(data.faturas);
+      if (data.pagamentos) setPagamentos(data.pagamentos);
+      setMsg("Status atualizado.");
+    } catch (e) {
+      setError(sanitizePublicMessage(e.message) || "Não foi possível atualizar.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const goNav = (page) => {
+    window.dispatchEvent(new CustomEvent("gestor-navigate", { detail: { page } }));
+  };
+
   const currentSlug = assinatura?.plano?.slug;
   const canCancel =
     assinatura && ["ativa", "atrasada", "trial"].includes(assinatura.status);
@@ -502,10 +620,42 @@ export default function PlanoAssinaturaPage() {
       <PlanLimitNotice />
 
       <div className="plan-page-header">
-        <h1 className="plan-page-title">Plano e Assinatura</h1>
+        <h1 className="plan-page-title">Portal do Cliente</h1>
         <p className="plan-page-sub">
-          Gerencie seu plano Fluxiva, limites e cobrança — alinhado aos planos da landing pública.
+          Plano, uso, faturas e pagamentos — {empresaNome || segmentoLabel}
         </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={refreshing || loading}
+            onClick={handleRefreshStatus}
+          >
+            {refreshing ? "Atualizando…" : "Atualizar status"}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => goNav("seguranca")}>
+            Segurança
+          </button>
+          {showEquipeTab && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => goNav("equipe")}>
+              Equipe
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="portal-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            className={`portal-tab${tab === t.id ? " portal-tab--active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {!pagamentosReais && (
@@ -549,11 +699,11 @@ export default function PlanoAssinaturaPage() {
         <div style={{ marginBottom: 12, fontSize: 13, color: "var(--green-dark)" }}>{msg}</div>
       )}
 
-      {!loading && assinatura && (
+      {(tab === "plano" || tab === "planos") && !loading && assinatura && (
         <PlanSummaryBar assinatura={assinatura} usage={usage} segmentoLabel={segmentoLabel} />
       )}
 
-      {pixCheckout?.pix?.copy_paste && (
+      {(tab === "plano" || tab === "planos") && pixCheckout?.pix?.copy_paste && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">PIX — pagamento pendente</div>
           <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
@@ -572,10 +722,19 @@ export default function PlanoAssinaturaPage() {
               style={{ maxWidth: 200, marginTop: 8 }}
             />
           )}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginTop: 10 }}
+            disabled={refreshing}
+            onClick={handleRefreshStatus}
+          >
+            Já paguei — atualizar status
+          </button>
         </div>
       )}
 
-      {usage && (
+      {tab === "uso" && usage && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">Uso detalhado do plano</div>
           <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
@@ -603,7 +762,7 @@ export default function PlanoAssinaturaPage() {
         </div>
       )}
 
-      {assinatura?.avisos?.length > 0 && (
+      {tab === "plano" && assinatura?.avisos?.length > 0 && (
         <div
           className="card"
           style={{
@@ -638,12 +797,12 @@ export default function PlanoAssinaturaPage() {
         </div>
       )}
 
+      {tab === "planos" && (
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">Planos disponíveis · {segmentoLabel}</div>
         {!loading && planos.length === 0 ? (
           <div className="plan-empty-hint">
-            Nenhum plano comercial ativo para seu perfil. No servidor, execute{" "}
-            <code>npm run migrate</code> (migrations 024 e 027).
+            Nenhum plano comercial ativo para seu perfil. Entre em contato com o suporte.
           </div>
         ) : (
           <div className="plan-cards-grid">
@@ -664,72 +823,76 @@ export default function PlanoAssinaturaPage() {
           </div>
         )}
       </div>
+      )}
 
-      <div className="card">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setShowHistorico((v) => !v)}
-        >
-          {showHistorico ? "Ocultar histórico" : "Ver histórico de faturas e pagamentos"}
-        </button>
-        {showHistorico && (
-          <div style={{ marginTop: 16 }}>
-            <div className="card-title" style={{ fontSize: 14 }}>
-              Faturas
-            </div>
-            {faturas.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhuma fatura.</p>
-            ) : (
-              <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>Vencimento</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                    <th>Pago em</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {faturas.map((f) => (
-                    <tr key={f.id}>
-                      <td>{formatDate(f.vencimento)}</td>
-                      <td>{formatCentavos(f.valor_centavos)}</td>
-                      <td>{FATURA_STATUS[f.status] || f.status}</td>
-                      <td>{formatDate(f.pago_em)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            <div className="card-title" style={{ fontSize: 14, marginTop: 16 }}>
-              Pagamentos
-            </div>
-            {pagamentos.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhum pagamento.</p>
-            ) : (
-              <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagamentos.map((p) => (
-                    <tr key={p.id}>
-                      <td>{formatDate(p.created_at)}</td>
-                      <td>{formatCentavos(p.valor_centavos)}</td>
-                      <td>{PAGAMENTO_STATUS[p.status] || p.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      {tab === "faturas" && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Faturas</span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={refreshing || loading}
+              onClick={handleRefreshStatus}
+            >
+              {refreshing ? "Atualizando…" : "Atualizar status"}
+            </button>
           </div>
-        )}
-      </div>
+          {faturas.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhuma fatura.</p>
+          ) : (
+            <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th>Vencimento</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Pago em</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {faturas.map((f) => (
+                  <FaturaRow
+                    key={f.id}
+                    fatura={f}
+                    busy={refreshing}
+                    onRefresh={handleRefreshStatus}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {tab === "pagamentos" && (
+        <div className="card">
+          <div className="card-title">Pagamentos</div>
+          {pagamentos.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Nenhum pagamento.</p>
+          ) : (
+            <table className="data-table" style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagamentos.map((p) => (
+                  <tr key={p.id}>
+                    <td>{formatDate(p.created_at)}</td>
+                    <td>{formatCentavos(p.valor_centavos)}</td>
+                    <td>{PAGAMENTO_STATUS[p.status] || p.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       <BillingActivationModal open={activationOpen} onClose={() => setActivationOpen(false)} />
     </div>

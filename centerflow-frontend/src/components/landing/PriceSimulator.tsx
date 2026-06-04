@@ -1,19 +1,48 @@
 import { useMemo, useState } from "react";
 import { Calculator, Users, Smartphone, MessageSquare, Mic, Receipt } from "lucide-react";
+import { PLAN_CATALOG_LANDING, type PlanCatalogEntry } from "../../data/planCatalog";
 
-type PlanKey = "PF_BASICO" | "PF_PLUS" | "PF_PREMIUM" | "PJ_START" | "PJ_PRO" | "PJ_BUSINESS";
+type PlanKey = PlanCatalogEntry["slug"];
 
-const PLAN_META: Record<PlanKey, { label: string; base: number; type: "PF" | "PJ"; maxUsers: number; maxNumbers: number; texto: boolean; audio: boolean; receipt: boolean }> = {
-  PF_BASICO:   { label: "PF Básico",   base: 19.9,  type: "PF", maxUsers: 1,  maxNumbers: 1,  texto: true, audio: false, receipt: false },
-  PF_PLUS:     { label: "PF Plus",     base: 29.9,  type: "PF", maxUsers: 1,  maxNumbers: 3,  texto: true, audio: true,  receipt: false },
-  PF_PREMIUM:  { label: "PF Premium",  base: 49.9,  type: "PF", maxUsers: 1,  maxNumbers: 5,  texto: true, audio: true,  receipt: true  },
-  PJ_START:    { label: "PJ Start",    base: 59.9,  type: "PJ", maxUsers: 3,  maxNumbers: 2,  texto: true, audio: true,  receipt: false },
-  PJ_PRO:      { label: "PJ Pro",      base: 99.9,  type: "PJ", maxUsers: 8,  maxNumbers: 5,  texto: true, audio: true,  receipt: true  },
-  PJ_BUSINESS: { label: "PJ Business", base: 199.9, type: "PJ", maxUsers: 20, maxNumbers: 15, texto: true, audio: true,  receipt: true  },
-};
+const PLAN_META: Record<
+  PlanKey,
+  {
+    label: string;
+    base: number;
+    type: "PF" | "PJ";
+    maxUsers: number;
+    maxNumbers: number;
+    texto: boolean;
+    audio: boolean;
+    receipt: boolean;
+  }
+> = Object.fromEntries(
+  PLAN_CATALOG_LANDING.map((p) => [
+    p.slug,
+    {
+      label: p.nome,
+      base: p.precoCentavos / 100,
+      type: p.segmento === "pf" ? "PF" : "PJ",
+      maxUsers: p.limiteUsuarios,
+      maxNumbers: p.limiteWhatsappNumeros,
+      texto: p.whatsappTexto,
+      audio: p.whatsappAudio,
+      receipt: p.whatsappComprovante,
+    },
+  ])
+) as Record<PlanKey, {
+  label: string;
+  base: number;
+  type: "PF" | "PJ";
+  maxUsers: number;
+  maxNumbers: number;
+  texto: boolean;
+  audio: boolean;
+  receipt: boolean;
+}>;
 
 export function PriceSimulator() {
-  const [plan, setPlan] = useState<PlanKey>("PF_PLUS");
+  const [plan, setPlan] = useState<PlanKey>("pf_plus");
   const meta = PLAN_META[plan];
   const [users, setUsers] = useState(1);
   const [numbers, setNumbers] = useState(1);
@@ -79,93 +108,68 @@ export function PriceSimulator() {
                 </div>
               </div>
 
-              <SliderRow
-                icon={<Users className="h-4 w-4" />}
-                label="Usuários"
-                value={safeUsers}
-                min={1}
-                max={meta.maxUsers}
-                onChange={setUsers}
-              />
-              <SliderRow
-                icon={<Smartphone className="h-4 w-4" />}
-                label="Números WhatsApp"
-                value={safeNumbers}
-                min={1}
-                max={meta.maxNumbers}
-                onChange={setNumbers}
-              />
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Users className="h-4 w-4" /> Usuários
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={meta.maxUsers}
+                  value={safeUsers}
+                  onChange={(e) => setUsers(Number(e.target.value))}
+                  className="mt-2 w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {safeUsers} de {meta.maxUsers} incluídos no plano
+                </p>
+              </div>
 
-              <div className="flex flex-wrap gap-2 text-xs">
-                <Pill on={meta.texto} icon={<MessageSquare className="h-3 w-3" />} label="Texto" />
-                <Pill on={meta.audio} icon={<Mic className="h-3 w-3" />} label="Áudio" />
-                <Pill on={meta.receipt} icon={<Receipt className="h-3 w-3" />} label="Comprovante (IA)" />
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Smartphone className="h-4 w-4" /> Números WhatsApp
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={meta.maxNumbers}
+                  value={safeNumbers}
+                  onChange={(e) => setNumbers(Number(e.target.value))}
+                  className="mt-2 w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {safeNumbers} de {meta.maxNumbers} números
+                </p>
               </div>
             </div>
           </div>
 
           <div
-            className="relative overflow-hidden rounded-3xl p-7 text-center text-white sm:p-8"
-            style={{ background: "var(--gradient-dark)", boxShadow: "var(--shadow-elegant)" }}
+            className="rounded-2xl border border-border bg-card/80 p-8 backdrop-blur"
+            style={{ boxShadow: "var(--shadow-card)" }}
           >
-            <div
-              className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full opacity-30 blur-3xl"
-              style={{ background: "var(--primary-glow)" }}
-            />
-            <p className="relative text-sm font-medium uppercase tracking-wider text-white/70">Estimativa mensal</p>
-            <p className="relative mt-3 text-5xl font-bold tracking-tight sm:text-6xl">
-              <span className="text-2xl font-medium text-white/80 sm:text-3xl">R$ </span>
-              {price.toFixed(2).replace(".", ",")}
+            <p className="text-sm text-muted-foreground">Estimativa mensal</p>
+            <p className="mt-2 text-5xl font-bold text-foreground">
+              R$ {price.toFixed(2).replace(".", ",")}
+              <span className="text-lg font-medium text-muted-foreground">/mês</span>
             </p>
-            <p className="relative mt-2 text-sm text-white/70">{meta.label} · cancele quando quiser</p>
-            <button
-              className="relative mt-6 w-full rounded-full bg-white px-6 py-3.5 text-sm font-bold text-[#063B22] transition-all hover:scale-[1.02] hover:bg-white/95"
-            >
-              Contratar este plano
-            </button>
-            <p className="relative mt-4 text-[11px] text-white/60">* Valores ilustrativos para simulação.</p>
+            <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                Texto {meta.texto ? "incluso" : "—"}
+              </li>
+              <li className="flex items-center gap-2">
+                <Mic className="h-4 w-4 text-primary" />
+                Áudio {meta.audio ? "incluso" : "—"}
+              </li>
+              <li className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-primary" />
+                Comprovante {meta.receipt ? "incluso" : "—"}
+              </li>
+            </ul>
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function SliderRow({
-  icon, label, value, min, max, onChange,
-}: { icon: React.ReactNode; label: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
-  const disabled = min === max;
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span className="text-primary">{icon}</span> {label}
-        </span>
-        <span className="text-sm font-bold text-primary">{value} <span className="text-muted-foreground font-normal">/ {max}</span></span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-2 w-full accent-primary disabled:opacity-50"
-      />
-    </div>
-  );
-}
-
-function Pill({ on, icon, label }: { on: boolean; icon: React.ReactNode; label: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold ${
-        on
-          ? "border-primary/30 bg-primary/10 text-primary"
-          : "border-border bg-muted text-muted-foreground line-through"
-      }`}
-    >
-      {icon} {label}
-    </span>
   );
 }

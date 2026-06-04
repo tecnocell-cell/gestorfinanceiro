@@ -416,6 +416,88 @@ function WhatsAppAdminPanel() {
   );
 }
 
+function OperacoesOverview() {
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    adminApi
+      .overview()
+      .then(setOverview)
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando operações…</p>;
+  if (err) return <div className="login-error" style={{ marginBottom: 12 }}>{err}</div>;
+  if (!overview) return null;
+
+  const cards = [
+    { label: "Novos 7 dias", value: overview.usuarios?.novos_7d },
+    { label: "Novos 30 dias", value: overview.usuarios?.novos_30d },
+    { label: "Usuários ativos (30d)", value: overview.usuarios?.ativos_30d },
+    { label: "Planos PF", value: overview.planos?.pf_ativos },
+    { label: "Planos PJ", value: overview.planos?.pj_ativos },
+    { label: "Receita estimada", value: overview.receita_estimada_formatado },
+    { label: "Tickets abertos", value: overview.suporte?.tickets_abertos },
+    { label: "Assin. ativas", value: overview.assinaturas?.ativas },
+    { label: "Trials", value: overview.assinaturas?.trials },
+    { label: "Atrasadas", value: overview.assinaturas?.atrasadas },
+  ];
+
+  return (
+    <div className="admin-kpi-grid" style={{ marginBottom: 24 }}>
+      {cards.map(({ label, value }) => (
+        <div key={label} className="admin-kpi" style={{ "--admin-kpi-color": CHART.receita }}>
+          <div className="admin-kpi-value">{value ?? "—"}</div>
+          <div className="admin-kpi-label">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BillingHealthPanel() {
+  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi
+      .billingHealth()
+      .then(setHealth)
+      .catch(() => setHealth(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Diagnóstico cobrança…</p>;
+  if (!health) return null;
+
+  const rows = [
+    ["Cobrança configurada", health.configured ? "Sim" : "Não"],
+    ["Ambiente", health.environment],
+    ["Webhook", health.webhookConfigured ? "Configurado" : "Pendente"],
+    ["Assinaturas ativas", health.activeSubscriptions],
+    ["Faturas pendentes", health.pendingInvoices],
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: 20, maxWidth: 480 }}>
+      <div className="card-title">Diagnóstico de cobrança (interno)</div>
+      <table style={{ width: "100%", fontSize: 13 }}>
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <td style={{ padding: "6px 0", color: "var(--muted-foreground)" }}>{k}</td>
+              <td style={{ padding: "6px 0", fontWeight: 600, textAlign: "right" }}>{String(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AdminPage({ embedded = false, onEnterTenant }) {
   const { user: adminUser } = useAuth();
   const [users, setUsers] = useState([]);
@@ -495,6 +577,13 @@ export default function AdminPage({ embedded = false, onEnterTenant }) {
             </div>
           ))}
         </div>
+
+        <h2 className="admin-section-title">Operações</h2>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: "0 0 12px" }}>
+          Visão agregada do SaaS — sem acesso a lançamentos ou dados financeiros dos clientes.
+        </p>
+        <OperacoesOverview />
+        <BillingHealthPanel />
 
         <div className="toolbar">
           <h2 className="admin-section-title">Clientes / Tenants</h2>
