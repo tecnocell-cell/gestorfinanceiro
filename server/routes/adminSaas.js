@@ -7,6 +7,10 @@ import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
 import { query } from '../db.js';
 import { adminChangeClientePlano } from '../billing/adminPlanoChange.js';
 import { ensureAssinaturaPadrao } from '../billing/subscriptions.js';
+import {
+  gatewayProviderLabel,
+  metodoPagamentoLabel,
+} from '../billing/paymentConfigService.js';
 
 const router = Router();
 
@@ -54,6 +58,10 @@ function formatClienteRow(row) {
     total_pago_centavos: Number(row.total_pago_centavos || 0),
     total_pago_formatado: formatCentavos(row.total_pago_centavos || 0),
     faturas_vencidas: Number(row.faturas_vencidas || 0),
+    gateway_pagamento: gatewayProviderLabel(row.gateway_provider),
+    metodo_pagamento: row.ultimo_payload
+      ? metodoPagamentoLabel(row.ultimo_payload)
+      : 'Manual',
   };
 }
 
@@ -92,6 +100,8 @@ router.get('/clientes', authMiddleware, adminMiddleware, async (req, res) => {
               e.updated_at AS ultima_atividade,
               p.slug AS plano_slug, p.nome AS plano_nome, p.preco_centavos AS plano_valor_centavos,
               a.status AS assinatura_status, a.trial_ate, a.proxima_cobranca,
+              a.gateway AS gateway_provider,
+              (SELECT pg.payload FROM pagamentos pg WHERE pg.usuario_id = u.id ORDER BY pg.created_at DESC LIMIT 1) AS ultimo_payload,
               COALESCE((
                 SELECT SUM(pg.valor_centavos)::bigint
                 FROM pagamentos pg

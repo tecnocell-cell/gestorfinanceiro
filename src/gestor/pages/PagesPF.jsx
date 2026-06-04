@@ -915,6 +915,7 @@ export function RelatoriosPFPage() {
         <PeriodToolbar />
         <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇ CSV</button>
         <ExportPdfButton
+          betaChecklistKey="pdf_export"
           className="btn btn-secondary btn-sm"
           getExportData={() => ({
             title: "Relatório PF",

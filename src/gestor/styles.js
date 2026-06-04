@@ -2699,6 +2699,64 @@ export const css = `
     border: 1px solid var(--border);
   }
 
+  /* ─── Configurações de pagamento (Super Admin) ─── */
+  .admin-payment-tabs { margin-bottom: 8px; }
+  .admin-payment-provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .admin-payment-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .admin-payment-card-head .card-title { margin: 0; }
+  .admin-payment-form-card { max-width: 720px; }
+  .admin-payment-url-row {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 10px 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  }
+  .admin-payment-url-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .admin-payment-url-row:first-child { padding-top: 0; }
+  .admin-payment-url-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .admin-payment-url-code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    word-break: break-all;
+    padding: 8px 10px;
+    background: var(--muted);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .admin-payment-json-preview {
+    margin: 0;
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    font-family: var(--font-mono);
+    background: var(--muted);
+    border-radius: var(--radius-md);
+    overflow: auto;
+    max-height: 220px;
+  }
+  @media (max-width: 640px) {
+    .admin-payment-url-row {
+      grid-template-columns: 1fr;
+    }
+    .admin-payment-url-row .btn { justify-self: start; }
+  }
+
   .admin-saas-dashboard .saas-alerts-row { margin-bottom: 4px; }
   .admin-tenants-panel { min-width: 0; }
   .admin-tenants-toolbar { margin-bottom: 12px; }
@@ -2775,7 +2833,7 @@ export const css = `
 
   .admin-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
     gap: 0.875rem;
     margin-bottom: 1.75rem;
   }
@@ -2788,6 +2846,8 @@ export const css = `
     box-shadow: var(--shadow-card);
     transition: box-shadow 0.15s, border-color 0.15s;
     border-left: 3px solid var(--admin-kpi-color, var(--forest-700));
+    min-width: 0;
+    overflow: hidden;
   }
   .admin-kpi:hover {
     box-shadow: var(--shadow-elevated);
@@ -2823,18 +2883,30 @@ export const css = `
 
   .admin-kpi-value {
     font-family: var(--font-mono);
-    font-size: 28px;
+    font-size: clamp(1rem, 2.4vw, 1.625rem);
     font-weight: 600;
     color: var(--foreground);
     margin-top: 6px;
-    line-height: 1;
+    line-height: 1.2;
     font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .admin-kpi-value--text {
+    font-family: var(--font-sans);
+    font-size: clamp(0.9375rem, 2vw, 1.25rem);
+    font-weight: 700;
   }
 
   .admin-kpi-label {
     font-size: 12px;
     color: var(--muted-foreground);
     margin-top: 4px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
   }
 
   .admin-section-title {
@@ -7573,6 +7645,117 @@ export const css = `
   }
   .commercial-dash-value { font-size: 14px; font-weight: 700; margin-top: 4px; }
 
+  /* ─── Beta fechado (Etapa 7.7) ─── */
+  .beta-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: color-mix(in oklab, var(--gold) 22%, var(--card));
+    color: color-mix(in oklab, var(--gold) 85%, black);
+    border: 1px solid color-mix(in oklab, var(--gold) 40%, transparent);
+  }
+  .topbar-beta-badge { margin-left: 8px; vertical-align: middle; }
+  .beta-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 20px;
+    background: color-mix(in oklab, var(--gold) 12%, var(--background));
+    border-bottom: 1px solid color-mix(in oklab, var(--gold) 28%, transparent);
+    font-size: 13px;
+  }
+  .beta-banner-text { margin: 2px 0 0; color: var(--foreground); line-height: 1.45; }
+  .beta-feedback-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 900;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--forest-600) 40%, transparent);
+    background: var(--forest-700);
+    color: var(--primary-foreground);
+    box-shadow: 0 8px 24px color-mix(in oklab, var(--forest-900) 25%, transparent);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .beta-feedback-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px color-mix(in oklab, var(--forest-900) 30%, transparent);
+  }
+  .beta-feedback-modal { max-width: 440px; }
+  .beta-checklist-card { margin-bottom: 16px; }
+  .beta-checklist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .beta-checklist-title { margin: 0; font-size: 15px; font-weight: 700; }
+  .beta-checklist-sub { margin: 4px 0 0; font-size: 12px; color: var(--muted-foreground); }
+  .beta-checklist-ring {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+  .beta-checklist-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .beta-checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+  .beta-checklist-item--done { color: var(--foreground); }
+  .beta-checklist-check {
+    width: 20px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--muted-foreground);
+  }
+  .beta-checklist-item--done .beta-checklist-check { color: var(--success); }
+  .beta-checklist-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted-foreground); }
+  .beta-invite-preview {
+    margin-top: 12px;
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    background: var(--muted);
+    border-radius: var(--radius-md);
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow: auto;
+  }
+  @media (max-width: 640px) {
+    .beta-feedback-fab-label { display: none; }
+    .beta-feedback-fab { padding: 12px; border-radius: 50%; }
+  }
 
 `;
 

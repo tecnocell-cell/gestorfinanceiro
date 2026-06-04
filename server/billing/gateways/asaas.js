@@ -1,7 +1,8 @@
 /**
- * Gateway Asaas — PIX e webhooks (Etapa 6.5)
+ * Gateway Asaas — PIX e webhooks (Etapa 6.5 + 7.8 config DB)
  * Docs: https://docs.asaas.com/
  */
+import { getAsaasConfigRaw } from '../paymentConfigService.js';
 
 const SANDBOX_BASE = 'https://sandbox.asaas.com/api/v3';
 const PRODUCTION_BASE = 'https://api.asaas.com/api/v3';
@@ -13,8 +14,18 @@ function useMock() {
   );
 }
 
+async function asaasApiKey() {
+  const cfg = await getAsaasConfigRaw();
+  return cfg.api_key || process.env.ASAAS_API_KEY || '';
+}
+
 export function isAsaasConfigured() {
   return Boolean(process.env.ASAAS_API_KEY) || useMock();
+}
+
+export async function isAsaasConfiguredAsync() {
+  const key = await asaasApiKey();
+  return Boolean(key) || useMock();
 }
 
 export function getAsaasEnv() {
@@ -28,8 +39,8 @@ function baseUrl() {
 }
 
 async function asaasFetch(path, { method = 'GET', body } = {}) {
-  const key = process.env.ASAAS_API_KEY;
-  if (!key) throw new Error('ASAAS_API_KEY não configurada.');
+  const key = await asaasApiKey();
+  if (!key) throw new Error('Cobrança online não configurada.');
 
   const res = await fetch(`${baseUrl()}${path}`, {
     method,
@@ -179,8 +190,9 @@ export function buildWebhookIdempotencyKey(body) {
   return `${event}:${payId}:${date}`.slice(0, 128);
 }
 
-export function verifyWebhookToken(req) {
-  const expected = process.env.ASAAS_WEBHOOK_TOKEN;
+export async function verifyWebhookToken(req) {
+  const cfg = await getAsaasConfigRaw();
+  const expected = cfg.webhook_token || process.env.ASAAS_WEBHOOK_TOKEN;
   if (!expected) return true;
   const header = req.headers['asaas-access-token'] || req.headers['x-asaas-access-token'];
   const query = req.query?.token;

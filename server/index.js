@@ -52,7 +52,9 @@ import systemRouter from "./routes/system.js";
 import adminOverviewRouter from "./routes/adminOverview.js";
 import adminSaasRouter from "./routes/adminSaas.js";
 import adminBillingRouter from "./routes/adminBilling.js";
+import adminPaymentConfigRouter from "./routes/adminPaymentConfig.js";
 import notificationsRouter from "./routes/notifications.js";
+import betaRouter from "./routes/beta.js";
 import { registerSupportRoutes } from "./routes/support.js";
 import { getPublicPlanCatalog } from "./billing/planCatalogExport.js";
 
@@ -552,7 +554,9 @@ app.use("/api/system", systemRouter);
 app.use("/api/admin", adminOverviewRouter);
 app.use("/api/admin", adminSaasRouter);
 app.use("/api/admin", adminBillingRouter);
+app.use("/api/admin", adminPaymentConfigRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/beta", betaRouter);
 app.use("/api/integracao-pf-pj", integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
@@ -613,9 +617,9 @@ app.patch("/api/auth/change-password", authMiddleware, async (req, res) => {
   }
 });
 
-// ─── SPA fallback (React Router) ─────────────────────────────────────────────
+// ─── SPA fallback (React Router) — não capturar /api/* ───────────────────────
 if (existsSync(DIST)) {
-  app.get("/{*path}", (_req, res) => res.sendFile(join(DIST, "index.html")));
+  app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(join(DIST, "index.html")));
 }
 
 async function start() {

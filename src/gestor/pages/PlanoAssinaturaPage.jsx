@@ -3,6 +3,7 @@ import { useAuth } from "../AuthContext.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import { useEmpresaPermissions } from "../hooks/useEmpresaPermissions.js";
 import { billingApi } from "../api.js";
+import PaymentMethodsSection from "../components/billing/PaymentMethodsSection.jsx";
 import { AlertTriangle, CircleCheck, Sparkles } from "../components/icons.jsx";
 import PlanLimitNotice from "../components/PlanLimitNotice.jsx";
 import BillingActivationModal from "../components/BillingActivationModal.jsx";
@@ -10,6 +11,7 @@ import useConfigStatus from "../hooks/useConfigStatus.js";
 import { PUBLIC_MESSAGES, sanitizePublicMessage } from "../planRules.js";
 import TrialBanner from "../components/TrialBanner.jsx";
 import { exportPortalComercialPdf } from "../export/pdfExport.js";
+import { markBetaChecklistItem } from "../beta/markBetaChecklist.js";
 import {
   PLAN_BADGES,
   planIconSlug,
@@ -571,6 +573,10 @@ export default function PlanoAssinaturaPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    markBetaChecklistItem("plano_assinatura");
+  }, []);
+
   const handleSimulate = async (slug) => {
     if (slug === assinatura?.plano?.slug) return;
     setMsg("");
@@ -772,6 +778,18 @@ export default function PlanoAssinaturaPage() {
         <>
           <TrialBanner assinatura={assinatura} onGoPortal={() => setTab("planos")} />
           <PortalStatusHero assinatura={assinatura} />
+          {tab === "plano" && pagamentosReais && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <PaymentMethodsSection
+                planoSlug={currentSlug}
+                onPixReady={setPixCheckout}
+                busy={busy}
+                setBusy={setBusy}
+                setError={setError}
+                setMsg={setMsg}
+              />
+            </div>
+          )}
         </>
       )}
 

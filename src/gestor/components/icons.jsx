@@ -125,6 +125,8 @@ export const ADMIN_ICON_MAP = {
   homologacao: CheckCircle,
   saas: CircleDollarSign,
   tenants: Users,
+  beta: Sparkles,
+  pagamentos: CreditCard,
 };
 
 export function AdminNavIcon({ name, size = 18, strokeWidth = 1.75, className = "" }) {

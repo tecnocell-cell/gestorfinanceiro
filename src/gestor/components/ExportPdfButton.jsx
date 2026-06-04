@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { exportReportPdf } from "../export/pdfExport.js";
+import { markBetaChecklistItem } from "../beta/markBetaChecklist.js";
 
 /**
  * @param {{
@@ -17,7 +18,12 @@ import { exportReportPdf } from "../export/pdfExport.js";
  *   },
  * }} props
  */
-export default function ExportPdfButton({ label = "Exportar PDF", className = "btn btn-secondary", getExportData }) {
+export default function ExportPdfButton({
+  label = "Exportar PDF",
+  className = "btn btn-secondary",
+  getExportData,
+  betaChecklistKey,
+}) {
   const [busy, setBusy] = useState(false);
 
   const handleClick = async () => {
@@ -29,6 +35,7 @@ export default function ExportPdfButton({ label = "Exportar PDF", className = "b
         return;
       }
       exportReportPdf(data);
+      if (betaChecklistKey) markBetaChecklistItem(betaChecklistKey);
     } catch (e) {
       alert(e?.message || "Erro ao gerar PDF.");
     } finally {

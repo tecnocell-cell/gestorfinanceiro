@@ -14,6 +14,12 @@ import AdminOperacoesPage from "./pages/AdminOperacoesPage.jsx";
 import AdminHomologacaoPage from "./pages/AdminHomologacaoPage.jsx";
 import AdminSaasPage from "./pages/AdminSaasPage.jsx";
 import AdminTenantsPage from "./pages/AdminTenantsPage.jsx";
+import AdminBetaPage from "./pages/AdminBetaPage.jsx";
+import AdminPaymentConfigPage from "./pages/AdminPaymentConfigPage.jsx";
+import BetaBanner from "./components/beta/BetaBanner.jsx";
+import BetaBadge from "./components/beta/BetaBadge.jsx";
+import BetaFeedbackFab from "./components/beta/BetaFeedbackFab.jsx";
+import { useBetaMode } from "./hooks/useBetaMode.js";
 import {
   ADMIN_NAV,
   DEFAULT_ADMIN_PAGE,
@@ -67,6 +73,8 @@ const ADMIN_PAGE_MAP = {
   "admin-homologacao": AdminHomologacaoPage,
   "admin-saas": AdminSaasPage,
   "admin-tenants": AdminTenantsPage,
+  "admin-beta": AdminBetaPage,
+  "admin-pagamentos": AdminPaymentConfigPage,
 };
 
 const PAGE_MAP_PJ = {
@@ -154,6 +162,7 @@ function SyncPill({ syncing, lastSyncAt, onClick, apiOnline }) {
 // ─── App Shell ────────────────────────────────────────────────────────────────
 export default function GestorApp() {
   const { user, logout, isSuperAdmin } = useAuth();
+  const { betaMode, message: betaMessage } = useBetaMode();
   const [page, setPage] = useState(() => {
     if (user?.role !== "admin") return "dashboard";
     const saved = typeof sessionStorage !== "undefined" && sessionStorage.getItem("admin_page");
@@ -194,6 +203,18 @@ export default function GestorApp() {
     window.addEventListener("gestor-navigate", onNavigate);
     return () => window.removeEventListener("gestor-navigate", onNavigate);
   }, []);
+
+  useEffect(() => {
+    try {
+      const open = sessionStorage.getItem("cf_open_page");
+      if (open) {
+        sessionStorage.removeItem("cf_open_page");
+        goTo(open);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user?.id]);
 
   const handleEnterTenant = async (tenantUser) => {
     try {
@@ -372,6 +393,7 @@ export default function GestorApp() {
                 aria-label="Abrir menu"
               ><Menu size={20} strokeWidth={1.75} /></button>
               <span className="topbar-title">{pageLabel}</span>
+              {betaMode && !isAdminPage && <BetaBadge className="topbar-beta-badge" />}
             </div>
             <div className="topbar-right">
               {!isAdminPage && !viewOnly && (
@@ -437,6 +459,8 @@ export default function GestorApp() {
             </div>
           )}
 
+          {betaMode && !isAdminPage && <BetaBanner message={betaMessage} />}
+
           <div className={`content${viewOnly ? " content-view-only" : ""}`}>
             {isAdminPage ? (
               page === "admin-tenants" ? (
@@ -468,6 +492,10 @@ export default function GestorApp() {
 
         {showTour && (
           <GuidedTour isPF={isPF} onNavigate={goTo} onDone={finishTour} />
+        )}
+
+        {betaMode && !isAdminPage && !viewOnly && (
+          <BetaFeedbackFab currentPage={currentPage} />
         )}
       </div>
     </>

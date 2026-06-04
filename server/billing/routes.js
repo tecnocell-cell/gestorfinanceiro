@@ -14,9 +14,12 @@ import {
   listFaturasUsuario,
   listPagamentosUsuario,
   processAsaasWebhook,
+  processMercadoPagoWebhook,
   trocarPlano,
 } from './billingService.js';
 import { verifyWebhookToken } from './gateways/asaas.js';
+import { verifyWebhookSignature } from './gateways/mercadoPago.js';
+import { getPublicPaymentMethods } from './paymentGatewayFactory.js';
 import { getBillingUsage } from './accessControl.js';
 import { refreshSubscriptionLifecycle } from './subscriptionLifecycle.js';
 
@@ -27,9 +30,29 @@ async function tipoPerfilFromRequest(req) {
 }
 
 export function registerBillingRoutes(app) {
-  const pagamentosReais = () => isPagamentosReaisEnabled();
+  const pagamentosReais = async () => isPagamentosReaisEnabled();
   const billingGuard = [authMiddleware, activeMiddleware, attachEmpresaContext, requireBillingAccess];
   const ownerId = (req) => req.empresaContext.empresaOwnerId;
+
+  app.get('/api/billing/public-status', async (_req, res) => {
+    try {
+      const status = await getPublicPaymentMethods();
+      res.json(status);
+    } catch (err) {
+      console.error('billing/public-status:', err.message);
+      res.status(500).json({ error: 'Erro ao consultar pagamento online.' });
+    }
+  });
+
+  app.get('/api/billing/payment-methods', ...billingGuard, async (_req, res) => {
+    try {
+      const methods = await getPublicPaymentMethods();
+      res.json(methods);
+    } catch (err) {
+      console.error('billing/payment-methods:', err.message);
+      res.status(500).json({ error: 'Erro ao carregar formas de pagamento.' });
+    }
+  });
 
   app.get('/api/billing/planos', ...billingGuard, async (req, res) => {
     try {
@@ -37,7 +60,7 @@ export function registerBillingRoutes(app) {
       const planos = await listPlanosAtivos(tipoPerfil);
       res.json({
         planos,
-        pagamentos_reais: pagamentosReais(),
+        pagamentos_reais: await pagamentosReais(),
         segmento: planos[0]?.segmento || null,
       });
     } catch (err) {
@@ -62,7 +85,7 @@ export function registerBillingRoutes(app) {
       if (!assinatura) {
         return res.status(404).json({ error: 'Assinatura não encontrada.' });
       }
-      res.json({ assinatura, pagamentos_reais: pagamentosReais() });
+      res.json({ assinatura, pagamentos_reais: await pagamentosReais() });
     } catch (err) {
       console.error('billing/assinatura:', err.message);
       res.status(500).json({ error: 'Erro ao carregar assinatura.' });
@@ -72,7 +95,7 @@ export function registerBillingRoutes(app) {
   app.get('/api/billing/faturas', ...billingGuard, async (req, res) => {
     try {
       const faturas = await listFaturasUsuario(ownerId(req));
-      res.json({ faturas, pagamentos_reais: pagamentosReais() });
+      res.json({ faturas, pagamentos_reais: await pagamentosReais() });
     } catch (err) {
       console.error('billing/faturas:', err.message);
       res.status(500).json({ error: 'Erro ao listar faturas.' });
@@ -82,7 +105,7 @@ export function registerBillingRoutes(app) {
   app.get('/api/billing/pagamentos', ...billingGuard, async (req, res) => {
     try {
       const pagamentos = await listPagamentosUsuario(ownerId(req));
-      res.json({ pagamentos, pagamentos_reais: pagamentosReais() });
+      res.json({ pagamentos, pagamentos_reais: await pagamentosReais() });
     } catch (err) {
       console.error('billing/pagamentos:', err.message);
       res.status(500).json({ error: 'Erro ao listar pagamentos.' });
@@ -97,7 +120,7 @@ export function registerBillingRoutes(app) {
     try {
       const result = await trocarPlano(ownerId(req), slug);
       if (!result.ok) return res.status(400).json({ error: result.error });
-      res.json({ pagamentos_reais: pagamentosReais(), ...result });
+      res.json({ pagamentos_reais: await pagamentosReais(), ...result });
     } catch (err) {
       console.error('billing/trocar-plano:', err.message);
       res.status(500).json({ error: err.message || 'Erro ao trocar plano.' });
@@ -105,21 +128,35 @@ export function registerBillingRoutes(app) {
   });
 
   app.post('/api/billing/checkout', ...billingGuard, async (req, res) => {
-    if (!pagamentosReais()) {
+    if (!(await pagamentosReais())) {
       return res.status(503).json({
-        error: 'Assinaturas online em fase de ativação. Para contratar agora, fale com o suporte.',
+        error: 'Contratação online em ativação. Fale com o suporte para ativar seu plano.',
         code: 'BILLING_NOT_CONFIGURED',
       });
     }
 
-    const { plano_slug, planoSlug } = req.body || {};
+    const {
+      plano_slug,
+      planoSlug,
+      metodo,
+      gateway,
+      cardToken,
+      installments,
+      payer,
+    } = req.body || {};
     const slug = (plano_slug || planoSlug || '').toLowerCase().trim();
     if (!slug) {
       return res.status(400).json({ error: 'Informe plano_slug (ex.: pf_plus, pj_pro).' });
     }
 
     try {
-      const result = await createCheckout(ownerId(req), slug);
+      const result = await createCheckout(ownerId(req), slug, {
+        metodo: metodo || 'pix',
+        gateway,
+        cardToken,
+        installments,
+        payer,
+      });
       if (!result.ok) return res.status(400).json({ error: result.error });
       res.json({ ok: true, ...result, pagamentos_reais: true });
     } catch (err) {
@@ -159,7 +196,7 @@ export function registerBillingRoutes(app) {
         ok: true,
         message: result.message,
         assinatura: result.assinatura,
-        pagamentos_reais: pagamentosReais(),
+        pagamentos_reais: await pagamentosReais(),
       });
     } catch (err) {
       console.error('billing/simular:', err.message);
@@ -179,7 +216,7 @@ export function registerBillingRoutes(app) {
         assinatura,
         faturas,
         pagamentos,
-        pagamentos_reais: pagamentosReais(),
+        pagamentos_reais: await pagamentosReais(),
       });
     } catch (err) {
       console.error('billing/atualizar-status:', err.message);
@@ -188,7 +225,7 @@ export function registerBillingRoutes(app) {
   });
 
   app.post('/api/billing/webhook/asaas', async (req, res) => {
-    if (!verifyWebhookToken(req)) {
+    if (!(await verifyWebhookToken(req))) {
       return res.status(401).json({ error: 'Webhook não autorizado.' });
     }
 
@@ -202,6 +239,25 @@ export function registerBillingRoutes(app) {
       res.json(result);
     } catch (err) {
       console.error('billing/webhook/asaas:', err.message);
+      res.status(500).json({ error: 'Erro ao processar webhook.' });
+    }
+  });
+
+  app.post('/api/billing/webhook/mercado-pago', async (req, res) => {
+    if (!(await verifyWebhookSignature(req))) {
+      return res.status(401).json({ error: 'Webhook não autorizado.' });
+    }
+
+    try {
+      const body = req.body || {};
+      const result = await processMercadoPagoWebhook(body, req.query || {});
+      if (!result.ok && !result.duplicate) {
+        console.warn('billing/webhook/mercado-pago:', result.error);
+        return res.status(422).json(result);
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('billing/webhook/mercado-pago:', err.message);
       res.status(500).json({ error: 'Erro ao processar webhook.' });
     }
   });

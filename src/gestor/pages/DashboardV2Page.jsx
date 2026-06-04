@@ -29,6 +29,7 @@ import DashInsight          from "../components/dashboard/DashInsight.jsx";
 import HeroChart12m         from "../components/dashboard/HeroChart12m.jsx";
 import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx";
 import CommercialDashboardBlock from "../components/dashboard/CommercialDashboardBlock.jsx";
+import BetaChecklistCard from "../components/beta/BetaChecklistCard.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
@@ -325,6 +326,7 @@ export default function DashboardV2Page({ onNavigate }) {
       {isOnboardingDone(empresa) && onNavigate && (
         <DashboardGuideCardsPJ onNavigate={onNavigate} showEquipe={showEquipe} />
       )}
+      <BetaChecklistCard onNavigate={onNavigate} />
 
       <div className="dash-hero">
         <DashPeriodToolbar

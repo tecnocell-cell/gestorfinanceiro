@@ -7,16 +7,13 @@ import {
   planoMatchesTipoPerfil,
   applyRecursosByStatus,
 } from './planResources.js';
-import { isAsaasConfigured } from './gateways/asaas.js';
+import { isPagamentosOnlineEnabled } from './paymentGatewayFactory.js';
 import {
   refreshSubscriptionLifecycle,
   buildBillingAvisos,
 } from './subscriptionLifecycle.js';
 import { corrigirAssinaturaSegmento } from './planoCorrecao.js';
 
-function isPagamentosReaisEnabled() {
-  return isAsaasConfigured();
-}
 
 function trialDaysForTipo(tipoPerfil) {
   return segmentoFromTipoPerfil(tipoPerfil) === 'pf' ? 7 : 14;
@@ -169,7 +166,7 @@ export async function getAssinaturaUsuario(usuarioId) {
   return formatAssinatura(row, {
     total_lancamentos: totalLancamentos,
     avisos,
-    pagamentos_reais: isPagamentosReaisEnabled(),
+    pagamentos_reais: await isPagamentosOnlineEnabled(),
   });
 }
 

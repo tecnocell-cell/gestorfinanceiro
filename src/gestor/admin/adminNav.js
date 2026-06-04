@@ -1,6 +1,6 @@
 /**
  * Navegação Super Admin — ordem por frequência de uso no dia a dia.
- * 1 Clientes → 2 SaaS comercial → 3 Operações → 4 Homologação (pré go-live)
+ * Clientes → SaaS → Operações → Pagamentos → Homologação → Beta
  */
 export const ADMIN_NAV = [
   {
@@ -22,10 +22,22 @@ export const ADMIN_NAV = [
     icon: "operacoes",
   },
   {
+    id: "admin-pagamentos",
+    label: "Config. Pagamento",
+    sub: "Mercado Pago · Asaas",
+    icon: "pagamentos",
+  },
+  {
     id: "admin-homologacao",
     label: "Homologação",
     sub: "Produção · beta · logs",
     icon: "homologacao",
+  },
+  {
+    id: "admin-beta",
+    label: "Beta",
+    sub: "Feedbacks · checklist · convite",
+    icon: "beta",
   },
 ];
 

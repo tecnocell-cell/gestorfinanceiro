@@ -12,8 +12,17 @@ export function consumeAuthHandoffFromUrl() {
 
   const authUserRaw = params.get("auth_user");
 
+  const openPage = params.get("open_page");
   params.delete("auth_token");
   params.delete("auth_user");
+  if (openPage) {
+    try {
+      sessionStorage.setItem("cf_open_page", openPage);
+    } catch {
+      /* ignore */
+    }
+    params.delete("open_page");
+  }
   const qs = params.toString();
   const clean =
     window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;

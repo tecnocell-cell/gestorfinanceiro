@@ -590,6 +590,7 @@ export function DREPage() {
           <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <PeriodToolbar />
             <ExportPdfButton
+              betaChecklistKey="dre_pdf"
               getExportData={() => ({
                 title: "D.R.E.",
                 periodo: [filterPeriodo.mes, filterPeriodo.ano].filter(Boolean).join("/"),

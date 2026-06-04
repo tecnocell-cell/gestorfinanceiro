@@ -20,7 +20,7 @@
  *   O app autenticado pode ler esse valor para configurar o plano do usuário.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   User, Mail, Phone, Lock, Eye, EyeOff,
   ArrowRight, ArrowLeft, Check, Users, Smartphone,
@@ -28,13 +28,18 @@ import {
 } from "lucide-react";
 import {
   register, verify, redirectToApp,
-  savePendingPlan, type ApiError,
+  savePendingPlan, fetchPublicBillingStatus,
+  type ApiError,
+  type CfUser,
 } from "@/lib/centerflowApi";
 import { BrandLogo } from "@/components/BrandLogo";
 import {
   COMMERCIAL_PLANS_BY_KEY,
   type CommercialPlanKey,
 } from "@/lib/commercialPlans";
+
+const TRIAL_MSG =
+  "Você começará com período de teste. O pagamento será solicitado pelo Portal do Cliente antes do fim do trial.";
 
 // ── Planos (alinhados ao gestor — commercialPlans.ts) ───────────────────────
 
@@ -169,6 +174,17 @@ export default function CadastroPage() {
   // Estado assíncrono
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+  const [pagamentoOnline, setPagamentoOnline] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<CfUser | null>(null);
+
+  useEffect(() => {
+    if (step === 2 || step === 4) {
+      fetchPublicBillingStatus()
+        .then((s) => setPagamentoOnline(Boolean(s.pagamento_online)))
+        .catch(() => setPagamentoOnline(false));
+    }
+  }, [step]);
 
   // Validação step 0
   const step0Valid = useMemo(() => {
@@ -215,8 +231,10 @@ export default function CadastroPage() {
     setLoading(true);
     try {
       const res = await verify(regEmail, codigo.trim());
+      setAuthToken(res.token);
+      setAuthUser(res.user);
       setStep(4);
-      setTimeout(() => redirectToApp(res.token, res.user), 2000);
+      setTimeout(() => redirectToApp(res.token, res.user), 2500);
     } catch (err) {
       setError((err as ApiError).message || "Código inválido ou expirado.");
     } finally {
@@ -388,6 +406,10 @@ export default function CadastroPage() {
                 <p className="mt-1 font-semibold text-foreground">{nome || "—"}</p>
                 <p className="text-muted-foreground">{email} · {whatsapp}</p>
               </div>
+
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
+                {TRIAL_MSG}
+              </div>
             </div>
           )}
 
@@ -440,6 +462,22 @@ export default function CadastroPage() {
                   Redirecionando para o sistema financeiro...
                 </p>
               </div>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left text-sm text-foreground">
+                {TRIAL_MSG}
+              </div>
+              {pagamentoOnline && authToken && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    redirectToApp(authToken, authUser ?? undefined, {
+                      openPage: "plano-assinatura",
+                    })
+                  }
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary bg-background px-6 py-3 text-sm font-semibold text-primary transition-all hover:bg-primary/5"
+                >
+                  Pagar agora
+                </button>
+              )}
               <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 text-left">
                 <p className="text-sm font-semibold text-foreground">
                   <Sparkles className="mr-1 inline h-4 w-4 text-primary" /> Próximos passos

@@ -31,6 +31,7 @@ import ResumoInteligente    from "../components/dashboard/ResumoInteligente.jsx"
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
 import CommercialDashboardBlock from "../components/dashboard/CommercialDashboardBlock.jsx";
+import BetaChecklistCard from "../components/beta/BetaChecklistCard.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
 import {
   TrendingUp,
@@ -356,6 +357,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       {isOnboardingDone(empresa) && onNavigate && (
         <DashboardGuideCardsPF onNavigate={onNavigate} />
       )}
+      <BetaChecklistCard onNavigate={onNavigate} />
 
       <div className="dash-hero">
         <DashPeriodToolbar

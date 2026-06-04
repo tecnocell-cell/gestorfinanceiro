@@ -6,14 +6,27 @@ import {
 } from './subscriptions.js';
 import { planoMatchesTipoPerfil } from './planResources.js';
 import {
-  isAsaasConfigured,
   createOrGetCustomer,
-  createPixPayment,
-  paymentExternalRef,
+  createPixPayment as createAsaasPixPayment,
+  paymentExternalRef as asaasPaymentExternalRef,
   parsePaymentExternalRef,
   PAYMENT_CONFIRM_EVENTS,
   buildWebhookIdempotencyKey,
 } from './gateways/asaas.js';
+import {
+  createPixPayment as createMpPixPayment,
+  createCardPayment as createMpCardPayment,
+  getPayment as getMpPayment,
+  paymentExternalRef as mpPaymentExternalRef,
+  mapMpStatus,
+  MP_APPROVED_STATUSES,
+  buildWebhookIdempotencyKey as buildMpWebhookKey,
+  parseWebhook as parseMpWebhook,
+} from './gateways/mercadoPago.js';
+import {
+  isPagamentosOnlineEnabled,
+  resolveActiveGateway,
+} from './paymentGatewayFactory.js';
 import { refreshSubscriptionLifecycle } from './subscriptionLifecycle.js';
 import { BILLING_RULES_DOC, isUpgrade, isDowngrade } from './billingRules.js';
 import {
@@ -25,8 +38,8 @@ import {
 import { insertAdminSaasAudit } from './adminPlanoChange.js';
 import { logBillingOp, BILLING_OPS_TYPES } from './billingOpsLog.js';
 
-export function isPagamentosReaisEnabled() {
-  return isAsaasConfigured();
+export async function isPagamentosReaisEnabled() {
+  return isPagamentosOnlineEnabled();
 }
 
 function formatDateYmd(d) {
@@ -66,9 +79,11 @@ async function fetchAssinaturaId(usuarioId) {
   return rows[0]?.id || null;
 }
 
-export async function createCheckout(usuarioId, planoSlug) {
-  if (!isPagamentosReaisEnabled()) {
-    return { ok: false, error: 'Cobrança real não configurada (ASAAS_API_KEY).' };
+export async function createCheckout(usuarioId, planoSlug, opts = {}) {
+  const metodo = (opts.metodo || 'pix').toLowerCase();
+  const gateway = await resolveActiveGateway(opts.gateway);
+  if (!gateway) {
+    return { ok: false, error: 'Cobrança online não disponível. Fale com o suporte.' };
   }
 
   const plano = await getPlanoBySlug(planoSlug);
@@ -84,6 +99,135 @@ export async function createCheckout(usuarioId, planoSlug) {
   }
 
   const assinaturaId = await fetchAssinaturaId(usuarioId);
+  const dueDate = formatDateYmd(addDays(new Date(), 3));
+  const gwName = gateway === 'mock' ? 'asaas' : gateway;
+
+  const { rows: faturaRows } = await query(
+    `INSERT INTO faturas (usuario_id, assinatura_id, gateway, valor_centavos, status, vencimento)
+     VALUES ($1, $2, $3, $4, 'pendente', $5)
+     RETURNING id, vencimento`,
+    [usuarioId, assinaturaId, gwName, plano.preco_centavos, dueDate]
+  );
+  const fatura = faturaRows[0];
+
+  if (gateway === 'mercado_pago') {
+    const extRef = mpPaymentExternalRef(fatura.id);
+    let payment;
+    let payload;
+    let paymentUrl = null;
+
+    if (metodo === 'cartao') {
+      if (!opts.cardToken) {
+        return { ok: false, error: 'Token do cartão é obrigatório.' };
+      }
+      payment = await createMpCardPayment({
+        valueReais: plano.preco_centavos / 100,
+        description: `Fluxiva — ${plano.nome}`,
+        externalReference: extRef,
+        cardToken: opts.cardToken,
+        installments: opts.installments || 1,
+        payer: opts.payer,
+      });
+      payload = {
+        metodo: 'cartao',
+        mock: payment.mock || false,
+        target_plano_id: plano.id,
+        target_plano_slug: plano.slug,
+        status_mp: payment.status,
+      };
+    } else {
+      payment = await createMpPixPayment({
+        valueReais: plano.preco_centavos / 100,
+        dueDate,
+        description: `Fluxiva — ${plano.nome}`,
+        externalReference: extRef,
+        payerEmail: usuario.email,
+      });
+      payload = {
+        metodo: 'pix',
+        billingType: 'PIX',
+        mock: payment.mock || false,
+        target_plano_id: plano.id,
+        target_plano_slug: plano.slug,
+        pix: {
+          qr_code: payment.qrCode,
+          qr_code_base64: payment.qrCodeBase64,
+          copia_e_cola: payment.copiaECola,
+          expires_at: payment.expiresAt,
+        },
+      };
+      paymentUrl = payment.qrCode ? null : null;
+    }
+
+    await query(`UPDATE faturas SET gateway_invoice_id = $1 WHERE id = $2`, [
+      payment.id,
+      fatura.id,
+    ]);
+    await query(
+      `UPDATE assinaturas SET gateway = 'mercado_pago', updated_at = NOW() WHERE id = $1`,
+      [assinaturaId]
+    );
+
+    const { rows: pagRows } = await query(
+      `INSERT INTO pagamentos (usuario_id, assinatura_id, fatura_id, gateway, gateway_payment_id, valor_centavos, status, payload)
+       VALUES ($1, $2, $3, 'mercado_pago', $4, $5, $6, $7)
+       RETURNING id`,
+      [
+        usuarioId,
+        assinaturaId,
+        fatura.id,
+        payment.id,
+        plano.preco_centavos,
+        mapMpStatus(payment.status),
+        JSON.stringify(payload),
+      ]
+    );
+
+    if (MP_APPROVED_STATUSES.has(payment.status)) {
+      await activateSubscriptionFromPayment(fatura.id);
+      await refreshSubscriptionLifecycle(usuarioId);
+    }
+
+    emailCobrancaCriada(usuarioId, {
+      planoNome: plano.nome,
+      valorCentavos: plano.preco_centavos,
+      vencimento: fatura.vencimento,
+      invoiceUrl: paymentUrl,
+    }).catch(() => {});
+
+    logBillingOp(BILLING_OPS_TYPES.CHECKOUT_CRIADO, {
+      usuarioId,
+      faturaId: fatura.id,
+      detalhes: { plano_slug: plano.slug, gateway: 'mercado_pago', metodo },
+    }).catch(() => {});
+
+    return {
+      ok: true,
+      gateway: 'mercado_pago',
+      fatura: { id: fatura.id, vencimento: fatura.vencimento, valor_centavos: plano.preco_centavos },
+      pagamento: { id: pagRows[0].id, gateway_payment_id: payment.id },
+      fatura_id: fatura.id,
+      pagamento_id: pagRows[0].id,
+      gateway_payment_id: payment.id,
+      valor_centavos: plano.preco_centavos,
+      vencimento: fatura.vencimento,
+      pix:
+        metodo === 'pix'
+          ? {
+              qrCode: payload.pix?.qr_code,
+              qrCodeBase64: payload.pix?.qr_code_base64,
+              copiaECola: payload.pix?.copia_e_cola,
+              expiresAt: payload.pix?.expires_at,
+              encoded_image: payload.pix?.qr_code_base64,
+              copy_paste: payload.pix?.copia_e_cola,
+            }
+          : null,
+      paymentUrl,
+      plano_slug: plano.slug,
+      regra: BILLING_RULES_DOC.upgrade,
+    };
+  }
+
   const { rows: subRows } = await query(
     `SELECT gateway_customer_id FROM assinaturas WHERE id = $1`,
     [assinaturaId]
@@ -103,17 +247,9 @@ export async function createCheckout(usuarioId, planoSlug) {
     );
   }
 
-  const dueDate = formatDateYmd(addDays(new Date(), 3));
-  const { rows: faturaRows } = await query(
-    `INSERT INTO faturas (usuario_id, assinatura_id, gateway, valor_centavos, status, vencimento)
-     VALUES ($1, $2, 'asaas', $3, 'pendente', $4)
-     RETURNING id, vencimento`,
-    [usuarioId, assinaturaId, plano.preco_centavos, dueDate]
-  );
-  const fatura = faturaRows[0];
-  const extRef = paymentExternalRef(fatura.id);
+  const extRef = asaasPaymentExternalRef(fatura.id);
 
-  const payment = await createPixPayment({
+  const payment = await createAsaasPixPayment({
     customerId,
     valueReais: plano.preco_centavos / 100,
     dueDate,
@@ -137,6 +273,7 @@ export async function createCheckout(usuarioId, planoSlug) {
       payment.id,
       plano.preco_centavos,
       JSON.stringify({
+        metodo: 'pix',
         billingType: 'PIX',
         mock: payment.mock || false,
         target_plano_id: plano.id,
@@ -164,11 +301,14 @@ export async function createCheckout(usuarioId, planoSlug) {
   logBillingOp(BILLING_OPS_TYPES.CHECKOUT_CRIADO, {
     usuarioId,
     faturaId: fatura.id,
-    detalhes: { plano_slug: plano.slug, gateway_payment_id: payment.id },
+    detalhes: { plano_slug: plano.slug, gateway_payment_id: payment.id, gateway: 'asaas' },
   }).catch(() => {});
 
   return {
     ok: true,
+    gateway: 'asaas',
+    fatura: { id: fatura.id, vencimento: fatura.vencimento, valor_centavos: plano.preco_centavos },
+    pagamento: { id: pagRows[0].id, gateway_payment_id: payment.id },
     fatura_id: fatura.id,
     pagamento_id: pagRows[0].id,
     gateway_payment_id: payment.id,
@@ -179,6 +319,7 @@ export async function createCheckout(usuarioId, planoSlug) {
       copy_paste: payment.payload || null,
       invoice_url: invoiceUrl,
     },
+    paymentUrl: invoiceUrl,
     plano_slug: plano.slug,
     regra: BILLING_RULES_DOC.upgrade,
   };
@@ -366,6 +507,95 @@ export async function processAsaasWebhook(body) {
     }).catch(() => {});
   }
   return { ok: true, activated: true, fatura_id: faturaId, evento };
+}
+
+export async function processMercadoPagoWebhook(body, queryParams = {}) {
+  const parsed = parseMpWebhook(body, queryParams);
+  const idempotencyKey = buildMpWebhookKey(body, queryParams);
+  const evento = parsed.action || parsed.topic || 'payment';
+
+  const ins = await query(
+    `INSERT INTO eventos_pagamento (gateway, evento, idempotency_key, payload)
+     VALUES ('mercado_pago', $1, $2, $3)
+     ON CONFLICT (gateway, idempotency_key) DO NOTHING
+     RETURNING id`,
+    [evento, idempotencyKey, JSON.stringify({ body, query: queryParams })]
+  );
+
+  if (!ins.rows.length) {
+    return { ok: true, duplicate: true, message: 'Evento já processado.' };
+  }
+
+  if (!parsed.paymentId) {
+    return { ok: true, ignored: true, message: 'Sem id de pagamento.' };
+  }
+
+  let payment;
+  try {
+    payment = await getMpPayment(parsed.paymentId);
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+
+  const faturaId =
+    parsePaymentExternalRef(payment.external_reference) ||
+    (await query(
+      `SELECT fatura_id FROM pagamentos WHERE gateway_payment_id = $1 LIMIT 1`,
+      [parsed.paymentId]
+    )).rows[0]?.fatura_id;
+
+  logBillingOp(BILLING_OPS_TYPES.WEBHOOK_RECEBIDO, {
+    faturaId,
+    detalhes: { evento, payment_id: parsed.paymentId, gateway: 'mercado_pago' },
+  }).catch(() => {});
+
+  const st = payment.status;
+  if (st === 'cancelled' || st === 'refunded' || st === 'charged_back') {
+    await query(
+      `UPDATE pagamentos SET status = $1, payload = payload || $2::jsonb WHERE gateway_payment_id = $3`,
+      [
+        mapMpStatus(st),
+        JSON.stringify({ webhook: evento, at: new Date().toISOString() }),
+        parsed.paymentId,
+      ]
+    );
+    if (faturaId && st === 'cancelled') {
+      await query(
+        `UPDATE faturas SET status = 'cancelada' WHERE id = $1 AND status = 'pendente'`,
+        [faturaId]
+      );
+    }
+    return { ok: true, cancelled: true, fatura_id: faturaId };
+  }
+
+  if (!MP_APPROVED_STATUSES.has(st)) {
+    await query(
+      `UPDATE pagamentos SET status = $1 WHERE gateway_payment_id = $2`,
+      [mapMpStatus(st), parsed.paymentId]
+    );
+    return { ok: true, pending: true, status: st };
+  }
+
+  await query(
+    `UPDATE pagamentos SET status = 'confirmado', payload = payload || $1::jsonb
+     WHERE gateway_payment_id = $2`,
+    [JSON.stringify({ webhook: evento, confirmedAt: new Date().toISOString() }), parsed.paymentId]
+  );
+
+  if (!faturaId) {
+    return { ok: false, error: 'Fatura não identificada no webhook.' };
+  }
+
+  const result = await activateSubscriptionFromPayment(faturaId);
+  if (result.usuario_id) await refreshSubscriptionLifecycle(result.usuario_id);
+  if (result.ok) {
+    logBillingOp(BILLING_OPS_TYPES.ASSINATURA_ATIVADA, {
+      usuarioId: result.usuario_id,
+      faturaId,
+      detalhes: { evento, gateway: 'mercado_pago' },
+    }).catch(() => {});
+  }
+  return { ok: true, activated: true, fatura_id: faturaId };
 }
 
 export async function trocarPlano(usuarioId, planoSlug) {

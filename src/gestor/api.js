@@ -173,8 +173,12 @@ export const billingApi = {
   usage: () => request("/billing/usage"),
   faturas: () => request("/billing/faturas"),
   pagamentos: () => request("/billing/pagamentos"),
-  checkout: (plano_slug) =>
-    request("/billing/checkout", { method: "POST", body: { plano_slug } }),
+  paymentMethods: () => request("/billing/payment-methods"),
+  checkout: (body) =>
+    request("/billing/checkout", {
+      method: "POST",
+      body: typeof body === "string" ? { plano_slug: body, metodo: "pix" } : body,
+    }),
   trocarPlano: (plano_slug) =>
     request("/billing/trocar-plano", { method: "POST", body: { plano_slug } }),
   cancelar: () => request("/billing/cancelar", { method: "POST", body: {} }),
@@ -197,6 +201,31 @@ export const healthApi = {
 
 export const systemApi = {
   configStatus: () => request("/system/config-status"),
+};
+
+export const betaApi = {
+  config: () => request("/beta/config"),
+  checklist: () => request("/beta/checklist"),
+  markChecklist: (item_key) =>
+    request("/beta/checklist/mark", { method: "POST", body: { item_key } }),
+  sendFeedback: (body) => request("/beta/feedback", { method: "POST", body }),
+  listFeedback: (query = "") =>
+    request(`/beta/feedback${query ? `?${query}` : ""}`),
+  patchFeedback: (id, status) =>
+    request(`/beta/feedback/${id}`, { method: "PATCH", body: { status } }),
+  adminSummary: () => request("/beta/admin/summary"),
+};
+
+export const adminPaymentApi = {
+  list: () => request("/admin/payment-config"),
+  patch: (provider, body) =>
+    request(`/admin/payment-config/${provider}`, { method: "PATCH", body }),
+  test: (provider) =>
+    request(`/admin/payment-config/${provider}/test`, { method: "POST", body: {} }),
+  activate: (provider) =>
+    request(`/admin/payment-config/${provider}/activate`, { method: "POST", body: {} }),
+  deactivate: (provider) =>
+    request(`/admin/payment-config/${provider}/deactivate`, { method: "POST", body: {} }),
 };
 
 // ─── Admin — gestão de tenants ────────────────────────────────────────────────

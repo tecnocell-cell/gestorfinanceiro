@@ -2,6 +2,7 @@ import { getEmailConfigStatus } from '../emailProvider.js';
 import { isWhatsappGatewayConfigured } from '../authSecurity/otp.js';
 import { getModuleStatus } from '../openFinance/connectionService.js';
 import { isWebhookConfigured } from '../billing/gateways/asaas.js';
+import { getBetaPublicConfig } from '../beta/betaConfig.js';
 
 export function getBillingConfigStatus() {
   const configured = Boolean(process.env.ASAAS_API_KEY);
@@ -84,6 +85,7 @@ export async function getSystemConfigStatus() {
       message: billing.message,
     },
     openFinance,
+    beta: getBetaPublicConfig(),
     alerts: buildSystemAdminAlerts({ email, whatsapp, billing, openFinance }),
   };
 

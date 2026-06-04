@@ -116,12 +116,32 @@ export function saveSession(token: string, user: CfUser): void {
  * Passa token via query string; user opcional para evitar round-trip extra.
  * O app remove auth_token da URL com replaceState imediatamente.
  */
-export function redirectToApp(token: string, user?: CfUser): void {
+export function redirectToApp(
+  token: string,
+  user?: CfUser,
+  options?: { openPage?: string }
+): void {
   const base = APP_URL.replace(/\/$/, "");
   const params = new URLSearchParams();
   params.set("auth_token", token);
   if (user) params.set("auth_user", JSON.stringify(user));
+  if (options?.openPage) params.set("open_page", options.openPage);
   window.location.href = `${base}?${params.toString()}`;
+}
+
+export interface PublicBillingStatus {
+  pagamento_online: boolean;
+  gateway_ativo: string | null;
+  metodos: { pix?: boolean; cartao?: boolean; boleto?: boolean; boleto_em_breve?: boolean };
+}
+
+export async function fetchPublicBillingStatus(): Promise<PublicBillingStatus> {
+  const res = await fetch(`${API_URL}/billing/public-status`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { pagamento_online: false, gateway_ativo: null, metodos: {} };
+  }
+  return data as PublicBillingStatus;
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
