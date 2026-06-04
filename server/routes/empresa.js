@@ -23,6 +23,45 @@ import { query } from '../db.js';
 
 const router = Router();
 
+/** GET /api/empresa/convite-info?token=... — público, sem JWT (Etapa 7.1) */
+export async function handleConviteInfo(req, res) {
+  const token = String(req.query.token || req.query.t || '').trim();
+  try {
+    if (!token) {
+      throw new PermissionError('Token do convite é obrigatório.', { status: 400 });
+    }
+    const { rows } = await query(
+      `SELECT c.email, c.perfil, c.expires_at, c.accepted_at,
+              u.nome_perfil AS empresa_nome, u.nome AS owner_nome
+       FROM convites_empresa c
+       JOIN usuarios u ON u.id = c.empresa_usuario_id
+       WHERE c.token = $1`,
+      [token]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new PermissionError('Convite não encontrado ou inválido.', { status: 404 });
+    }
+    const expired = new Date(row.expires_at) < new Date();
+    res.json({
+      ok: true,
+      convite: {
+        empresaNome: row.empresa_nome || row.owner_nome || 'Empresa',
+        perfil: row.perfil,
+        emailConvidado: row.email,
+        expiresAt: row.expires_at,
+        accepted: Boolean(row.accepted_at),
+        expired,
+        valid: !row.accepted_at && !expired,
+      },
+    });
+  } catch (err) {
+    if (handlePermissionError(res, err)) return;
+    console.error('empresa/convite-info:', err.message);
+    res.status(err.status || 500).json({ error: err.message || 'Convite inválido.' });
+  }
+}
+
 router.post(
   '/aceitar-convite',
   authMiddleware,
@@ -183,5 +222,6 @@ router.delete(
 );
 
 export function registerEmpresaRoutes(app) {
+  app.get('/api/empresa/convite-info', handleConviteInfo);
   app.use('/api/empresa', router);
 }
