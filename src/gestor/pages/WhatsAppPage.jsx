@@ -13,9 +13,10 @@
  */
 import React from "react";
 import { useWhatsApp } from "../hooks/useWhatsApp.js";
-import { useAuth } from "../AuthContext.jsx";
 import { useGestor } from "../GestorContext.jsx";
 import PfPageShell from "../components/pf/PfPageShell.jsx";
+import useConfigStatus from "../hooks/useConfigStatus.js";
+import { PUBLIC_MESSAGES } from "../planRules.js";
 
 // ─── Paleta (inline — nunca tocamos em styles.js) ────────────────────────────
 const C = {
@@ -314,7 +315,7 @@ function GatewayDownBanner({ onRetry }) {
           Serviço WhatsApp indisponível
         </p>
         <p style={{ margin: 0, fontSize: 13, color: "oklch(0.50 0.06 60)" }}>
-          O Gateway WhatsApp (CT103) não está respondendo. Contate o administrador do sistema.
+          O serviço de mensagens está temporariamente indisponível. Você ainda pode usar lançamentos manuais.
         </p>
       </div>
       <button
@@ -538,7 +539,7 @@ function PfModePanel({ adminPhone }) {
         marginBottom: 20,
       }}>
         <p style={{ margin: "0 0 6px", fontSize: 13, color: C.textMuted, fontWeight: 500 }}>
-          Numero oficial do Fluxiva
+          Número oficial Fluxiva
         </p>
         {formatted ? (
           <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: "0.5px" }}>
@@ -702,7 +703,7 @@ function AuthorizedNumbersPanel() {
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.text }}>
-          Numeros autorizados
+          Meus números autorizados
         </h3>
         {planInfo && (
           <span style={{
@@ -741,10 +742,10 @@ function AuthorizedNumbersPanel() {
             background: planInfo.ai_receipt_enabled ? C.greenLight : "#f1f5f9",
             color: planInfo.ai_receipt_enabled ? C.green : C.textMuted,
             border: `1px solid ${planInfo.ai_receipt_enabled ? C.greenBorder : C.greyBorder}` }}>
-            {planInfo.ai_receipt_enabled ? "✓" : "✗"} Comprovante
+            {planInfo.ai_receipt_enabled ? "✓" : "✗"} Imagem / comprovante
           </span>
           <span style={{ fontSize: 11, color: C.textMuted, alignSelf: "center" }}>
-            Plano: <strong>{planInfo.plan}</strong>
+            Plano: <strong>{planInfo.plano_nome || planInfo.plan}</strong>
           </span>
         </div>
       )}
@@ -804,7 +805,7 @@ function AuthorizedNumbersPanel() {
             whiteSpace: "nowrap",
           }}
         >
-          {adding ? "..." : "+ Adicionar"}
+          {adding ? "..." : "Adicionar número"}
         </button>
       </div>
 
@@ -866,7 +867,7 @@ function AuthorizedNumbersPanel() {
                     cursor: "pointer",
                   }}
                 >
-                  Principal
+                  Definir como principal
                 </button>
               )}
               <span style={{
@@ -1202,13 +1203,64 @@ function WhatsAppPendingPanel() {
   );
 }
 
+function WhatsappTutorial() {
+  const steps = [
+    "Salve o número oficial do Fluxiva nos seus contatos",
+    "Envie uma mensagem descrevendo o lançamento",
+    'Confirme respondendo SIM',
+    "Veja o lançamento no painel financeiro",
+  ];
+  return (
+    <div
+      style={{
+        maxWidth: 560,
+        margin: "0 auto 20px",
+        background: "#fff",
+        border: `1px solid ${C.greyBorder}`,
+        borderRadius: 14,
+        padding: "18px 22px",
+      }}
+    >
+      <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 700, color: C.text }}>
+        Como usar o WhatsApp
+      </h3>
+      <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: C.textMuted, lineHeight: 1.8 }}>
+        {steps.map((s, i) => (
+          <li key={i}>
+            <strong style={{ color: C.text }}>{i + 1}.</strong> {s}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function WhatsappActivationBanner() {
+  return (
+    <div
+      style={{
+        maxWidth: 560,
+        margin: "0 auto 16px",
+        padding: "12px 16px",
+        borderRadius: 10,
+        background: "oklch(0.98 0.02 85)",
+        border: "1px solid oklch(0.88 0.05 85)",
+        fontSize: 13,
+        color: C.text,
+      }}
+    >
+      {PUBLIC_MESSAGES.whatsappInactive}
+    </div>
+  );
+}
+
 // -- Pagina principal --
 export default function WhatsAppPage() {
   const { status, phoneNumber, qrcode, loading, error, gatewayOk, connect, disconnect, recheckGateway } =
     useWhatsApp();
-  const { user } = useAuth();
-  // tipo já resolve impersonação: impersonatingUser?.tipo_perfil ?? user?.tipo_perfil ?? empresa.tipo
   const { tipo } = useGestor();
+  const { status: configStatus } = useConfigStatus();
+  const waConfigured = configStatus?.whatsapp?.configured !== false;
 
   const isPF = tipo === "fisica";
 
@@ -1225,6 +1277,8 @@ export default function WhatsAppPage() {
 
   return (
     <PfPageShell title="WhatsApp">
+      {!waConfigured && <WhatsappActivationBanner />}
+      <WhatsappTutorial />
       {isPF ? (
         <>
           <PfModePanel adminPhone={adminPhone} />

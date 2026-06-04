@@ -22,29 +22,28 @@ import { downloadMedia }            from "./evolutionProvider.js";
 import { transcribeAudio }          from "./transcriptionProvider.js";
 import { extractImageText }         from "./ocrProvider.js";
 import { parseMessage }             from "./messageParser.js";
+import { getUserSubscriptionResources } from "../billing/accessControl.js";
+import { whatsappCapabilitiesFromRecursos } from "../billing/planRules.js";
 
 const GATEWAY_SESSIONS_DIR =
   process.env.GATEWAY_SESSIONS_DIR ||
   process.env.SESSIONS_DIR ||
   path.join(process.cwd(), "sessions");
 
-/**
- * Capacidades do plano do usuário — lidas do banco.
- * Fallback conservador (tudo habilitado) se não conseguir ler.
- */
+/** Capacidades WhatsApp a partir da assinatura comercial (planRules), não whatsapp_user_plan legado. */
 async function getUserPlanCaps(usuarioId) {
   try {
-    const { rows } = await query(
-      `SELECT ai_audio_enabled, ai_receipt_enabled, ai_text_enabled
-         FROM whatsapp_user_plan WHERE usuario_id = $1`,
-      [usuarioId]
-    );
-    if (rows[0]) return rows[0];
+    const bundle = await getUserSubscriptionResources(usuarioId);
+    return whatsappCapabilitiesFromRecursos(bundle.recursos);
   } catch (err) {
     console.warn("[mediaProcessor] getUserPlanCaps erro:", err.message);
+    return {
+      max_authorized_numbers: 1,
+      ai_text_enabled: true,
+      ai_audio_enabled: false,
+      ai_receipt_enabled: false,
+    };
   }
-  // Fallback conservador: permite processamento (não bloqueia se banco falhar)
-  return { ai_audio_enabled: true, ai_receipt_enabled: true, ai_text_enabled: true };
 }
 
 const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;

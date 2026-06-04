@@ -73,6 +73,7 @@ export const PLAN_CATALOG = {
       openFinanceAddon: addon(2990),
     },
   },
+  /** PF Premium: até 5 números; texto, áudio e imagem/comprovante via WhatsApp */
   pf_premium: {
     nome: 'PF Premium',
     precoCentavos: 4990,
@@ -220,12 +221,14 @@ export const COMMERCIAL_PLAN_SLUGS = {
 
 export const PUBLIC_MESSAGES = {
   billing:
-    'Assinaturas online em fase de ativação. Para contratar agora, fale com o suporte.',
+    'Contratação online em ativação. Fale com suporte para ativar seu plano.',
   email: 'Envio automático de e-mail em ativação. Se precisar, fale com o suporte.',
   openFinance:
     'Conexão bancária automática em breve. Você pode importar OFX/CSV normalmente.',
   planBlocked: 'Este recurso não está incluso no seu plano atual.',
   whatsappLimit: 'Limite do plano atingido.',
+  whatsappInactive:
+    'WhatsApp em ativação. Você ainda pode usar lançamentos manuais.',
   checkoutModalTitle: 'Contratação online em ativação',
   checkoutModalBody: 'Fale com o suporte para ativar seu plano.',
 };

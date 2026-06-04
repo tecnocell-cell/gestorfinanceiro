@@ -31,8 +31,9 @@ export function buildPlanFeatureItems(recursos, planSlug) {
   }
   if (recursos.whatsappTexto) items.push("WhatsApp: lançamento por texto");
   if (recursos.whatsappAudio) items.push("WhatsApp: lançamento por áudio");
-  if (recursos.whatsappComprovante) items.push("WhatsApp: comprovante");
-  if (recursos.iaComprovante) items.push("Leitura de comprovante (IA)");
+  if (recursos.whatsappComprovante || recursos.iaComprovante) {
+    items.push("WhatsApp: envio de imagem/comprovante (IA)");
+  }
   if (recursos.centroCusto) {
     items.push(recursos.dreCompleto ? "Centro de custo avançado" : "Centro de custo");
   }
