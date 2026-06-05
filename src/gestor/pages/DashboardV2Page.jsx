@@ -32,6 +32,7 @@ import CommercialDashboardBlock from "../components/dashboard/CommercialDashboar
 import BetaChecklistCard from "../components/beta/BetaChecklistCard.jsx";
 import UltimosLancamentosWidget   from "../components/dashboard/UltimosLancamentosWidget.jsx";
 import ProximosVencimentosWidget  from "../components/dashboard/ProximosVencimentosWidget.jsx";
+import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import CustomTooltip        from "../components/CustomTooltip.jsx";
 import {
   TrendingUp,
@@ -103,6 +104,10 @@ export default function DashboardV2Page({ onNavigate }) {
   const { recorrencias, loading: recLoading } = useRecorrencias();
 
   const saldoTotal  = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
+  const contasNegativas = useMemo(
+    () => contas.filter((c) => !c.inativo && getSaldoConta(c.id) < 0).length,
+    [contas, getSaldoConta]
+  );
   const lucroLiq    = safeNum(dreAtual.lucroAposImpostos ?? dreAtual.lucroLiquido);
   const receitasDre = safeNum(dreAtual.receitas);
   const margem      = receitasDre > 0 ? lucroLiq / receitasDre : 0;
@@ -368,9 +373,11 @@ export default function DashboardV2Page({ onNavigate }) {
           </div>
         </div>
 
+        <MovimentacoesMesWidget onVerContas={() => onNavigate?.("contas-pagar")} />
+
         <div className="dash-widgets-grid">
           <ProximosVencimentosWidget limit={6} />
-          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
+          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} contasNegativas={contasNegativas} />
         </div>
 
         <div className="dash-section-title">Desempenho mensal</div>

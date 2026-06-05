@@ -9,7 +9,7 @@
  */
 import { useMemo } from "react";
 import { useGestor } from "../GestorContext.jsx";
-import { fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
+import { fmtBRL, fmtDate, getStatusLancamento, isLancamentoPago } from "../finance.js";
 
 const hojeStr = () => new Date().toISOString().slice(0, 10);
 const em7Str  = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
@@ -22,8 +22,7 @@ export default function ContasAPagarAlert({ onIrParaContas }) {
     return lancamentos
       .filter((l) => {
         if (l.tipo === "Transferencia") return false;
-        const s = l.status ?? "pago";
-        if (s === "pago") return false;
+        if (isLancamentoPago(l)) return false;
         const venc = l.vencimento ?? l.data;
         return venc <= h7;
       })

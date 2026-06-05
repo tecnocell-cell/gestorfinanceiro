@@ -1,4 +1,24 @@
 import { MESES } from "./constants.js";
+import {
+  isLancamentoPago,
+  getDataRealizacao,
+  getStatusLancamentoDisplay,
+  filterLancamentosRealizados,
+  normalizeLancamentoStatus,
+  getValorRealizado,
+  isLancamentoVencido,
+  isLancamentoPendente,
+} from "./financeStatus.js";
+
+export {
+  isLancamentoPago,
+  getDataRealizacao,
+  normalizeLancamentoStatus,
+  getValorRealizado,
+  isLancamentoVencido,
+  isLancamentoPendente,
+  filterLancamentosRealizados,
+} from "./financeStatus.js";
 
 export const generateId = () => Math.random().toString(36).slice(2, 11);
 
@@ -174,6 +194,7 @@ const periodStart = (ano, mes) => {
 };
 
 const inPeriod = (dataStr, ano, mes) => {
+  if (!dataStr) return false;
   const d = new Date(dataStr + "T00:00:00");
   if (ano && d.getFullYear().toString() !== ano) return false;
   if (mes && (d.getMonth() + 1).toString().padStart(2, "0") !== mes) return false;
@@ -181,24 +202,25 @@ const inPeriod = (dataStr, ano, mes) => {
 };
 
 const movPlano = (lancamentos, planoId, opts = {}) => {
-  const { before, ano, mes, from, to } = opts;
+  const { before, ano, mes, from, to, modoCaixa = true } = opts;
   return lancamentos
     .filter((l) => {
       if (l.planoId !== planoId) return false;
+      if (modoCaixa && !isLancamentoPago(l)) return false;
+      const dataRef = modoCaixa ? (getDataRealizacao(l) || l.data) : l.data;
+      if (!dataRef) return false;
       if (from !== undefined) {
-        // range mode
-        if (before) return l.data < from;
-        if (from && l.data < from) return false;
-        if (to && l.data > to) return false;
+        if (before) return dataRef < from;
+        if (from && dataRef < from) return false;
+        if (to && dataRef > to) return false;
         return true;
       }
-      // period mode
-      const d = new Date(l.data + "T00:00:00");
+      const d = new Date(dataRef + "T00:00:00");
       if (before) {
         const start = periodStart(ano, mes);
         if (start && d >= start) return false;
         if (ano && !mes && d.getFullYear().toString() >= ano) return false;
-      } else if (!inPeriod(l.data, ano, mes)) {
+      } else if (!inPeriod(dataRef, ano, mes)) {
         return false;
       }
       return true;
@@ -439,15 +461,5 @@ export const nextLote = (lancamentos) => {
  */
 export const getStatusLancamento = (l) => {
   const hoje = new Date().toISOString().slice(0, 10);
-  const venc = l.vencimento ?? l.data;
-
-  // 1. Explicit status field (set by marcarPago / marcarPendente)
-  if (l.status === "pago") return "pago";
-  if (l.status === "pendente") return venc < hoje ? "atrasado" : "pendente";
-
-  // 2. Boolean pago field (set by the modal on save)
-  if (l.pago === true) return "pago";
-
-  // 3. No status info at all → treat as pendente (show in Em Aberto)
-  return venc < hoje ? "atrasado" : "pendente";
+  return getStatusLancamentoDisplay(l, hoje);
 };

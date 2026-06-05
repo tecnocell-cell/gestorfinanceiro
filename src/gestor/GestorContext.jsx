@@ -408,6 +408,7 @@ export function GestorProvider({ children }) {
     (data) => {
       const ent = contas.find((c) => c.id === data.contaEntradaId);
       const sai = contas.find((c) => c.id === data.contaSaidaId);
+      const pago = data.pago === true;
       const payload = {
         ...data,
         codigo: data.codigo ? Number(data.codigo) : undefined,
@@ -420,6 +421,11 @@ export function GestorProvider({ children }) {
         fornecedorId:   data.fornecedorId || null,
         centroCustoId:  data.centroCustoId || null,
         projetoId:      data.projetoId || null,
+        status: pago ? "pago" : data.status === "pendente" ? "pendente" : data.status || (pago ? "pago" : "pendente"),
+        pago,
+        ...(pago && !data.dataPagamento
+          ? { dataPagamento: data.data || new Date().toISOString().slice(0, 10) }
+          : {}),
       };
       if (editingItem?.id) {
         lancCrud.update(editingItem.id, payload);

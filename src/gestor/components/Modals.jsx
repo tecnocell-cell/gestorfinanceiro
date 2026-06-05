@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { generateId, safeNum } from "../finance.js";
+import { generateId, safeNum, addMoney, subMoney } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
 import { isLancamentoPago } from "../pfDueDates.js";
 import {
@@ -208,10 +208,32 @@ export function ModalLancamento() {
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  const { getSaldoConta } = useGestor();
+
   const handleSave = () => {
     if (!form.data || !form.valor || !form.planoId) {
       alert(`Preencha data, valor e ${isPF ? "categoria" : "plano de contas"}.`);
       return;
+    }
+    const valorNum = safeNum(form.valor);
+    if (form.tipo === "Saida" && form.contaSaidaId) {
+      const saldoAtual = getSaldoConta(form.contaSaidaId);
+      const saldoApos = subMoney(saldoAtual, valorNum);
+      if (editingItem?.contaSaidaId === form.contaSaidaId) {
+        const oldVal = safeNum(editingItem.valor);
+        const ajustado = addMoney(saldoAtual, oldVal);
+        if (subMoney(ajustado, valorNum) < 0) {
+          const ok = window.confirm(
+            "Esta conta ficará negativa. Se você ainda não importou extrato ou saldo inicial, use Caixa ou ajuste o saldo da conta.\n\nDeseja salvar mesmo assim?"
+          );
+          if (!ok) return;
+        }
+      } else if (saldoApos < 0) {
+        const ok = window.confirm(
+          "Esta conta ficará negativa. Se você ainda não importou extrato ou saldo inicial, use Caixa ou ajuste o saldo da conta.\n\nDeseja salvar mesmo assim?"
+        );
+        if (!ok) return;
+      }
     }
     const nums = lancamentos.map((l) => parseInt(String(l.lote || "").replace(/\D/g, ""), 10)).filter((n) => !Number.isNaN(n));
     const lote = form.lote || `L${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0")}`;

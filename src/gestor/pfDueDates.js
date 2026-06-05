@@ -18,18 +18,9 @@ export function daysBetween(from, to) {
   return Math.round((b - a) / 86400000);
 }
 
-export function isLancamentoPago(l) {
-  // Campo status explícito (ContasAPagar / PJ)
-  if (l.status === "pago") return true;
-  if (l.status === "pendente") return false;
-  // Campo booleano pago (modal PF)
-  if (l.pago === true) return true;
-  if (l.pago === false) return false;
-  // Conciliado = quitado
-  if (l.consiliado) return true;
-  // Sem info de status — não considera automaticamente como pago
-  return false;
-}
+import { isLancamentoPago } from "./financeStatus.js";
+
+export { isLancamentoPago };
 
 export function getDueDate(l) {
   return l.vencimento || l.data;

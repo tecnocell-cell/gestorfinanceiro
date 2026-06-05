@@ -509,9 +509,12 @@ export async function rollbackOperacao(client, {
   );
 
   if (remPj === 0 || remPf === 0) {
-    console.warn(
-      `rollback ${op.id}: removidos PJ=${remPj} PF=${remPf} (pj=${op.lancamento_pj_id}, pf=${op.lancamento_pf_id})`
+    const err = new Error(
+      `Rollback incompleto: removidos PJ=${remPj} PF=${remPf}. Operação não desfeita.`
     );
+    err.status = 409;
+    err.code = 'ROLLBACK_INCOMPLETO';
+    throw err;
   }
 
   await client.query(

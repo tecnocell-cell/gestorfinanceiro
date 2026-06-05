@@ -14,6 +14,7 @@ import { findUsuario, rejectProtectedAdmin } from "./adminGuard.js";
 import { createInitialState, normalizeStateForUser } from "./initialState.js";
 import {
   fetchRollbackIntegracaoLancamentoIds,
+  preserveIntegracaoLancamentosFromServer,
   stripLancamentosIntegracaoRollback,
 } from "./integracaoPfPj/estadoMerge.js";
 import { countPlanoContas } from "./initialState.js";
@@ -356,9 +357,16 @@ app.put("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, re
       "SELECT dados FROM estados WHERE usuario_id = $1",
       [stateOwnerId]
     );
+    const serverDados = oldStateRows[0]?.dados;
+    if (serverDados && isValid(toSave)) {
+      toSave = preserveIntegracaoLancamentosFromServer(serverDados, toSave);
+      if (isValid(toSave)) {
+        toSave = normalizeStateForUser(toSave, profile);
+      }
+    }
     const validation = await validateStateSave(
       stateOwnerId,
-      oldStateRows[0]?.dados,
+      serverDados,
       toSave
     );
     if (!validation.ok) {

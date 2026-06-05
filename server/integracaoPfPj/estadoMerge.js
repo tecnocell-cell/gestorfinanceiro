@@ -173,6 +173,55 @@ export async function fetchRollbackIntegracaoLancamentoIds(dbQuery, usuarioId) {
   return ids;
 }
 
+/**
+ * Preserva lançamentos integracao_pf_pj do servidor ao salvar estado do cliente.
+ * Evita auto-save PF sobrescrever valor/entrada após confirmação PJ.
+ */
+export function preserveIntegracaoLancamentosFromServer(serverDados, clientDados) {
+  const server = parseEstadoDados(serverDados);
+  const client = parseEstadoDados(clientDados);
+  if (!server?.empresas?.length || !client?.empresas?.length) return clientDados;
+
+  const serverById = new Map();
+  for (const emp of server.empresas) {
+    for (const l of emp.lancamentos || []) {
+      if (String(l.source || '') === SOURCE_INTEGRACAO) {
+        serverById.set(String(l.id), l);
+      }
+    }
+  }
+
+  if (!serverById.size) return clientDados;
+
+  const presentIds = new Set();
+  const empresas = client.empresas.map((emp) => {
+    const lancamentos = (emp.lancamentos || [])
+      .map((l) => {
+        if (String(l.source || '') !== SOURCE_INTEGRACAO) return l;
+        const srv = serverById.get(String(l.id));
+        if (srv) {
+          presentIds.add(String(l.id));
+          return srv;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    return { ...emp, lancamentos };
+  });
+
+  const missing = [...serverById.values()].filter((l) => !presentIds.has(String(l.id)));
+  if (missing.length) {
+    const { idx } = resolveEmpresaAtiva({ ...client, empresas });
+    const target = empresas[idx];
+    empresas[idx] = {
+      ...target,
+      lancamentos: [...(target.lancamentos || []), ...missing],
+    };
+  }
+
+  return { ...client, empresas };
+}
+
 /** Remove do estado lançamentos de operações já desfeitas (evita auto-save PF ressuscitar entrada). */
 export function stripLancamentosIntegracaoRollback(dados, rollbackIds) {
   if (!rollbackIds?.size) return dados;

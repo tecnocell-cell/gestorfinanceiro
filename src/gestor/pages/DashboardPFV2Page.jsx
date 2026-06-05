@@ -17,7 +17,8 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, roundMoney, safeNum, subMoney } from "../finance.js";
+import { addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao } from "../finance.js";
+import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -102,16 +103,24 @@ export default function DashboardPFV2Page({ onNavigate }) {
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
 
   const pfTotais = useMemo(() => {
-    let receitas = 0, despesas = 0;
+    let receitas = 0;
+    let despesas = 0;
     for (const l of lancamentos) {
-      if (!l.data) continue;
-      if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
-      if (filterPeriodo.mes && l.data.slice(5, 7) !== filterPeriodo.mes) continue;
+      if (!isLancamentoPago(l)) continue;
+      const dataRef = getDataRealizacao(l) || l.data;
+      if (!dataRef) continue;
+      if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
+      if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) continue;
       if (l.tipo === "Entrada") receitas = addMoney(receitas, l.valor);
       else if (l.tipo === "Saida") despesas = addMoney(despesas, l.valor);
     }
     return { receitas: roundMoney(receitas), despesas: roundMoney(despesas) };
   }, [lancamentos, filterPeriodo]);
+
+  const contasNegativas = useMemo(
+    () => contas.filter((c) => !c.inativo && getSaldoConta(c.id) < 0).length,
+    [contas, getSaldoConta]
+  );
 
   const saldoMes = subMoney(pfTotais.receitas, pfTotais.despesas);
 
@@ -400,9 +409,11 @@ export default function DashboardPFV2Page({ onNavigate }) {
           </div>
         </div>
 
+        <MovimentacoesMesWidget onVerContas={() => onNavigate?.("contas-pagar")} />
+
         <div className="dash-widgets-grid">
           <ProximosVencimentosWidget limit={6} />
-          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} />
+          <ContasWidget contas={contas} getSaldoConta={getSaldoConta} contasNegativas={contasNegativas} />
         </div>
 
         {/* Charts detalhados existentes */}

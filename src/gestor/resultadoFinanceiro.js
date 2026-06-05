@@ -1,7 +1,7 @@
 /**
  * Agregação de receitas/despesas/resultado por dimensão (centro, cliente, projeto).
  */
-import { addMoney, filterLancamentos, subMoney, safeNum } from "./finance.js";
+import { addMoney, filterLancamentosRealizados, subMoney, safeNum } from "./finance.js";
 
 function isPlanoReceita(plano) {
   return plano?.tipo === "Receita";
@@ -22,7 +22,7 @@ export function accumulateResultadoPorCampo(
   fieldName,
   { ano, mes, isPF = false } = {}
 ) {
-  const filtered = filterLancamentos(lancamentos || [], { ano, mes });
+  const filtered = filterLancamentosRealizados(lancamentos || [], { ano, mes });
   const planoById = new Map((planoContas || []).map((p) => [p.id, p]));
   const buckets = new Map();
 

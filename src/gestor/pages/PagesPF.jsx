@@ -7,6 +7,7 @@ import {
 import { MESES, CHART } from "../constants.js";
 import {
   addMoney, fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos, safeNum, subMoney,
+  isLancamentoPago, getDataRealizacao, isLancamentoPendente,
 } from "../finance.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
@@ -25,7 +26,7 @@ import {
 import { DEFAULT_CATS_PF } from "../defaultCategories.js";
 import { getIntegracaoOperacaoLabel } from "../integracaoPfPjLabels.js";
 import { PF_PAGE_HINTS } from "../pfHints.js";
-import { PenLine, Trash2, ClipboardList, ArrowDownLeft, CircleCheck, AlertTriangle, Target } from "../components/icons.jsx";
+import { PenLine, Trash2, ClipboardList, ArrowDownLeft, CircleCheck, AlertTriangle, Target, Clock } from "../components/icons.jsx";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -601,14 +602,29 @@ export function OrcamentoPage() {
   const getRealizado = (catId) => {
     return lancamentos
       .filter((l) => {
-        if (l.planoId !== catId) return false;
-        const d = new Date(l.data + "T00:00:00");
+        if (l.planoId !== catId || l.tipo !== "Saida") return false;
+        if (!isLancamentoPago(l)) return false;
+        const dataRef = getDataRealizacao(l) || l.data;
+        const d = new Date(dataRef + "T00:00:00");
         if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) return false;
         if (filterPeriodo.mes && (d.getMonth() + 1).toString().padStart(2, "0") !== filterPeriodo.mes) return false;
         return true;
       })
       .reduce((s, l) => addMoney(s, l.valor), 0);
   };
+
+  const totPendente = useMemo(() => {
+    return lancamentos
+      .filter((l) => {
+        if (l.tipo !== "Saida" || !isLancamentoPendente(l)) return false;
+        const venc = l.vencimento || l.data;
+        const d = new Date(venc + "T00:00:00");
+        if (filterPeriodo.ano && d.getFullYear().toString() !== filterPeriodo.ano) return false;
+        if (filterPeriodo.mes && (d.getMonth() + 1).toString().padStart(2, "0") !== filterPeriodo.mes) return false;
+        return true;
+      })
+      .reduce((s, l) => addMoney(s, l.valor), 0);
+  }, [lancamentos, filterPeriodo]);
 
   const linhas = despesas.map((p) => {
     const orcado = getOrcadoLinha(p.id);
@@ -669,22 +685,28 @@ export function OrcamentoPage() {
         </div>
       )}
 
-      <div className="pp-summary-grid cols-3">
+      <div className="pp-summary-grid cols-4">
         <div className="pp-summary-card pp-summary-info">
           <SummaryIcon icon={ClipboardList} />
-          <div className="pp-summary-label">Total Orçado</div>
+          <div className="pp-summary-label">Orçado</div>
           <div className="pp-summary-value">{fmtBRL(totOrcado)}</div>
           <div className="pp-summary-hint">Planejado para o mês</div>
         </div>
         <div className="pp-summary-card pp-summary-out">
           <SummaryIcon icon={ArrowDownLeft} />
-          <div className="pp-summary-label">Total Gasto</div>
+          <div className="pp-summary-label">Realizado pago</div>
           <div className="pp-summary-value">{fmtBRL(totRealizado)}</div>
-          <div className="pp-summary-hint">Realizado no período</div>
+          <div className="pp-summary-hint">Despesas quitadas no período</div>
+        </div>
+        <div className="pp-summary-card pp-summary-warn">
+          <SummaryIcon icon={Clock} />
+          <div className="pp-summary-label">Pendente</div>
+          <div className="pp-summary-value">{fmtBRL(totPendente)}</div>
+          <div className="pp-summary-hint">A pagar no período</div>
         </div>
         <div className={`pp-summary-card ${totDiff >= 0 ? "pp-summary-in" : "pp-summary-warn"}`}>
           <SummaryIcon icon={totDiff >= 0 ? CircleCheck : AlertTriangle} />
-          <div className="pp-summary-label">Saldo do Orçamento</div>
+          <div className="pp-summary-label">Diferença</div>
           <div className="pp-summary-value">{fmtBRL(totDiff)}</div>
           <div className="pp-summary-hint">{totDiff >= 0 ? "Dentro do orçamento" : "Acima do orçamento"}</div>
         </div>

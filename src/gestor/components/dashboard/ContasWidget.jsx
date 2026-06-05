@@ -15,7 +15,7 @@ const TIPO_ICON = {
 /**
  * ContasWidget — lista de contas com saldos (Etapa 4.2).
  */
-function ContasWidget({ contas, getSaldoConta }) {
+function ContasWidget({ contas, getSaldoConta, contasNegativas = 0 }) {
   const ativas = useMemo(() => contas.filter((c) => !c.inativo), [contas]);
 
   const items = useMemo(
@@ -57,6 +57,11 @@ function ContasWidget({ contas, getSaldoConta }) {
           <div className="chart-card-v2-title"><WidgetTitle icon={Wallet}>Contas</WidgetTitle></div>
           <div className="chart-card-v2-sub">
             {items.length} conta{items.length !== 1 ? "s" : ""} ativa{items.length !== 1 ? "s" : ""}
+            {contasNegativas > 0 && (
+              <span style={{ color: "var(--danger)", marginLeft: 8 }}>
+                · {contasNegativas} negativa{contasNegativas !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         </div>
         <div
@@ -87,9 +92,12 @@ function ContasWidget({ contas, getSaldoConta }) {
                 </div>
               </div>
               <div className="dash-account-side">
-                <div className={`dash-account-balance ${positivo ? "positive" : "negative"}`}>
-                  {fmtBRL(c.saldo)}
-                </div>
+              <div
+                className={`dash-account-balance ${positivo ? "positive" : "negative"}`}
+                title={!positivo ? "Saldo negativo indica saída sem saldo inicial/entrada suficiente." : undefined}
+              >
+                {fmtBRL(c.saldo)}
+              </div>
                 <div className="dash-account-bar" aria-hidden>
                   <span
                     className={`dash-account-bar-fill ${positivo ? "positive" : "negative"}`}

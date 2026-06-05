@@ -248,6 +248,57 @@ export function classificarRecorrenciasParaMes(recorrencias, lancamentos, monthK
 /**
  * Monta payload de lançamento com vencimento/status/source corretos.
  */
+/**
+ * Marca recorrência como paga no mês — cria ou atualiza lançamento sem duplicar.
+ */
+export function upsertLancamentoRecorrenciaPago({
+  recorrencia,
+  lancamentos,
+  contas,
+  generateId,
+  monthKey,
+  dataPagamento,
+}) {
+  const mes = monthKey || monthKeyFromDate(recorrencia.proxima_data);
+  const existente = findLancamentoRecorrenciaMes(lancamentos, recorrencia.id, mes);
+  const hoje = dataPagamento || new Date().toISOString().slice(0, 10);
+
+  if (existente) {
+    return {
+      action: "update",
+      id: existente.id,
+      patch: {
+        status: "pago",
+        pago: true,
+        dataPagamento: hoje,
+        pagoEm: hoje,
+        origem: "recorrencia",
+        recorrenciaId: recorrencia.id,
+      },
+    };
+  }
+
+  const novo = buildLancamentoFromRecorrencia({
+    recorrencia,
+    lancamentos,
+    contas,
+    generateId,
+    vencimentoOverride: recorrencia.proxima_data,
+  });
+  return {
+    action: "add",
+    lancamento: {
+      ...novo,
+      status: "pago",
+      pago: true,
+      dataPagamento: hoje,
+      pagoEm: hoje,
+      origem: "recorrencia",
+      recorrenciaMes: mes,
+    },
+  };
+}
+
 export function buildLancamentoFromRecorrencia({
   recorrencia,
   lancamentos,

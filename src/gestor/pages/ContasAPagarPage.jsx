@@ -15,7 +15,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
-import { addMoney, fmtBRL, fmtDate, getStatusLancamento } from "../finance.js";
+import { addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao } from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
@@ -29,9 +29,9 @@ const hojeStr = () => new Date().toISOString().slice(0, 10);
 const em7Str  = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
 
 const STATUS_META = {
-  pago:     { label: "Pago",     pp: "pp-badge-green" },
+  pago:     { label: "Quitada",  pp: "pp-badge-green" },
   pendente: { label: "Pendente", pp: "pp-badge-blue"  },
-  atrasado: { label: "Vencido",  pp: "pp-badge-red"   },
+  atrasado: { label: "Vencida",  pp: "pp-badge-red"   },
 };
 
 // ─── Inline vencimento editor ─────────────────────────────────────────────────
@@ -93,7 +93,7 @@ export default function ContasAPagarPage() {
     viewOnly,
   } = useGestor();
 
-  const [statusFilter, setStatusFilter] = useState("aberto"); // "aberto" | "pago" | "todos"
+  const [statusFilter, setStatusFilter] = useState("aberto");
   const [tipoFilter,   setTipoFilter]   = useState("todos");  // "todos" | "pagar" | "receber"
 
   const hint = PF_PAGE_HINTS["contas-pagar"];
@@ -123,34 +123,40 @@ export default function ContasAPagarPage() {
   );
 
   // ── Filtro UI ─────────────────────────────────────────────────────────────
-  const visible = useMemo(() =>
-    periodFiltered.filter((l) => {
+  const visible = useMemo(() => {
+    const h = hojeStr();
+    const h7 = em7Str();
+    return periodFiltered.filter((l) => {
       if (statusFilter === "aberto" && l._status === "pago") return false;
-      if (statusFilter === "pago"   && l._status !== "pago") return false;
-      if (tipoFilter   === "pagar"   && l.tipo !== "Saida")  return false;
-      if (tipoFilter   === "receber" && l.tipo !== "Entrada") return false;
+      if (statusFilter === "pago" && l._status !== "pago") return false;
+      if (statusFilter === "vencidas" && l._status !== "atrasado") return false;
+      if (statusFilter === "vence7" && !(l._status !== "pago" && l._venc > h && l._venc <= h7)) return false;
+      if (tipoFilter === "pagar" && l.tipo !== "Saida") return false;
+      if (tipoFilter === "receber" && l.tipo !== "Entrada") return false;
       return true;
-    }),
-    [periodFiltered, statusFilter, tipoFilter]
-  );
+    });
+  }, [periodFiltered, statusFilter, tipoFilter]);
 
   // ── KPIs (sobre periodFiltered, não sobre visible) ────────────────────────
   const kpis = useMemo(() => {
     const h = hojeStr();
     const h7 = em7Str();
-    const abertos   = periodFiltered.filter((l) => l._status !== "pago");
-    const aPagar    = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => addMoney(s, l.valor), 0);
-    const aReceber  = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => addMoney(s, l.valor), 0);
-    const vencidos  = abertos.filter((l) => l._status === "atrasado").length;
+    const abertos = periodFiltered.filter((l) => l._status !== "pago");
+    const pagosMes = periodFiltered.filter((l) => l._status === "pago");
+    const aPagar = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => addMoney(s, l.valor), 0);
+    const aReceber = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => addMoney(s, l.valor), 0);
+    const pagasMes = pagosMes.reduce((s, l) => addMoney(s, l.valor), 0);
+    const vencidos = abertos.filter((l) => l._status === "atrasado").length;
     const vencendo7 = abertos.filter((l) => l._venc > h && l._venc <= h7).length;
-    return { aPagar, aReceber, vencidos, vencendo7 };
+    return { aPagar, aReceber, pagasMes, vencidos, vencendo7 };
   }, [periodFiltered]);
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   const marcarPago = useCallback((id) => {
     if (viewOnly) return;
     const lanc = lancamentos.find((l) => l.id === id);
-    lancCrud.update(id, { status: "pago", pago: true });
+    const hoje = hojeStr();
+    lancCrud.update(id, { status: "pago", pago: true, dataPagamento: hoje, pagoEm: hoje });
     if (lanc?.recorrenciaId) {
       const dataVenc = lanc.vencimento || lanc.data;
       recorrenciasApi
@@ -161,7 +167,13 @@ export default function ContasAPagarPage() {
 
   const marcarPendente = useCallback((id) => {
     if (viewOnly) return;
-    lancCrud.update(id, { status: "pendente" });
+    lancCrud.update(id, {
+      status: "pendente",
+      pago: false,
+      dataPagamento: null,
+      pagoEm: null,
+      quitadoEm: null,
+    });
   }, [lancCrud, viewOnly]);
 
   const salvarVenc = useCallback((id, newDate) => {
@@ -184,25 +196,31 @@ export default function ContasAPagarPage() {
       <div className="pp-summary-grid">
         <div className="pp-summary-card pp-summary-out">
           <SummaryIcon icon={ArrowDownLeft} />
-          <div className="pp-summary-label">A Pagar</div>
+          <div className="pp-summary-label">A pagar aberto</div>
           <div className="pp-summary-value">{fmtBRL(kpis.aPagar)}</div>
           <div className="pp-summary-hint">Despesas em aberto</div>
         </div>
         <div className="pp-summary-card pp-summary-in">
           <SummaryIcon icon={ArrowUpRight} />
-          <div className="pp-summary-label">A Receber</div>
+          <div className="pp-summary-label">A receber aberto</div>
           <div className="pp-summary-value">{fmtBRL(kpis.aReceber)}</div>
           <div className="pp-summary-hint">Receitas em aberto</div>
         </div>
+        <div className="pp-summary-card pp-summary-info">
+          <SummaryIcon icon={CircleCheck} />
+          <div className="pp-summary-label">Pagas no mês</div>
+          <div className="pp-summary-value">{fmtBRL(kpis.pagasMes)}</div>
+          <div className="pp-summary-hint">Quitadas no período</div>
+        </div>
         <div className="pp-summary-card pp-summary-warn">
           <SummaryIcon icon={AlertTriangle} />
-          <div className="pp-summary-label">Vencidos</div>
+          <div className="pp-summary-label">Vencidas</div>
           <div className="pp-summary-value">{kpis.vencidos}</div>
           <div className="pp-summary-hint">Já passaram do prazo</div>
         </div>
         <div className="pp-summary-card pp-summary-info">
           <SummaryIcon icon={Clock} />
-          <div className="pp-summary-label">Vence em 7 dias</div>
+          <div className="pp-summary-label">Vencem em 7 dias</div>
           <div className="pp-summary-value">{kpis.vencendo7}</div>
           <div className="pp-summary-hint">Próximos vencimentos</div>
         </div>
@@ -210,9 +228,11 @@ export default function ContasAPagarPage() {
 
       <div className="pp-toolbar">
         {[
-          { v: "aberto", label: "Em Aberto" },
-          { v: "pago",   label: "Pagos"     },
-          { v: "todos",  label: "Todos"     },
+          { v: "aberto", label: "Em aberto" },
+          { v: "pago", label: "Pagas" },
+          { v: "vencidas", label: "Vencidas" },
+          { v: "vence7", label: "Vencem em 7d" },
+          { v: "todos", label: "Todas" },
         ].map((f) => (
           <button
             key={f.v}
@@ -275,6 +295,7 @@ export default function ContasAPagarPage() {
                   <tr>
                     <th>Data lançamento</th>
                     <th>Vencimento</th>
+                    <th>Pagamento</th>
                     <th>Descrição</th>
                     <th>Categoria</th>
                     <th>Tipo</th>
@@ -295,6 +316,9 @@ export default function ContasAPagarPage() {
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <VencCell l={l} onSave={salvarVenc} disabled={viewOnly} />
+                        </td>
+                        <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                          {l._status === "pago" ? fmtDate(getDataRealizacao(l) || l.data) : "—"}
                         </td>
                         <td className="cp-td-ellipsis" title={l.historico || ""}>
                           {l.historico || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
@@ -342,10 +366,10 @@ export default function ContasAPagarPage() {
                                   type="button"
                                   className="pp-btn-secondary"
                                   style={{ height: 28, padding: "0 10px", fontSize: 11 }}
-                                  title="Reabrir — marcar como pendente"
+                                  title="Desfazer pagamento"
                                   onClick={() => marcarPendente(l.id)}
                                 >
-                                  ↺ Reabrir
+                                  ↺ Desfazer pagamento
                                 </button>
                               )}
                             </div>

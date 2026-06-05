@@ -5563,6 +5563,94 @@ export const css = `
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  /* Movimentações do mês (Etapa 7.8B) */
+  .dash-mov-mes-wrap {
+    margin-bottom: 16px;
+  }
+  .dash-mov-mes-widget {
+    min-height: auto;
+  }
+  .dash-mov-mes-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .dash-mov-mes-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: var(--radius-lg, 12px);
+    border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+    background: color-mix(in oklab, var(--muted) 25%, var(--card));
+    min-width: 0;
+  }
+  .dash-mov-mes-kpi-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--muted-foreground);
+    margin-bottom: 2px;
+  }
+  .dash-mov-mes-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .dash-mov-mes-kpi-val {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-mov-mes-kpi-val--count {
+    font-size: 20px;
+  }
+  .dash-mov-mes-kpi--in {
+    background: color-mix(in oklab, var(--success-fg, #166534) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--success-fg, #166534) 18%, var(--border));
+  }
+  .dash-mov-mes-kpi--in .dash-mov-mes-kpi-icon,
+  .dash-mov-mes-kpi--in .dash-mov-mes-kpi-val { color: var(--success-fg, #166534); }
+  .dash-mov-mes-kpi--out {
+    background: color-mix(in oklab, var(--danger-fg, #b91c1c) 7%, var(--card));
+    border-color: color-mix(in oklab, var(--danger-fg, #b91c1c) 16%, var(--border));
+  }
+  .dash-mov-mes-kpi--out .dash-mov-mes-kpi-icon,
+  .dash-mov-mes-kpi--out .dash-mov-mes-kpi-val { color: var(--danger-fg, #b91c1c); }
+  .dash-mov-mes-kpi--pend {
+    background: color-mix(in oklab, var(--warning-fg, #b45309) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--warning-fg, #b45309) 16%, var(--border));
+  }
+  .dash-mov-mes-kpi--pend .dash-mov-mes-kpi-icon,
+  .dash-mov-mes-kpi--pend .dash-mov-mes-kpi-val { color: var(--warning-fg, #b45309); }
+  .dash-mov-mes-recent-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+  }
+  .dash-mov-mes-empty {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    text-align: center;
+    padding: 12px 8px;
+  }
+  @media (max-width: 1100px) {
+    .dash-mov-mes-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .dash-mov-mes-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
   /* List widget genérico */
   .dash-list-widget {
     background: var(--card);
