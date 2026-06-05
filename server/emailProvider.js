@@ -60,6 +60,35 @@ export function getEmailConfigStatus() {
   };
 }
 
+/** Detalhe para homologação go-live (Etapa 8.1) — sem expor segredos. */
+export function getSmtpAuditDetail() {
+  const provider = resolveProvider();
+  const status = getEmailConfigStatus();
+  const vars = {
+    EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || '(auto)',
+    EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_FROM || null,
+    RESEND_API_KEY: process.env.RESEND_API_KEY ? '***configurado***' : null,
+    SMTP_HOST: process.env.SMTP_HOST || null,
+    SMTP_PORT: process.env.SMTP_PORT || '587',
+    SMTP_USER: process.env.SMTP_USER ? '***configurado***' : null,
+    SMTP_PASS: process.env.SMTP_PASS ? '***configurado***' : null,
+    SMTP_FROM: process.env.SMTP_FROM || null,
+  };
+  const expected =
+    provider === 'resend'
+      ? ['RESEND_API_KEY', 'EMAIL_FROM']
+      : provider === 'smtp'
+        ? ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'EMAIL_FROM ou SMTP_FROM']
+        : ['EMAIL_PROVIDER + credenciais (SMTP ou Resend)'];
+  return {
+    ...status,
+    provider_expected: provider === 'console' && !status.configured ? 'smtp ou resend' : provider,
+    variables: vars,
+    variables_required: expected,
+    detected: status.configured ? 'ativo' : 'ausente',
+  };
+}
+
 function warnUnconfiguredOnce() {
   if (warnedUnconfigured) return;
   warnedUnconfigured = true;

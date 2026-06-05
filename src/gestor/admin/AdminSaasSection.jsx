@@ -455,6 +455,7 @@ export default function AdminSaasSection({
   const [systemAlerts, setSystemAlerts] = useState([]);
   const [cobrancaAlertas, setCobrancaAlertas] = useState({ avisos: [] });
   const [metrics, setMetrics] = useState(null);
+  const [billingAudit, setBillingAudit] = useState([]);
   const [editPlano, setEditPlano] = useState(null);
   const [detailId, setDetailId] = useState(null);
 
@@ -483,6 +484,7 @@ export default function AdminSaasSection({
     systemApi.configStatus().then((s) => setSystemAlerts(s.alerts || [])).catch(() => {});
     adminApi.cobrancaAlertas().then(setCobrancaAlertas).catch(() => {});
     adminApi.saasMetrics().then(setMetrics).catch(() => {});
+    adminApi.billingAudit(24).then((d) => setBillingAudit(d.pagamentos || [])).catch(() => {});
   }, []);
 
   const handleToggle = async (id) => {
@@ -537,6 +539,44 @@ export default function AdminSaasSection({
           ))}
         </div>
       )}
+
+      <div className="card admin-inner-card" style={{ marginBottom: 20 }}>
+        <div className="card-title">Últimos pagamentos</div>
+        {billingAudit.length === 0 ? (
+          <p className="admin-empty">Nenhum pagamento registrado.</p>
+        ) : (
+          <div className="admin-table-wrap" style={{ boxShadow: "none", border: "none" }}>
+            <table className="data-table" style={{ width: "100%", fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Plano</th>
+                  <th>Gateway</th>
+                  <th>Método</th>
+                  <th>Status</th>
+                  <th>Valor</th>
+                  <th>Criado</th>
+                  <th>Pago em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {billingAudit.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.cliente?.nome || p.cliente?.email}</td>
+                    <td>{p.plano?.slug || "—"}</td>
+                    <td>{p.gateway_label || p.gateway}</td>
+                    <td>{p.metodo}</td>
+                    <td>{p.status}</td>
+                    <td>{fmtBRL(p.valor_centavos)}</td>
+                    <td>{fmtDt(p.criado_em)}</td>
+                    <td>{p.pago_em ? fmtDt(p.pago_em) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
       </div>
       )}
 

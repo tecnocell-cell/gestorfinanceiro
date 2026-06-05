@@ -727,6 +727,116 @@ export async function trocarPlano(usuarioId, planoSlug) {
   };
 }
 
+/** Reenvia cobrança na fatura pendente existente — não cria fatura duplicada (Etapa 8.1). */
+export async function regeneratePendingFaturaCheckout(usuarioId, faturaId, planoSlug) {
+  const plano = await getPlanoBySlug(planoSlug);
+  if (!plano) return { ok: false, error: 'Plano não encontrado.' };
+
+  const usuario = await getUsuario(usuarioId);
+  const gateway = await resolveActiveGateway();
+  if (!gateway) {
+    return { ok: false, error: 'Cobrança online não disponível.' };
+  }
+
+  const { rows: fatRows } = await query(
+    `SELECT id, assinatura_id, vencimento, status, gateway
+     FROM faturas WHERE id = $1 AND usuario_id = $2 AND status = 'pendente'`,
+    [faturaId, usuarioId]
+  );
+  if (!fatRows.length) {
+    return { ok: false, error: 'Fatura pendente não encontrada.' };
+  }
+  const fatura = fatRows[0];
+  const assinaturaId = fatura.assinatura_id;
+  const dueDate = fatura.vencimento || formatDateYmd(addDays(new Date(), 3));
+
+  if (gateway === 'mercado_pago') {
+    const extRef = mpPaymentExternalRef(fatura.id);
+    const payment = await createMpPixPayment({
+      valueReais: plano.preco_centavos / 100,
+      dueDate,
+      description: `Fluxiva — ${plano.nome}`,
+      externalReference: extRef,
+      payerEmail: usuario.email,
+    });
+    const payload = {
+      metodo: 'pix',
+      billingType: 'PIX',
+      mock: payment.mock || false,
+      target_plano_id: plano.id,
+      target_plano_slug: plano.slug,
+      reenviado: true,
+      pix: {
+        qr_code: payment.qrCode,
+        qr_code_base64: payment.qrCodeBase64,
+        copia_e_cola: payment.copiaECola,
+        expires_at: payment.expiresAt,
+      },
+    };
+
+    await query(`UPDATE faturas SET gateway_invoice_id = $1, gateway = 'mercado_pago' WHERE id = $2`, [
+      payment.id,
+      fatura.id,
+    ]);
+
+    const { rows: pagExist } = await query(
+      `SELECT id FROM pagamentos WHERE fatura_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [fatura.id]
+    );
+    let pagamentoId;
+    if (pagExist.length) {
+      await query(
+        `UPDATE pagamentos SET gateway_payment_id = $1, status = $2, valor_centavos = $3, payload = $4
+         WHERE id = $5`,
+        [
+          payment.id,
+          mapMpStatus(payment.status),
+          plano.preco_centavos,
+          JSON.stringify(payload),
+          pagExist[0].id,
+        ]
+      );
+      pagamentoId = pagExist[0].id;
+    } else {
+      const { rows: pagRows } = await query(
+        `INSERT INTO pagamentos (usuario_id, assinatura_id, fatura_id, gateway, gateway_payment_id, valor_centavos, status, payload)
+         VALUES ($1, $2, $3, 'mercado_pago', $4, $5, $6, $7) RETURNING id`,
+        [
+          usuarioId,
+          assinaturaId,
+          fatura.id,
+          payment.id,
+          plano.preco_centavos,
+          mapMpStatus(payment.status),
+          JSON.stringify(payload),
+        ]
+      );
+      pagamentoId = pagRows[0].id;
+    }
+
+    return {
+      ok: true,
+      reenviado: true,
+      gateway: 'mercado_pago',
+      fatura_id: fatura.id,
+      pagamento_id: pagamentoId,
+      gateway_payment_id: payment.id,
+      valor_centavos: plano.preco_centavos,
+      vencimento: dueDate,
+      pix: {
+        qrCode: payload.pix?.qr_code,
+        qrCodeBase64: payload.pix?.qr_code_base64,
+        copiaECola: payload.pix?.copia_e_cola,
+        copy_paste: payload.pix?.copia_e_cola,
+        encoded_image: payload.pix?.qr_code_base64,
+      },
+      plano_slug: plano.slug,
+    };
+  }
+
+  return createCheckout(usuarioId, planoSlug, { metodo: 'pix', gateway });
+}
+
 export async function adminReenviarCobranca(alvoUsuarioId, adminUsuarioId) {
   const { rows } = await query(
     `SELECT f.id,
@@ -744,13 +854,17 @@ export async function adminReenviarCobranca(alvoUsuarioId, adminUsuarioId) {
   if (!rows.length) {
     return { ok: false, error: 'Nenhuma fatura pendente para reenviar.' };
   }
-  const checkout = await createCheckout(alvoUsuarioId, rows[0].slug);
+  const checkout = await regeneratePendingFaturaCheckout(
+    alvoUsuarioId,
+    rows[0].id,
+    rows[0].slug
+  );
   if (!checkout.ok) return checkout;
   await insertAdminSaasAudit({
     adminUsuarioId,
     alvoUsuarioId,
     acao: 'reenviar_cobranca',
-    detalhes: { fatura_id: rows[0].id },
+    detalhes: { fatura_id: rows[0].id, reenviado: true },
   });
   return { ok: true, ...checkout };
 }

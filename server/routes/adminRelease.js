@@ -16,6 +16,7 @@ import {
   setClientChecklistItem,
 } from '../homologacao/clientChecklist.js';
 import { getProductionGuide } from '../homologacao/productionGuide.js';
+import { listRecentPayments } from '../homologacao/billingAudit.js';
 
 const router = Router();
 const guard = [authMiddleware, adminMiddleware];
@@ -95,6 +96,17 @@ router.patch('/client-checklist', ...guard, async (req, res) => {
   } catch (err) {
     console.error('admin/client-checklist PATCH:', err.message);
     res.status(500).json({ error: 'Erro ao atualizar checklist.' });
+  }
+});
+
+router.get('/billing-audit', ...guard, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 40, 100);
+    const pagamentos = await listRecentPayments({ limit });
+    res.json({ pagamentos });
+  } catch (err) {
+    console.error('admin/billing-audit:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar auditoria de cobrança.' });
   }
 });
 

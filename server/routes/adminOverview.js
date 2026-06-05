@@ -10,7 +10,9 @@ import {
   isAsaasRealKeyConfigured,
   isWebhookConfigured,
 } from '../billing/gateways/asaas.js';
-import { expectedWebhookUrl } from '../billing/billingHealthLib.js';
+import { expectedWebhookUrl, expectedMpWebhookUrl } from '../billing/billingHealthLib.js';
+import { isMercadoPagoReady } from '../billing/paymentGatewayFactory.js';
+import { publicApiBaseUrl } from '../billing/billingUrls.js';
 import { getGoLiveStatus } from '../homologacao/goLiveStatus.js';
 import { runProductionChecks } from '../homologacao/productionCheck.js';
 import { getBetaHomologacao, setBetaHomologacaoItem } from '../homologacao/betaChecklist.js';
@@ -109,12 +111,16 @@ router.get('/overview', authMiddleware, adminMiddleware, async (_req, res) => {
 
 router.get('/billing-health', authMiddleware, adminMiddleware, async (_req, res) => {
   try {
-    const configured = isAsaasRealKeyConfigured();
-    const environment = configured
-      ? getAsaasEnv()
-      : process.env.BILLING_USE_MOCK_GATEWAY === 'true'
-        ? 'mock'
-        : 'not_configured';
+    const mpPrimary = await isMercadoPagoReady();
+    const asaasConfigured = isAsaasRealKeyConfigured();
+    const configured = mpPrimary || asaasConfigured;
+    const environment = mpPrimary
+      ? 'mercado_pago'
+      : asaasConfigured
+        ? getAsaasEnv()
+        : process.env.BILLING_USE_MOCK_GATEWAY === 'true'
+          ? 'mock'
+          : 'not_configured';
 
     const { rows: subRows } = await query(
       `SELECT COUNT(*)::int AS n FROM assinaturas WHERE status = 'ativa'`
@@ -125,9 +131,12 @@ router.get('/billing-health', authMiddleware, adminMiddleware, async (_req, res)
 
     res.json({
       configured,
+      gateway: mpPrimary ? 'mercado_pago' : asaasConfigured ? 'asaas' : 'not_configured',
       environment,
-      webhookConfigured: isWebhookConfigured(),
-      webhookUrl: expectedWebhookUrl(),
+      webhookConfigured: mpPrimary
+        ? Boolean(publicApiBaseUrl())
+        : isWebhookConfigured(),
+      webhookUrl: mpPrimary ? expectedMpWebhookUrl() : expectedWebhookUrl(),
       activeSubscriptions: subRows[0]?.n || 0,
       pendingInvoices: fatRows[0]?.n || 0,
     });

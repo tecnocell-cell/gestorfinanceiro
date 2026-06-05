@@ -10,11 +10,24 @@ const TABS = [
   { id: "cliente", label: "Teste guiado cliente" },
 ];
 
-function StatusItem({ label, ok, detail, warn }) {
-  const tone = ok ? "ok" : warn ? "warn" : "err";
+function SeverityBadge({ severity }) {
+  const map = {
+    critical: { label: "Crítico", cls: "admin-wa-pill--off" },
+    warning: { label: "Aviso", cls: "admin-wa-pill--warn" },
+    optional: { label: "Opcional", cls: "admin-wa-pill--ok" },
+  };
+  const s = map[severity] || map.optional;
+  return <span className={`admin-wa-pill ${s.cls}`} style={{ marginRight: 8 }}>{s.label}</span>;
+}
+
+function StatusItem({ label, ok, detail, warn, severity }) {
+  const tone = ok ? "ok" : warn || severity === "warning" ? "warn" : severity === "optional" ? "ok" : "err";
   return (
     <div className={`admin-status-row admin-status-row--${tone}`}>
-      <span className="admin-status-label">{label}</span>
+      <span className="admin-status-label">
+        {severity && <SeverityBadge severity={severity} />}
+        {label}
+      </span>
       <span className="admin-status-detail">{detail}</span>
     </div>
   );
@@ -172,10 +185,26 @@ export default function AdminReleaseCandidatePage() {
                 label={c.label}
                 ok={c.ok}
                 detail={c.detail}
-                warn={c.warnOnly && !c.ok}
+                warn={c.severity === "warning" && !c.ok}
+                severity={c.severity}
               />
             ))}
           </div>
+          {rc.smtp && (
+            <div className="card admin-inner-card" style={{ marginTop: 12 }}>
+              <div className="card-title">SMTP / E-mail</div>
+              <p style={{ fontSize: 13, margin: "0 0 8px" }}>
+                Provedor esperado: <strong>{rc.smtp.provider_expected}</strong>
+                {" · "}Status: <strong>{rc.smtp.detected}</strong>
+              </p>
+              <p className="admin-card-hint" style={{ margin: "0 0 8px" }}>
+                Variáveis necessárias: {rc.smtp.variables_required?.join(", ")}
+              </p>
+              <pre className="admin-payment-json-preview" style={{ fontSize: 11 }}>
+                {JSON.stringify(rc.smtp.variables, null, 2)}
+              </pre>
+            </div>
+          )}
           <p className="admin-card-hint" style={{ marginTop: 12 }}>
             Webhook MP: <code>{rc.mpWebhookUrl}</code>
             {rc.publicApiUrl && (
@@ -250,6 +279,21 @@ export default function AdminReleaseCandidatePage() {
             ) : (
               <p className="admin-empty">Nenhum teste PIX gerado ainda.</p>
             )}
+          </div>
+
+          <div className="card admin-inner-card" style={{ marginTop: 12 }}>
+            <div className="card-title">Checklist PIX real (homologação)</div>
+            <ul className="admin-checklist">
+              {(rc?.pix_go_live_checklist || []).map((item) => (
+                <li key={item.key}>
+                  <label className="admin-checklist-label">
+                    <input type="checkbox" readOnly />
+                    <span>{item.label}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="admin-card-hint">Marque manualmente após teste em sandbox ou produção.</p>
           </div>
 
           <div className="card admin-inner-card" style={{ marginTop: 12 }}>

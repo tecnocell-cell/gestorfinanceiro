@@ -13,7 +13,9 @@ import {
   isWebhookConfigured,
   getAsaasEnv,
 } from '../billing/gateways/asaas.js';
-import { expectedWebhookUrl } from '../billing/billingHealthLib.js';
+import { expectedWebhookUrl, expectedMpWebhookUrl } from '../billing/billingHealthLib.js';
+import { isMercadoPagoReady } from '../billing/paymentGatewayFactory.js';
+import { publicApiBaseUrl } from '../billing/billingUrls.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dir, '../migrations');
@@ -104,8 +106,11 @@ export async function runProductionChecks({ apiBaseUrl } = {}) {
   const email = getEmailConfigStatus();
   const whatsapp = getWhatsappConfigStatus();
   const backup = getBackupConfigStatus();
+  const mpPrimary = await isMercadoPagoReady();
   const asaasConfigured = isAsaasRealKeyConfigured();
-  const webhookUrl = expectedWebhookUrl();
+  const asaasWebhookUrl = expectedWebhookUrl();
+  const mpWebhookUrl = expectedMpWebhookUrl();
+  const publicUrl = publicApiBaseUrl();
 
   let migrations = { ok: false, pending: [], total: 0, applied: 0 };
   try {
@@ -140,19 +145,45 @@ export async function runProductionChecks({ apiBaseUrl } = {}) {
       detail: email.message,
     },
     {
-      id: 'asaas',
-      label: 'Asaas configurado',
-      ok: asaasConfigured,
-      detail: asaasConfigured
-        ? `Ambiente ${getAsaasEnv()}`
-        : 'ASAAS_API_KEY ausente ou mock ativo',
+      id: 'gateway',
+      label: 'Gateway principal',
+      ok: mpPrimary || asaasConfigured,
+      detail: mpPrimary
+        ? 'Mercado Pago (principal)'
+        : asaasConfigured
+          ? `Asaas ${getAsaasEnv()}`
+          : 'Nenhum gateway ativo',
     },
-    {
-      id: 'webhook',
-      label: 'Webhook URL pública',
-      ok: Boolean(webhookUrl && (isWebhookConfigured() || process.env.NODE_ENV !== 'production')),
-      detail: `${webhookUrl}${isWebhookConfigured() ? ' (token OK)' : ' (token opcional em dev)'}`,
-    },
+    ...(mpPrimary
+      ? [
+          {
+            id: 'mp_webhook',
+            label: 'Webhook Mercado Pago',
+            ok: Boolean(publicUrl),
+            detail: publicUrl ? mpWebhookUrl : 'Defina PUBLIC_API_URL',
+          },
+        ]
+      : [
+          {
+            id: 'asaas',
+            label: 'Asaas configurado',
+            ok: asaasConfigured,
+            detail: asaasConfigured
+              ? `Ambiente ${getAsaasEnv()}`
+              : 'ASAAS_API_KEY ausente ou mock ativo',
+            warnOnly: !asaasConfigured,
+          },
+          {
+            id: 'webhook',
+            label: 'Webhook Asaas',
+            ok: Boolean(
+              asaasWebhookUrl &&
+                (isWebhookConfigured() || process.env.NODE_ENV !== 'production')
+            ),
+            detail: `${asaasWebhookUrl}${isWebhookConfigured() ? ' (token OK)' : ' (token opcional em dev)'}`,
+            warnOnly: !isWebhookConfigured() && process.env.NODE_ENV !== 'production',
+          },
+        ]),
     {
       id: 'whatsapp',
       label: 'WhatsApp',

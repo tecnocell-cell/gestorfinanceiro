@@ -252,6 +252,8 @@ export const adminApi = {
   patchClientChecklist: (body) =>
     request("/admin/client-checklist", { method: "PATCH", body }),
   productionGuide: () => request("/admin/production-guide"),
+  billingAudit: (limit = 40) =>
+    request(`/admin/billing-audit?limit=${limit}`),
   betaHomologacao: () => request("/admin/beta-homologacao"),
   patchBetaHomologacao: (body) =>
     request("/admin/beta-homologacao", { method: "PATCH", body }),
