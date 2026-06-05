@@ -6,6 +6,11 @@ import {
   getMercadoPagoConfigRaw,
   getPaymentConfigRow,
 } from '../paymentConfigService.js';
+import {
+  resolveCardSandboxScenario,
+  mockPaymentIdFromScenario,
+  getMockPaymentById,
+} from '../cardSandbox.js';
 
 const MP_API = 'https://api.mercadopago.com';
 
@@ -118,17 +123,32 @@ export async function createPixPayment(params) {
 /**
  * @param {{ valueReais: number, description: string, externalReference: string, cardToken: string, installments?: number, payer?: object }} params
  */
-export async function createCardPayment(params) {
+export function assertCardPaymentAllowed() {
   if (process.env.PAYMENT_CARD_ENABLED !== 'true') {
     throw new Error('Pagamento com cartão não está habilitado neste ambiente.');
   }
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.PAYMENT_CARD_ALLOW_PRODUCTION !== 'true'
+  ) {
+    throw new Error('Cartão indisponível em produção até homologação.');
+  }
+}
+
+export async function createCardPayment(params) {
+  assertCardPaymentAllowed();
 
   if (useMock()) {
-    const id = mockId('pay');
+    const scenario = resolveCardSandboxScenario(params.cardToken, params.installments);
+    const id = mockPaymentIdFromScenario(scenario.scenario);
     return {
       id,
-      status: 'approved',
+      status: scenario.status,
+      status_detail: scenario.status_detail,
+      installments: scenario.installments,
       mock: true,
+      sandbox: true,
+      sandbox_scenario: scenario.scenario,
       external_reference: params.externalReference,
     };
   }
@@ -161,7 +181,7 @@ export async function createCardPayment(params) {
 
 export async function getPayment(paymentId) {
   if (useMock()) {
-    return { id: paymentId, status: 'approved', mock: true };
+    return getMockPaymentById(paymentId);
   }
   return mpFetch(`/v1/payments/${paymentId}`);
 }
@@ -190,7 +210,7 @@ export const MP_STATUS_MAP = {
   approved: 'confirmado',
   pending: 'pendente',
   in_process: 'pendente',
-  rejected: 'falha',
+  rejected: 'cancelado',
   cancelled: 'cancelado',
   refunded: 'estornado',
   charged_back: 'chargeback',

@@ -130,10 +130,15 @@ export async function createCheckout(usuarioId, planoSlug, opts = {}) {
       });
       payload = {
         metodo: 'cartao',
+        billingType: 'CREDIT_CARD',
         mock: payment.mock || false,
+        sandbox: payment.sandbox || false,
+        sandbox_scenario: payment.sandbox_scenario || null,
+        installments: payment.installments || opts.installments || 1,
         target_plano_id: plano.id,
         target_plano_slug: plano.slug,
         status_mp: payment.status,
+        status_detail: payment.status_detail || null,
       };
     } else {
       payment = await createMpPixPayment({
@@ -186,6 +191,16 @@ export async function createCheckout(usuarioId, planoSlug, opts = {}) {
     if (MP_APPROVED_STATUSES.has(payment.status)) {
       await activateSubscriptionFromPayment(fatura.id);
       await refreshSubscriptionLifecycle(usuarioId);
+    } else if (payment.status === 'rejected') {
+      await query(
+        `UPDATE faturas SET status = 'cancelada' WHERE id = $1 AND status = 'pendente'`,
+        [fatura.id]
+      );
+    } else if (payment.status === 'cancelled') {
+      await query(
+        `UPDATE faturas SET status = 'cancelada' WHERE id = $1 AND status = 'pendente'`,
+        [fatura.id]
+      );
     }
 
     emailCobrancaCriada(usuarioId, {
@@ -225,6 +240,9 @@ export async function createCheckout(usuarioId, planoSlug, opts = {}) {
       paymentUrl,
       plano_slug: plano.slug,
       regra: BILLING_RULES_DOC.upgrade,
+      payment_status: payment.status,
+      activated: MP_APPROVED_STATUSES.has(payment.status),
+      installments: payload.installments || 1,
     };
   }
 

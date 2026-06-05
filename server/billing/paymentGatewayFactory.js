@@ -49,12 +49,27 @@ export function isCardPaymentEnabled() {
   return process.env.PAYMENT_CARD_ENABLED === 'true';
 }
 
+export function isCardAllowedInProduction() {
+  return (
+    process.env.PAYMENT_CARD_ENABLED === 'true' &&
+    process.env.PAYMENT_CARD_ALLOW_PRODUCTION === 'true'
+  );
+}
+
 export async function getPublicPaymentMethods() {
   const mpReady = await isMercadoPagoReady();
   const asaasReady = await isAsaasReady();
   const mpRow = await getPaymentConfigRow('mercado_pago');
   const mpCfg = mpRow?.config || {};
   const cardEnv = isCardPaymentEnabled();
+  const cardSandbox = useMock() && cardEnv && mpReady;
+  const hasPublicKey = Boolean(mpCfg.public_key);
+  const cardAvailable =
+    mpReady &&
+    cardEnv &&
+    (hasPublicKey || cardSandbox) &&
+    (process.env.NODE_ENV !== 'production' || isCardAllowedInProduction());
+
   const pagamentoOnline = mpReady || asaasReady;
 
   let gatewayAtivo = null;
@@ -66,12 +81,15 @@ export async function getPublicPaymentMethods() {
     gateway_ativo: gatewayAtivo,
     metodos: {
       pix: pagamentoOnline,
-      cartao: mpReady && cardEnv && Boolean(mpCfg.public_key),
+      cartao: cardAvailable,
       boleto: false,
       boleto_em_breve: true,
     },
-    cartao_em_teste: cardEnv && process.env.NODE_ENV !== 'production',
-    public_key: mpReady && mpCfg.public_key ? mpCfg.public_key : null,
+    cartao_habilitado: cardEnv,
+    cartao_sandbox: cardSandbox,
+    cartao_brick: cardAvailable && hasPublicKey,
+    cartao_em_breve: !cardAvailable,
+    public_key: mpReady && hasPublicKey ? mpCfg.public_key : null,
   };
 }
 

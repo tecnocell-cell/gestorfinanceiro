@@ -36,6 +36,8 @@
     "test:76": "node server/test76.js",
     "test:77": "node server/test77.js",
     "test:78": "node server/test78.js",
+    "test:cartao-mp": "node server/testCartaoMp.js",
+    "test:finance-consistency": "node server/testFinanceConsistency.js",
     "billing:health": "node server/billing/billingHealth.js",
     "check:production": "node server/homologacao/runProductionCheck.js",
     "test:asaas": "node server/testAsaas.js",

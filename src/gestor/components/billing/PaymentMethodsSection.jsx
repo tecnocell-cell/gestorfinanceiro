@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { billingApi } from "../../api.js";
 import { PUBLIC_MESSAGES } from "../../planRules.js";
+import MercadoPagoPaymentBrick from "./MercadoPagoPaymentBrick.jsx";
+import CardPaymentSandbox from "./CardPaymentSandbox.jsx";
 
 /**
- * Forma de pagamento no Portal do Cliente (Etapa 7.8)
+ * Forma de pagamento no Portal do Cliente (Etapa 7.8 + 7.8A Payment Brick)
  */
 export default function PaymentMethodsSection({
   planoSlug,
+  amountCentavos,
+  payerEmail,
   onPixReady,
+  onCardResult,
   busy,
   setBusy,
   setError,
@@ -43,6 +48,41 @@ export default function PaymentMethodsSection({
     }
   };
 
+  const payCard = useCallback(
+    async ({ cardToken, installments, payer, payment_method_id }) => {
+      if (!planoSlug) return;
+      setBusy?.("card-pay");
+      setError?.("");
+      setMsg?.("");
+      try {
+        const data = await billingApi.checkout({
+          plano_slug: planoSlug,
+          metodo: "cartao",
+          gateway: "mercado_pago",
+          cardToken,
+          installments,
+          payer: payer || (payerEmail ? { email: payerEmail } : undefined),
+          payment_method_id,
+        });
+        onCardResult?.(data);
+        if (data.activated) {
+          setMsg?.("Pagamento aprovado. Seu plano foi ativado.");
+        } else if (data.payment_status === "rejected") {
+          setError?.("Pagamento recusado. Tente outro cartão ou use PIX.");
+        } else if (data.payment_status === "cancelled") {
+          setError?.("Pagamento cancelado.");
+        } else {
+          setMsg?.("Pagamento em processamento.");
+        }
+      } catch (e) {
+        setError?.(e.message || PUBLIC_MESSAGES.billing);
+      } finally {
+        setBusy?.(null);
+      }
+    },
+    [planoSlug, payerEmail, onCardResult, setBusy, setError, setMsg]
+  );
+
   if (!methods) return <p className="text-muted">Carregando formas de pagamento…</p>;
 
   if (!methods.pagamento_online) {
@@ -54,7 +94,9 @@ export default function PaymentMethodsSection({
   }
 
   const showCard = methods.metodos?.cartao;
-  const cardTest = methods.cartao_em_teste;
+  const showBrick = methods.cartao_brick && methods.public_key;
+  const showSandbox = methods.cartao_sandbox && !showBrick;
+  const amountReais = amountCentavos ? amountCentavos / 100 : 0;
 
   return (
     <div className="plan-payment-methods">
@@ -78,13 +120,13 @@ export default function PaymentMethodsSection({
           >
             <span className="plan-pay-card-title">Cartão de crédito</span>
             <span className="plan-pay-card-desc">
-              {cardTest ? "Cartão em teste" : "Pagamento com cartão"}
+              {showSandbox ? "Homologação (sandbox)" : "Pagamento com cartão"}
             </span>
           </button>
         ) : (
           <div className="plan-pay-card disabled">
             <span className="plan-pay-card-title">Cartão de crédito</span>
-            <span className="plan-pay-card-desc">Em breve</span>
+            <span className="plan-pay-card-desc">Cartão em breve</span>
           </div>
         )}
         <div className="plan-pay-card disabled">
@@ -105,11 +147,21 @@ export default function PaymentMethodsSection({
       )}
 
       {metodo === "cartao" && showCard && (
-        <p className="text-sm text-muted" style={{ marginTop: 8 }}>
-          Integração com Payment Brick: use a chave pública configurada no painel. Em produção,
-          cartão exige PAYMENT_CARD_ENABLED=true e token gerado no frontend (não armazenamos dados
-          do cartão).
-        </p>
+        <div className="plan-payment-card-panel">
+          {showBrick && amountReais > 0 ? (
+            <MercadoPagoPaymentBrick
+              publicKey={methods.public_key}
+              amountReais={amountReais}
+              payerEmail={payerEmail}
+              onSubmit={payCard}
+              onError={(e) => setError?.(e.message)}
+            />
+          ) : showSandbox ? (
+            <CardPaymentSandbox onPay={payCard} busy={busy === "card-pay"} />
+          ) : (
+            <p className="admin-card-hint">Configure a chave pública do Mercado Pago no Super Admin.</p>
+          )}
+        </div>
       )}
     </div>
   );

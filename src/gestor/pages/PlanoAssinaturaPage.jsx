@@ -183,6 +183,72 @@ const PAGE_CSS = `
   background: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .portal-tab--active { background: var(--green-dark, #166534); color: #fff; border-color: transparent; }
+
+.plan-payment-methods { margin-top: 4px; }
+.plan-section-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+.plan-pay-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.plan-pay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid oklch(0.9 0.02 150);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.plan-pay-card:hover:not(.disabled) { border-color: var(--green-dark, #166534); }
+.plan-pay-card.active {
+  border-color: var(--green-dark, #166534);
+  box-shadow: 0 0 0 2px oklch(0.45 0.08 155 / 0.15);
+}
+.plan-pay-card.disabled {
+  opacity: 0.65;
+  cursor: default;
+  background: oklch(0.98 0.01 150);
+}
+.plan-pay-card-title { font-size: 13px; font-weight: 700; }
+.plan-pay-card-desc { font-size: 11px; color: var(--muted-foreground); }
+.plan-payment-card-panel { margin-top: 8px; }
+.mp-payment-brick-wrap { min-height: 120px; }
+.mp-payment-brick-container { min-height: 80px; }
+.card-payment-sandbox {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed oklch(0.85 0.03 200);
+  background: oklch(0.98 0.01 220);
+}
+.card-sandbox-scenarios {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.card-sandbox-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid oklch(0.88 0.02 200);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+.card-sandbox-scenario--active {
+  border-color: oklch(0.55 0.12 250);
+  background: oklch(0.96 0.03 250);
+}
+.card-sandbox-scenario-title { font-size: 12px; font-weight: 700; }
+.card-sandbox-scenario-desc { font-size: 10px; color: var(--muted-foreground); }
 `;
 
 function formatDate(value) {
@@ -782,7 +848,12 @@ export default function PlanoAssinaturaPage() {
             <div className="card" style={{ marginBottom: 16 }}>
               <PaymentMethodsSection
                 planoSlug={currentSlug}
+                amountCentavos={assinatura?.plano?.preco_centavos}
+                payerEmail={user?.email}
                 onPixReady={setPixCheckout}
+                onCardResult={async (data) => {
+                  if (data.activated) await load();
+                }}
                 busy={busy}
                 setBusy={setBusy}
                 setError={setError}
