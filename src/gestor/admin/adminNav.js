@@ -40,6 +40,12 @@ export const ADMIN_NAV = [
     icon: "guia",
   },
   {
+    id: "admin-homologacao-real",
+    label: "Homologação Real",
+    sub: "PF · PJ · pagamento · beta",
+    icon: "homologacaoReal",
+  },
+  {
     id: "admin-homologacao",
     label: "Homologação",
     sub: "Produção · beta · logs",

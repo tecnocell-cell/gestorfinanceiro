@@ -254,6 +254,12 @@ export const adminApi = {
   productionGuide: () => request("/admin/production-guide"),
   billingAudit: (limit = 40) =>
     request(`/admin/billing-audit?limit=${limit}`),
+  realHomologacao: () => request("/admin/homologacao-real"),
+  patchRealHomologacao: (body) =>
+    request("/admin/homologacao-real", { method: "PATCH", body }),
+  patchRealHomologacaoMeta: (body) =>
+    request("/admin/homologacao-real/meta", { method: "PATCH", body }),
+  realHomologacaoReport: () => request("/admin/homologacao-real/report"),
   betaHomologacao: () => request("/admin/beta-homologacao"),
   patchBetaHomologacao: (body) =>
     request("/admin/beta-homologacao", { method: "PATCH", body }),

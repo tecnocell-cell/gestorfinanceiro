@@ -125,6 +125,7 @@ export const NAV_ICON_MAP = {
 export const ADMIN_ICON_MAP = {
   operacoes: LayoutDashboard,
   homologacao: CheckCircle,
+  homologacaoReal: ClipboardList,
   saas: CircleDollarSign,
   tenants: Users,
   beta: Sparkles,

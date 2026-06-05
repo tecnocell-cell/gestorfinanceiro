@@ -17,6 +17,12 @@ import {
 } from '../homologacao/clientChecklist.js';
 import { getProductionGuide } from '../homologacao/productionGuide.js';
 import { listRecentPayments } from '../homologacao/billingAudit.js';
+import {
+  getRealHomologacao,
+  setRealHomologacaoItem,
+  setRealHomologacaoMeta,
+  generateRealHomologacaoReport,
+} from '../homologacao/realHomologacao.js';
 
 const router = Router();
 const guard = [authMiddleware, adminMiddleware];
@@ -116,6 +122,59 @@ router.get('/production-guide', ...guard, async (_req, res) => {
   } catch (err) {
     console.error('admin/production-guide:', err.message);
     res.status(500).json({ error: 'Erro ao carregar guia.' });
+  }
+});
+
+router.get('/homologacao-real', ...guard, async (_req, res) => {
+  try {
+    res.json(await getRealHomologacao());
+  } catch (err) {
+    console.error('admin/homologacao-real GET:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar homologação real.' });
+  }
+});
+
+router.patch('/homologacao-real', ...guard, async (req, res) => {
+  const { section, key, checked } = req.body || {};
+  try {
+    const result = await setRealHomologacaoItem({
+      section,
+      key,
+      checked: !!checked,
+      adminEmail: req.user?.email,
+    });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json(result);
+  } catch (err) {
+    console.error('admin/homologacao-real PATCH:', err.message);
+    res.status(500).json({ error: 'Erro ao atualizar checklist.' });
+  }
+});
+
+router.patch('/homologacao-real/meta', ...guard, async (req, res) => {
+  const { usuario_pf, usuario_pj, falhas, status } = req.body || {};
+  try {
+    const result = await setRealHomologacaoMeta({
+      usuario_pf,
+      usuario_pj,
+      falhas,
+      status,
+      adminEmail: req.user?.email,
+    });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json(result);
+  } catch (err) {
+    console.error('admin/homologacao-real/meta PATCH:', err.message);
+    res.status(500).json({ error: 'Erro ao salvar parecer.' });
+  }
+});
+
+router.get('/homologacao-real/report', ...guard, async (_req, res) => {
+  try {
+    res.json(await generateRealHomologacaoReport());
+  } catch (err) {
+    console.error('admin/homologacao-real/report:', err.message);
+    res.status(500).json({ error: 'Erro ao gerar relatório.' });
   }
 });
 

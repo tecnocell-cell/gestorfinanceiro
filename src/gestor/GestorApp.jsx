@@ -18,6 +18,7 @@ import AdminBetaPage from "./pages/AdminBetaPage.jsx";
 import AdminPaymentConfigPage from "./pages/AdminPaymentConfigPage.jsx";
 import AdminReleaseCandidatePage from "./pages/AdminReleaseCandidatePage.jsx";
 import AdminProductionGuidePage from "./pages/AdminProductionGuidePage.jsx";
+import AdminRealHomologacaoPage from "./pages/AdminRealHomologacaoPage.jsx";
 import BetaBanner from "./components/beta/BetaBanner.jsx";
 import BetaBadge from "./components/beta/BetaBadge.jsx";
 import BetaFeedbackFab from "./components/beta/BetaFeedbackFab.jsx";
@@ -79,6 +80,7 @@ const ADMIN_PAGE_MAP = {
   "admin-pagamentos": AdminPaymentConfigPage,
   "admin-release": AdminReleaseCandidatePage,
   "admin-guia": AdminProductionGuidePage,
+  "admin-homologacao-real": AdminRealHomologacaoPage,
 };
 
 const PAGE_MAP_PJ = {
