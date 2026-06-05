@@ -218,6 +218,7 @@ export function ModalLancamento() {
       return;
     }
     const valorNum = safeNum(form.valor);
+    let excluirContaCaixa = false;
     const semContaPago =
       form.pago &&
       form.tipo !== "Transferencia" &&
@@ -228,6 +229,7 @@ export function ModalLancamento() {
         "Sem conta, este lançamento entra nos relatórios, mas não altera saldo de Caixa/Banco.\n\nDeseja salvar mesmo assim?"
       );
       if (!ok) return;
+      excluirContaCaixa = true;
     }
     if (form.tipo === "Saida" && form.contaSaidaId) {
       const saldoAtual = getSaldoConta(form.contaSaidaId);
@@ -250,7 +252,7 @@ export function ModalLancamento() {
     }
     const nums = lancamentos.map((l) => parseInt(String(l.lote || "").replace(/\D/g, ""), 10)).filter((n) => !Number.isNaN(n));
     const lote = form.lote || `L${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0")}`;
-    saveLancamento({ ...form, lote });
+    saveLancamento({ ...form, lote, excluirContaCaixa });
   };
 
   const contasAtivas = contas.filter((c) => !c.inativo);

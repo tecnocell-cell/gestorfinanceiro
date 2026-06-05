@@ -118,6 +118,7 @@ function main() {
     status: 'pago',
     pago: true,
     dataPagamento: `${ANO}-${MES}-12`,
+    excluirContaCaixa: true,
   };
   const cManual = [lancTransferPf({ id: 'tr2', valor: 5000 }), manualSemConta];
   const totais = calcTotaisResultadoPeriodo(cManual, PERIODO);

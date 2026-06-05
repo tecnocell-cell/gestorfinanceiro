@@ -17,7 +17,7 @@ import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
 import {
   addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista,
-  filterResultadoPF, sumPagasNoMes, patchContaLancamentoPago,
+  filterResultadoPF, sumPagasNoMes, patchContaAoMarcarPago,
 } from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
@@ -160,7 +160,7 @@ export default function ContasAPagarPage() {
     const agora = new Date().toISOString();
     const patch = { status: "pago", pago: true, dataPagamento: hoje, pagoEm: agora };
     if (lanc) {
-      const contaPatch = patchContaLancamentoPago({ ...lanc, ...patch }, contas);
+      const contaPatch = patchContaAoMarcarPago({ ...lanc, ...patch }, contas);
       if (contaPatch) Object.assign(patch, contaPatch);
     }
     lancCrud.update(id, patch);

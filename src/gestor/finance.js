@@ -72,8 +72,17 @@ export function getContaPadrao(contas) {
   );
 }
 
-/** Resolve conta bancária do lançamento (id, código; recorrência usa conta padrão). */
-export function resolveContaIdsLancamento(l, contas, { inferRecorrencia = true } = {}) {
+/** Lançamento salvo sem conta de propósito (modal) — não inferir no caixa. */
+export function lancamentoExcluidoDoCaixa(l) {
+  return l?.excluirContaCaixa === true;
+}
+
+/** Resolve conta bancária do lançamento (id, código; recorrência/quitado usa conta padrão). */
+export function resolveContaIdsLancamento(
+  l,
+  contas,
+  { inferRecorrencia = true, inferPagoQuitado = false } = {}
+) {
   let contaEntradaId = l.contaEntradaId || null;
   let contaSaidaId = l.contaSaidaId || null;
 
@@ -86,17 +95,40 @@ export function resolveContaIdsLancamento(l, contas, { inferRecorrencia = true }
     if (c) contaSaidaId = c.id;
   }
 
-  const podeInferir =
-    inferRecorrencia && isLancamentoPago(l) && isLancamentoRecorrencia(l) && !isTransferenciaInterna(l);
-  if (podeInferir) {
-    const padrao = getContaPadrao(contas);
-    if (padrao) {
-      if (l.tipo === "Entrada" && !contaEntradaId) contaEntradaId = padrao.id;
-      if (l.tipo === "Saida" && !contaSaidaId) contaSaidaId = padrao.id;
+  if (!lancamentoExcluidoDoCaixa(l) && isLancamentoPago(l) && !isTransferenciaInterna(l)) {
+    const inferirRec =
+      inferRecorrencia && isLancamentoRecorrencia(l);
+    const inferirQuitado =
+      inferPagoQuitado && (l.tipo === "Entrada" || l.tipo === "Saida");
+    if (inferirRec || inferirQuitado) {
+      const padrao = getContaPadrao(contas);
+      if (padrao) {
+        if (l.tipo === "Entrada" && !contaEntradaId) contaEntradaId = padrao.id;
+        if (l.tipo === "Saida" && !contaSaidaId) contaSaidaId = padrao.id;
+      }
     }
   }
 
   return { contaEntradaId, contaSaidaId };
+}
+
+/** Ao marcar pago em A Pagar/Receber: sempre grava conta padrão (Caixa). */
+export function patchContaAoMarcarPago(l, contas) {
+  if (!l || !isLancamentoPago(l) || isTransferenciaInterna(l) || l.tipo === "Transferencia") {
+    return null;
+  }
+  const padrao = getContaPadrao(contas);
+  if (!padrao) return null;
+  const patch = { excluirContaCaixa: false };
+  if (l.tipo === "Saida" && !l.contaSaidaId) {
+    patch.contaSaidaId = padrao.id;
+    if (padrao.codigo != null) patch.codigoOrigem = padrao.codigo;
+  }
+  if (l.tipo === "Entrada" && !l.contaEntradaId) {
+    patch.contaEntradaId = padrao.id;
+    if (padrao.codigo != null) patch.codigoDestino = padrao.codigo;
+  }
+  return patch.contaSaidaId || patch.contaEntradaId ? patch : null;
 }
 
 /** Patch de conta para lançamento pago (recorrência preenche; manual só se allowManual). */
@@ -333,7 +365,9 @@ export const getSaldoConta = (contaId, contas, lancamentos) => {
   let saidas = 0;
   for (const l of filterLancamentosCaixa(lancamentos)) {
     if (!lancamentoAfetaSaldoCaixa(l)) continue;
-    const { contaEntradaId, contaSaidaId } = resolveContaIdsLancamento(l, contas);
+    const { contaEntradaId, contaSaidaId } = resolveContaIdsLancamento(l, contas, {
+      inferPagoQuitado: true,
+    });
     if (contaEntradaId === contaId) entradas = addMoney(entradas, l.valor);
     if (contaSaidaId === contaId) saidas = addMoney(saidas, l.valor);
   }

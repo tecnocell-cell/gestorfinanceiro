@@ -143,6 +143,25 @@ function main() {
   const saldoPed = getSaldoConta('banco1', contas, cPed);
   assert(saldoPed === 15000, `recorrência quitada desconta via conta padrão (obteve ${saldoPed})`);
 
+  console.log('\n— cenário 3b1: quitado via botão sem conta gravada ainda desconta caixa —');
+  const pedreiroQuitadoBotao = {
+    id: 'ped-botao',
+    tipo: 'Saida',
+    valor: 2500,
+    historico: 'Pedreiro',
+    data: `${ANO}-${MES}-10`,
+    vencimento: `${ANO}-${MES}-10`,
+    status: 'pago',
+    pago: true,
+    dataPagamento: `${ANO}-${MES}-04`,
+  };
+  const saldoBotao = getSaldoConta('banco1', contas, [
+    lancTransferPf({ id: 'tr-bot', valor: 5000 }),
+    lancRecPaga({ id: 'fin-bot', valor: 2500, historico: 'Financiamento' }),
+    pedreiroQuitadoBotao,
+  ]);
+  assert(saldoBotao === 0, `quitado sem conta gravada abate caixa (obteve ${saldoBotao})`);
+
   console.log('\n— cenário 3b2: manual pago sem conta não desconta —');
   const manualSemConta = {
     id: 'man-ped',
@@ -153,6 +172,7 @@ function main() {
     status: 'pago',
     pago: true,
     dataPagamento: `${ANO}-${MES}-08`,
+    excluirContaCaixa: true,
   };
   const saldoManual = getSaldoConta('banco1', contas, [
     lancTransferPf({ id: 'tr2b', valor: 20000 }),

@@ -426,6 +426,7 @@ export function GestorProvider({ children }) {
         ...(pago && !data.dataPagamento
           ? { dataPagamento: data.data || new Date().toISOString().slice(0, 10) }
           : {}),
+        ...(data.excluirContaCaixa === true ? { excluirContaCaixa: true } : { excluirContaCaixa: false }),
       };
       if (editingItem?.id) {
         lancCrud.update(editingItem.id, payload);
