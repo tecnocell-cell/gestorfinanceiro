@@ -38,6 +38,7 @@
     "test:78": "node server/test78.js",
     "test:cartao-mp": "node server/testCartaoMp.js",
     "test:mp-pix": "node server/testMpPix.js",
+    "test:80": "node server/test80.js",
     "test:finance-consistency": "node server/testFinanceConsistency.js",
     "test:finance-flow": "node server/testFinanceFlow.js",
     "test:finance-bugfix": "node server/testFinanceBugfix.js",

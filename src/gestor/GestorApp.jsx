@@ -16,6 +16,8 @@ import AdminSaasPage from "./pages/AdminSaasPage.jsx";
 import AdminTenantsPage from "./pages/AdminTenantsPage.jsx";
 import AdminBetaPage from "./pages/AdminBetaPage.jsx";
 import AdminPaymentConfigPage from "./pages/AdminPaymentConfigPage.jsx";
+import AdminReleaseCandidatePage from "./pages/AdminReleaseCandidatePage.jsx";
+import AdminProductionGuidePage from "./pages/AdminProductionGuidePage.jsx";
 import BetaBanner from "./components/beta/BetaBanner.jsx";
 import BetaBadge from "./components/beta/BetaBadge.jsx";
 import BetaFeedbackFab from "./components/beta/BetaFeedbackFab.jsx";
@@ -75,6 +77,8 @@ const ADMIN_PAGE_MAP = {
   "admin-tenants": AdminTenantsPage,
   "admin-beta": AdminBetaPage,
   "admin-pagamentos": AdminPaymentConfigPage,
+  "admin-release": AdminReleaseCandidatePage,
+  "admin-guia": AdminProductionGuidePage,
 };
 
 const PAGE_MAP_PJ = {

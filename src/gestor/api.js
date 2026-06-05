@@ -241,6 +241,17 @@ export const adminApi = {
   billingHealth: () => request("/admin/billing-health"),
   goLive: () => request("/admin/go-live"),
   productionCheck: () => request("/admin/production-check"),
+  releaseCandidate: () => request("/admin/release-candidate"),
+  criticalAlerts: () => request("/admin/critical-alerts"),
+  rcPixTest: () => request("/admin/release-candidate/pix-test"),
+  createRcPixTest: () =>
+    request("/admin/release-candidate/pix-test", { method: "POST", body: {} }),
+  consultRcPixTest: () =>
+    request("/admin/release-candidate/pix-test/status", { method: "POST", body: {} }),
+  clientChecklist: () => request("/admin/client-checklist"),
+  patchClientChecklist: (body) =>
+    request("/admin/client-checklist", { method: "PATCH", body }),
+  productionGuide: () => request("/admin/production-guide"),
   betaHomologacao: () => request("/admin/beta-homologacao"),
   patchBetaHomologacao: (body) =>
     request("/admin/beta-homologacao", { method: "PATCH", body }),

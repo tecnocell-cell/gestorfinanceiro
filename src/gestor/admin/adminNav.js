@@ -28,6 +28,18 @@ export const ADMIN_NAV = [
     icon: "pagamentos",
   },
   {
+    id: "admin-release",
+    label: "Release Candidate",
+    sub: "Checklist · PIX · go-live",
+    icon: "release",
+  },
+  {
+    id: "admin-guia",
+    label: "Guia de Produção",
+    sub: "Deploy · MP · e-mail",
+    icon: "guia",
+  },
+  {
     id: "admin-homologacao",
     label: "Homologação",
     sub: "Produção · beta · logs",

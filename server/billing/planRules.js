@@ -237,13 +237,26 @@ export const SUPPORT_WHATSAPP_URL = 'https://wa.me/5594981406316';
 
 const TECHNICAL_PATTERNS = [
   /ASAAS_API_KEY/i,
+  /MP_ACCESS_TOKEN/i,
+  /ACCESS_TOKEN/i,
+  /public[_\s-]?key/i,
+  /access[_\s-]?token/i,
+  /webhook[_\s-]?secret/i,
+  /client[_\s-]?secret/i,
   /asaas/i,
+  /mercado\s*pago/i,
   /pluggy/i,
   /smtp/i,
   /resend/i,
   /provider\s*mock/i,
+  /\bprovider\b/i,
+  /\bgateway\b/i,
+  /\bmock\b/i,
+  /\bsandbox\b/i,
+  /stack\s*trace/i,
   /evolution\s*api/i,
   /OPENFINANCE_/i,
+  /BILLING_USE_MOCK/i,
   /configure\s+/i,
 ];
 
