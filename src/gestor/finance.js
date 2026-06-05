@@ -16,6 +16,7 @@ import {
   getValorRealizado,
   isLancamentoVencido,
   isLancamentoPendente,
+  lancamentoAfetaSaldoCaixa,
 } from "./financeStatus.js";
 
 export {
@@ -34,7 +35,34 @@ export {
   dedupeLancamentosById,
   isTransferenciaInterna,
   inPeriodoRealizacao,
+  lancamentoAfetaSaldoCaixa,
 } from "./financeStatus.js";
+
+/** Resolve conta bancária do lançamento (id, código ou conta única ativa). */
+export function resolveContaIdsLancamento(l, contas) {
+  let contaEntradaId = l.contaEntradaId || null;
+  let contaSaidaId = l.contaSaidaId || null;
+
+  if (!contaEntradaId && l.codigoDestino != null && l.codigoDestino !== "") {
+    const c = (contas || []).find((x) => String(x.codigo) === String(l.codigoDestino));
+    if (c) contaEntradaId = c.id;
+  }
+  if (!contaSaidaId && l.codigoOrigem != null && l.codigoOrigem !== "") {
+    const c = (contas || []).find((x) => String(x.codigo) === String(l.codigoOrigem));
+    if (c) contaSaidaId = c.id;
+  }
+
+  const ativas = (contas || []).filter((c) => !c.inativo);
+  if (!contaEntradaId && !contaSaidaId && ativas.length && isLancamentoPago(l)) {
+    const preferida =
+      ativas.find((c) => /caixa|banco|conta corrente/i.test(`${c.tipo || ""} ${c.nome || ""}`)) ||
+      ativas[0];
+    if (l.tipo === "Entrada") contaEntradaId = preferida.id;
+    if (l.tipo === "Saida") contaSaidaId = preferida.id;
+  }
+
+  return { contaEntradaId, contaSaidaId };
+}
 
 /** Converte centavos inteiros em reais sem erro de float (ex.: 1500000 → 15000). */
 export function reaisFromCentavos(centavos) {
@@ -207,15 +235,28 @@ export const fmtDateTime = (iso) => {
 export const getSaldoConta = (contaId, contas, lancamentos) => {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) return 0;
-  const lancs = filterLancamentosCaixa(lancamentos);
-  const entradas = lancs
-    .filter((l) => l.contaEntradaId === contaId)
-    .reduce((s, l) => addMoney(s, l.valor), 0);
-  const saidas = lancs
-    .filter((l) => l.contaSaidaId === contaId)
-    .reduce((s, l) => addMoney(s, l.valor), 0);
+  let entradas = 0;
+  let saidas = 0;
+  for (const l of filterLancamentosCaixa(lancamentos)) {
+    if (!lancamentoAfetaSaldoCaixa(l)) continue;
+    const { contaEntradaId, contaSaidaId } = resolveContaIdsLancamento(l, contas);
+    if (contaEntradaId === contaId) entradas = addMoney(entradas, l.valor);
+    if (contaSaidaId === contaId) saidas = addMoney(saidas, l.valor);
+  }
   return addMoney(conta.saldoInicial, subMoney(entradas, saidas));
 };
+
+/** Saldo de caixa no período: repasses + quitados (por dataPagamento). */
+export function calcSaldoCaixaPeriodo(lancamentos, { ano, mes }) {
+  let entradas = 0;
+  let saidas = 0;
+  for (const l of filterLancamentosRealizados(filterLancamentosCaixa(lancamentos), { ano, mes })) {
+    if (!lancamentoAfetaSaldoCaixa(l)) continue;
+    if (l.tipo === "Entrada") entradas = addMoney(entradas, l.valor);
+    else if (l.tipo === "Saida") saidas = addMoney(saidas, l.valor);
+  }
+  return roundMoney(subMoney(entradas, saidas));
+}
 
 export const getSaldoTotal = (contas, lancamentos) =>
   contas

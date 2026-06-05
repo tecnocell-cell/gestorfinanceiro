@@ -17,7 +17,7 @@ import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
 import {
   addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista,
-  filterLancamentosResultado, sumPagasNoMes,
+  filterLancamentosResultado, sumPagasNoMes, resolveContaIdsLancamento,
 } from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
@@ -91,7 +91,7 @@ function VencCell({ l, onSave, disabled }) {
 
 export default function ContasAPagarPage() {
   const {
-    lancamentos, lancCrud, planoContas,
+    lancamentos, lancCrud, planoContas, contas,
     filterPeriodo, setFilterPeriodo,
     viewOnly,
   } = useGestor();
@@ -158,14 +158,24 @@ export default function ContasAPagarPage() {
     const lanc = lancamentos.find((l) => l.id === id);
     const hoje = hojeStr();
     const agora = new Date().toISOString();
-    lancCrud.update(id, { status: "pago", pago: true, dataPagamento: hoje, pagoEm: agora });
+    const patch = { status: "pago", pago: true, dataPagamento: hoje, pagoEm: agora };
+    if (lanc) {
+      const resolved = resolveContaIdsLancamento({ ...lanc, pago: true }, contas);
+      if (lanc.tipo === "Saida" && !lanc.contaSaidaId && resolved.contaSaidaId) {
+        patch.contaSaidaId = resolved.contaSaidaId;
+      }
+      if (lanc.tipo === "Entrada" && !lanc.contaEntradaId && resolved.contaEntradaId) {
+        patch.contaEntradaId = resolved.contaEntradaId;
+      }
+    }
+    lancCrud.update(id, patch);
     if (lanc?.recorrenciaId) {
       const dataVenc = lanc.vencimento || lanc.data;
       recorrenciasApi
         .gerar(lanc.recorrenciaId, { avancar: true, data_vencimento: dataVenc })
         .catch((err) => console.warn("Recorrência: proxima_data não avançou:", err.message));
     }
-  }, [lancCrud, viewOnly, lancamentos]);
+  }, [lancCrud, viewOnly, lancamentos, contas]);
 
   const marcarPendente = useCallback((id) => {
     if (viewOnly) return;

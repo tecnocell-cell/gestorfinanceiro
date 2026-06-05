@@ -5,9 +5,11 @@
 import {
   calcFluxoPrevisto30d,
   calcTotaisResultadoPeriodo,
+  calcSaldoCaixaPeriodo,
   sumPagasNoMes,
   getSaldoConta,
   isTransferenciaInterna,
+  lancamentoAfetaSaldoCaixa,
   dedupeLancamentosById,
 } from '../src/gestor/finance.js';
 
@@ -97,7 +99,46 @@ function main() {
   console.log('\n— cenário 3: saldo de caixa inclui transferência —');
   const contas = [{ id: 'banco1', nome: 'Banco', tipo: 'Banco', saldoInicial: 0, inativo: false }];
   const saldo = getSaldoConta('banco1', contas, c1);
-  assert(saldo === 15000, `saldo caixa considera repasse (obteve ${saldo})`);
+  assert(saldo === 15000, `saldo caixa quitados + repasses (obteve ${saldo})`);
+
+  console.log('\n— cenário 3b: pedreiro pago sem contaSaidaId ainda desconta —');
+  const pedreiroSemConta = {
+    id: 'ped2',
+    tipo: 'Saida',
+    valor: 2500,
+    historico: 'Pedreiro',
+    data: `${ANO}-${MES}-10`,
+    vencimento: `${ANO}-${MES}-10`,
+    status: 'pago',
+    pago: true,
+    dataPagamento: `${ANO}-${MES}-08`,
+  };
+  const cPed = [
+    lancTransferPf({ id: 'tr2', valor: 20000 }),
+    lancRecPaga({ id: 'fin2', valor: 2500, historico: 'Financiamento' }),
+    pedreiroSemConta,
+  ];
+  const saldoPed = getSaldoConta('banco1', contas, cPed);
+  assert(saldoPed === 15000, `pedreiro quitado desconta mesmo sem conta explícita (obteve ${saldoPed})`);
+
+  console.log('\n— cenário 3c: pendente não reduz caixa —');
+  const pendente = {
+    id: 'pend-caixa',
+    tipo: 'Saida',
+    valor: 2500,
+    historico: 'Pedreiro pendente',
+    data: `${ANO}-${MES}-10`,
+    vencimento: `${ANO}-${MES}-10`,
+    status: 'pendente',
+    pago: false,
+    contaSaidaId: 'banco1',
+  };
+  const saldoPend = getSaldoConta('banco1', contas, [lancTransferPf({ id: 'tr3', valor: 17500 }), pendente]);
+  assert(saldoPend === 17500, `pendente não reduz caixa (obteve ${saldoPend})`);
+  assert(!lancamentoAfetaSaldoCaixa(pendente), 'pendente não afeta saldo');
+
+  const caixaPeriodo = calcSaldoCaixaPeriodo(cPed, PERIODO);
+  assert(caixaPeriodo === 15000, `saldo caixa período junho ${caixaPeriodo}`);
 
   console.log('\n— cenário 4: fluxo previsto sem pagas —');
   const c4 = [

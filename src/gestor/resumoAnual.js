@@ -1,5 +1,8 @@
 import { MESES } from "./constants.js";
-import { addMoney, getDRE, getSaldoTotal, safeNum, subMoney, isLancamentoPago, getDataRealizacao } from "./finance.js";
+import {
+  addMoney, getDRE, getSaldoTotal, safeNum, subMoney, isLancamentoPago, getDataRealizacao,
+  isTransferenciaInterna,
+} from "./finance.js";
 
 /** SER / VBSP / GSC — metodologia inspirada em orçamento consciente (Anatomia Financeira). */
 export function grupoResumoCategoria(pc) {
@@ -37,6 +40,7 @@ function sumPlanoNoMes(lancamentos, planoId, ano, mesIndex, modo = "auto") {
   return lancamentos
     .filter((l) => {
       if (l.planoId !== planoId) return false;
+      if (isTransferenciaInterna(l)) return false;
       if (!isLancamentoPago(l)) return false;
       const dataRef = getDataRealizacao(l);
       if (!dataRef) return false;

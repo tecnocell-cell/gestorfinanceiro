@@ -19,7 +19,8 @@ import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
 import {
   addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao,
-  calcFluxoPrevisto30d, calcTotaisResultadoPeriodo, filterLancamentosResultado,
+  calcFluxoPrevisto30d, calcTotaisResultadoPeriodo, calcSaldoCaixaPeriodo,
+  filterLancamentosResultado,
 } from "../finance.js";
 import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import { MESES, CHART }     from "../constants.js";
@@ -118,6 +119,10 @@ export default function DashboardPFV2Page({ onNavigate }) {
   );
 
   const saldoMes = pfTotais.saldo;
+  const saldoCaixaMes = useMemo(
+    () => calcSaldoCaixaPeriodo(lancamentos, filterPeriodo),
+    [lancamentos, filterPeriodo]
+  );
 
   const toKey = (v) => {
     if (!v) return "";
@@ -311,7 +316,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: CircleDollarSign,
       label: "Saldo do Período",
       value: fmtBRL(saldoMes),
-      sub: saldoMes >= 0 ? "Sobrou no mês" : "Déficit no mês",
+      sub: `Operacional · caixa no mês ${fmtBRL(saldoCaixaMes)}`,
       valueClass: saldoMes >= 0 ? "success" : "danger",
       sparkline: sparkSaldo,
       tone: saldoMes >= 0 ? "success" : "danger",
@@ -323,7 +328,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: Wallet,
       label: "Saldo Total",
       value: fmtBRL(saldoTotal),
-      sub: `${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
+      sub: `Caixa acumulado · ${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
       valueClass: saldoTotal >= 0 ? "success" : "danger",
       tone: "default",
       compact: true,

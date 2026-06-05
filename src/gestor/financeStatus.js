@@ -90,6 +90,15 @@ export function filterLancamentosRealizados(lancamentos, opts = {}) {
 }
 
 /** Repasse entre contas PF↔PJ (não é receita/despesa operacional). */
+/** Movimento que altera saldo bancário (modo caixa: só quitado; repasses sempre). */
+export function lancamentoAfetaSaldoCaixa(l) {
+  if (!l) return false;
+  if (l.tipo === "Transferencia") return true;
+  if (isTransferenciaInterna(l)) return true;
+  if (l.tipo === "Entrada" || l.tipo === "Saida") return isLancamentoPago(l);
+  return false;
+}
+
 export function isTransferenciaInterna(l) {
   if (!l || typeof l !== "object") return false;
   if (l.tipo === "Transferencia") return true;

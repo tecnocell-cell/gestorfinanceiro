@@ -8,6 +8,7 @@ import { MESES, CHART } from "../constants.js";
 import {
   addMoney, fmtBRL, fmtDate, fmtDateTime, getDRE, generateId, filterLancamentos, safeNum, subMoney,
   isLancamentoPago, getDataRealizacao, isLancamentoPendente,
+  calcTotaisResultadoPeriodo, calcSaldoCaixaPeriodo,
 } from "../finance.js";
 import RecorrenciaAlert from "../components/RecorrenciaAlert.jsx";
 import CustomTooltip from "../components/CustomTooltip.jsx";
@@ -176,14 +177,16 @@ export function LancamentosPFPage() {
   };
 
   const resumo = useMemo(() => {
-    let ent = 0;
-    let sai = 0;
-    for (const l of lancsFiltrados) {
-      if (l.tipo === "Entrada") ent = addMoney(ent, l.valor);
-      else if (l.tipo === "Saida") sai = addMoney(sai, l.valor);
-    }
-    return { entradas: ent, saidas: sai, saldo: subMoney(ent, sai), qtd: lancsFiltrados.length };
-  }, [lancsFiltrados]);
+    const totais = calcTotaisResultadoPeriodo(lancsFiltrados, filterPeriodo);
+    const saldoCaixa = calcSaldoCaixaPeriodo(lancsFiltrados, filterPeriodo);
+    return {
+      entradas: addMoney(totais.receitas, totais.transfRecebidas),
+      saidas: addMoney(totais.despesas, totais.transfEnviadas),
+      saldo: saldoCaixa,
+      saldoOperacional: totais.saldo,
+      qtd: lancsFiltrados.length,
+    };
+  }, [lancsFiltrados, filterPeriodo]);
 
   return (
     <PfPageShell pageId="lancamentos">

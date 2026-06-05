@@ -72,6 +72,14 @@ export function inPeriodoPrevisto(l, { ano, mes }) {
   return true;
 }
 
+export function lancamentoAfetaSaldoCaixa(l) {
+  if (!l) return false;
+  if (l.tipo === 'Transferencia') return true;
+  if (isTransferenciaInterna(l)) return true;
+  if (l.tipo === 'Entrada' || l.tipo === 'Saida') return isLancamentoPago(l);
+  return false;
+}
+
 export function isTransferenciaInterna(l) {
   if (!l || typeof l !== 'object') return false;
   if (l.tipo === 'Transferencia') return true;
