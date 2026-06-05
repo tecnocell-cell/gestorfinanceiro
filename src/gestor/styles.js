@@ -2445,8 +2445,18 @@ export const css = `
     min-width: 0;
   }
 
-  .admin-sidebar-block { padding: 0 12px 4px; }
+  .admin-sidebar-block {
+    padding: 0 12px 4px;
+  }
+  .admin-sidebar-block--fill {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .admin-sidebar-label {
+    flex-shrink: 0;
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 0.1em;
@@ -2455,9 +2465,20 @@ export const css = `
     padding: 6px 4px 8px;
   }
   .admin-nav-list {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--sidebar-foreground) 20%, transparent) transparent;
+    padding-bottom: 4px;
+  }
+  .admin-nav-list::-webkit-scrollbar { width: 4px; }
+  .admin-nav-list::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--sidebar-foreground) 22%, transparent);
+    border-radius: 4px;
   }
   .admin-nav-text { min-width: 0; flex: 1; }
   .admin-nav-title { font-size: 13px; font-weight: 700; line-height: 1.2; }
@@ -2468,6 +2489,7 @@ export const css = `
     line-height: 1.25;
   }
   .admin-sidebar-divider {
+    flex-shrink: 0;
     height: 1px;
     background: rgba(255, 255, 255, 0.08);
     margin: 10px 0 6px;

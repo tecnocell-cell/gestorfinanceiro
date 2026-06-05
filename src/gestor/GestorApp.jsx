@@ -311,7 +311,7 @@ export default function GestorApp() {
             </div>
           )}
           {isSuperAdmin && !impersonatingUser && (
-            <div className="admin-sidebar-block">
+            <div className="admin-sidebar-block admin-sidebar-block--fill">
               <div className="admin-sidebar-label">Super Admin</div>
               <nav className="admin-nav-list" aria-label="Menu administrativo">
                 {ADMIN_NAV.map((item) => (
