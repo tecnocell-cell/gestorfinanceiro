@@ -1,9 +1,15 @@
 /**
- * Regras unificadas de status de lançamento — servidor (Etapa 7.8B).
+ * Regras unificadas de status de lançamento — servidor (Etapa 7.8C).
  * Espelha src/gestor/financeStatus.js para testes e scripts.
  */
 
 const PAGO_STATUSES = new Set(['pago', 'quitada']);
+
+function toDateKey(raw) {
+  if (!raw) return null;
+  const s = String(raw).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
 
 export function normalizeLancamentoStatus(l) {
   if (!l || typeof l !== 'object') return 'pendente';
@@ -21,19 +27,26 @@ export function isLancamentoPendente(l) {
   return !isLancamentoPago(l);
 }
 
-export function getDataRealizacao(l) {
+export function getDataPagamento(l) {
   if (!l) return null;
-  const raw = l.dataPagamento || l.pagoEm || l.quitadoEm || l.data || l.vencimento || null;
-  if (!raw) return null;
-  const s = String(raw).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  return toDateKey(l.dataPagamento || l.pagoEm || l.quitadoEm);
+}
+
+export function getDataPrevista(l) {
+  if (!l) return null;
+  return toDateKey(l.vencimento || l.data);
+}
+
+export function getDataRealizacao(l) {
+  if (!l || !isLancamentoPago(l)) return null;
+  return getDataPagamento(l) || toDateKey(l.data);
 }
 
 export function isLancamentoVencido(l, hoje) {
   if (isLancamentoPago(l)) return false;
   const ref = String(hoje || new Date().toISOString().slice(0, 10)).slice(0, 10);
-  const venc = String(l?.vencimento || l?.data || '').slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) return false;
+  const venc = getDataPrevista(l);
+  if (!venc) return false;
   return venc < ref;
 }
 
@@ -51,11 +64,35 @@ export function inPeriodoRealizacao(l, { ano, mes }) {
   return true;
 }
 
+export function inPeriodoPrevisto(l, { ano, mes }) {
+  const dataRef = getDataPrevista(l);
+  if (!dataRef) return false;
+  if (ano && !dataRef.startsWith(String(ano))) return false;
+  if (mes && dataRef.slice(5, 7) !== String(mes).padStart(2, '0')) return false;
+  return true;
+}
+
 export function filterLancamentosRealizados(lancamentos, opts = {}) {
   const { ano, mes, tipo } = opts;
   return (lancamentos || []).filter((l) => {
     if (!isLancamentoPago(l)) return false;
     if (tipo && tipo !== 'Todos' && l.tipo !== tipo) return false;
     return inPeriodoRealizacao(l, { ano, mes });
+  });
+}
+
+export function filterLancamentosPrevistos(lancamentos, opts = {}) {
+  const { hoje, ate, ano, mes, tipo } = opts;
+  const refHoje = hoje || new Date().toISOString().slice(0, 10);
+  return (lancamentos || []).filter((l) => {
+    if (l.tipo === 'Transferencia') return false;
+    if (!isLancamentoPendente(l)) return false;
+    if (tipo && tipo !== 'Todos' && l.tipo !== tipo) return false;
+    const prev = getDataPrevista(l);
+    if (!prev) return false;
+    if (ate && prev > ate) return false;
+    if (hoje && prev < refHoje) return false;
+    if (ano || mes) return inPeriodoPrevisto(l, { ano, mes });
+    return true;
   });
 }

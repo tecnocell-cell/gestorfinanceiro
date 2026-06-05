@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { useGestor } from "../../GestorContext.jsx";
-import { addMoney, fmtBRL, fmtDate, getDataRealizacao, getStatusLancamento, isLancamentoPago } from "../../finance.js";
+import { addMoney, fmtBRL, fmtDate, getDataRealizacao, getDataPrevista, getStatusLancamento, isLancamentoPago } from "../../finance.js";
 import { WidgetTitle } from "../IconBox.jsx";
 import { ArrowDownLeft, ArrowUpRight, Clock, CircleCheck } from "../icons.jsx";
 
@@ -22,27 +22,30 @@ function MovimentacoesMesWidget({ onVerContas }) {
 
     for (const l of lancamentos) {
       if (l.tipo === "Transferencia") continue;
-      const dataRef = getDataRealizacao(l) || l.data;
-      if (filterPeriodo.ano && !dataRef?.startsWith(filterPeriodo.ano)) continue;
-      if (filterPeriodo.mes && dataRef?.slice(5, 7) !== filterPeriodo.mes) continue;
-
-      const venc = l.vencimento || l.data;
       const st = getStatusLancamento(l);
 
       if (isLancamentoPago(l)) {
+        const dataRef = getDataRealizacao(l);
+        if (!dataRef) continue;
+        if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
+        if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) continue;
         if (l.tipo === "Entrada") receitasPagas = addMoney(receitasPagas, l.valor);
         else if (l.tipo === "Saida") {
           despesasPagas = addMoney(despesasPagas, l.valor);
           quitadas.push(l);
         }
       } else {
+        const prev = getDataPrevista(l);
+        if (!prev) continue;
+        if (filterPeriodo.ano && !prev.startsWith(filterPeriodo.ano)) continue;
+        if (filterPeriodo.mes && prev.slice(5, 7) !== filterPeriodo.mes) continue;
         pendentes = addMoney(pendentes, l.valor);
         if (st === "atrasado") vencidas += 1;
-        else if (venc > hoje && venc <= h7) vence7 += 1;
+        else if (prev > hoje && prev <= h7) vence7 += 1;
       }
     }
 
-    quitadas.sort((a, b) => (getDataRealizacao(b) || b.data).localeCompare(getDataRealizacao(a) || a.data));
+    quitadas.sort((a, b) => (getDataRealizacao(b) || "").localeCompare(getDataRealizacao(a) || ""));
 
     return { receitasPagas, despesasPagas, pendentes, vencidas, vence7, quitadas: quitadas.slice(0, 5) };
   }, [lancamentos, filterPeriodo, hoje, h7]);
@@ -110,7 +113,7 @@ function MovimentacoesMesWidget({ onVerContas }) {
                       {l.historico || "Despesa"}
                     </div>
                     <div className="dash-list-widget-meta">
-                      <span>{fmtDate(getDataRealizacao(l) || l.data)}</span>
+                      <span>{fmtDate(getDataRealizacao(l))}</span>
                     </div>
                   </div>
                   <div className="dash-list-widget-side">

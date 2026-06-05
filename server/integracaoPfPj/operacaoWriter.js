@@ -510,10 +510,11 @@ export async function rollbackOperacao(client, {
 
   if (remPj === 0 || remPf === 0) {
     const err = new Error(
-      `Rollback incompleto: removidos PJ=${remPj} PF=${remPf}. Operação não desfeita.`
+      'Não foi possível desfazer porque um dos lançamentos vinculados não foi encontrado. Use Reparar vínculo.'
     );
     err.status = 409;
     err.code = 'ROLLBACK_INCOMPLETO';
+    err.details = { removidosPj: remPj, removidosPf: remPf };
     throw err;
   }
 
@@ -624,6 +625,184 @@ export function rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
   });
 
   return { lancPj, lancPf };
+}
+
+function findLancInEstado(dados, id) {
+  if (!id || !dados) return null;
+  return collectAllLancamentos(dados).find((l) => String(l.id) === String(id)) || null;
+}
+
+function nextCodigoIntegracao(lancamentos) {
+  const nums = (lancamentos || [])
+    .map((l) => Number(l.codigo))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return nums.length ? Math.max(...nums) + 1 : 1;
+}
+
+/** Diagnóstico de consistência de uma operação nos estados PJ/PF. */
+export function auditOperacaoConsistencia(op, dadosPj, dadosPf) {
+  const lPj = findLancInEstado(dadosPj, op.lancamentoPjId || op.lancamento_pj_id);
+  const lPf = findLancInEstado(dadosPf, op.lancamentoPfId || op.lancamento_pf_id);
+  const centsOp = Math.trunc(Number(op.valorCentavos ?? op.valor_centavos ?? 0));
+  const centsPj = lPj?.valor != null ? reaisToCentavos(lPj.valor) : null;
+  const centsPf = lPf?.valor != null ? reaisToCentavos(lPf.valor) : null;
+  const divergente =
+    !lPj ||
+    !lPf ||
+    centsPj !== centsOp ||
+    centsPf !== centsOp ||
+    centsPj !== centsPf;
+  return {
+    divergente,
+    lancPjPresente: !!lPj,
+    lancPfPresente: !!lPf,
+    valorCentavosOperacao: centsOp,
+    valorCentavosPj: centsPj,
+    valorCentavosPf: centsPf,
+    rollbackPossivel: !!(lPj && lPf) && op.status === 'ok',
+  };
+}
+
+/** Repara operação inconsistente: recria ausente e alinha valores ao valor_centavos. */
+export async function repairOperacao(client, {
+  usuarioPjId,
+  operacaoId,
+  pjProfile,
+  pfProfile,
+}) {
+  const { rows: opRows } = await client.query(
+    `SELECT o.*, v.usuario_pj_id, v.usuario_pf_id, v.nome_pf
+     FROM integracao_pf_pj_operacoes o
+     JOIN integracao_pf_pj_vinculo v ON v.id = o.vinculo_id
+     WHERE o.id = $1 AND v.usuario_pj_id = $2
+     FOR UPDATE`,
+    [operacaoId, usuarioPjId]
+  );
+
+  if (!opRows.length) {
+    const err = new Error('Operação não encontrada.');
+    err.status = 404;
+    throw err;
+  }
+
+  const op = opRows[0];
+  if (op.status !== 'ok') {
+    const err = new Error('Só é possível reparar operações confirmadas (status ok).');
+    err.status = 409;
+    throw err;
+  }
+
+  const pjRow = pjProfile || await loadUserProfile(client, op.usuario_pj_id);
+  const pfRow = pfProfile || await loadUserProfile(client, op.usuario_pf_id);
+  const pjWrite = profileForPj(pjRow);
+  const pfWrite = profileForPf(pfRow, op.nome_pf);
+  const nomePj = pjRow.nome_perfil || pjRow.nome || 'Empresa PJ';
+
+  const [firstId, secondId] = [op.usuario_pj_id, op.usuario_pf_id].sort();
+  let dadosPjRaw;
+  let dadosPfRaw;
+
+  for (const uid of [firstId, secondId]) {
+    const { rows } = await client.query(
+      'SELECT usuario_id, dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+      [uid]
+    );
+    if (!rows.length) {
+      const err = new Error('Estado PJ ou PF não encontrado.');
+      err.status = 422;
+      throw err;
+    }
+    if (uid === op.usuario_pj_id) dadosPjRaw = rows[0].dados;
+    else dadosPfRaw = rows[0].dados;
+  }
+
+  let dadosPj = dadosPjRaw;
+  let dadosPf = dadosPfRaw;
+  const vinculo = { id: op.vinculo_id, nome_pf: op.nome_pf, usuario_pf_id: op.usuario_pf_id };
+  const centsOp = parseCentavosFromRow(op.valor_centavos);
+  let recreatedPj = 0;
+  let recreatedPf = 0;
+  let fixedPj = 0;
+  let fixedPf = 0;
+
+  const faltaPj = !findLancInEstado(dadosPj, op.lancamento_pj_id);
+  const faltaPf = !findLancInEstado(dadosPf, op.lancamento_pf_id);
+
+  if (faltaPj || faltaPf) {
+    const preparedPj = prepareEstadoForWrite(dadosPj, pjWrite);
+    const preparedPf = prepareEstadoForWrite(dadosPf, pfWrite);
+    const empPj = resolveEmpresaAtiva(preparedPj).empresa;
+    const empPf = resolveEmpresaAtiva(preparedPf).empresa;
+    const { lancPj, lancPf } = rebuildIntegracaoLancamentosForOperacao(op, empPj, empPf, {
+      vinculo,
+      nomePj,
+      usuarioPjId: op.usuario_pj_id,
+    });
+    lancPj.codigo = nextCodigoIntegracao(collectAllLancamentos(preparedPj));
+    lancPf.codigo = nextCodigoIntegracao(collectAllLancamentos(preparedPf));
+
+    if (faltaPj && !validateLancamentoPjIntegracao(lancPj, empPj).length) {
+      dadosPj = appendLancamentoToEstado(dadosPj, lancPj, pjWrite);
+      recreatedPj = 1;
+    }
+    if (faltaPf && !validateLancamentoPfIntegracao(lancPf, empPf).length) {
+      dadosPf = appendLancamentoToEstado(dadosPf, lancPf, pfWrite);
+      recreatedPf = 1;
+    }
+  }
+
+  const esperado = reaisFromCentavos(centsOp);
+  const syncLado = (dados, lado, profile) => {
+    const prepared = prepareEstadoForWrite(dados, profile);
+    const id = lado === 'pj' ? op.lancamento_pj_id : op.lancamento_pf_id;
+    let fixes = 0;
+    const empresas = prepared.empresas.map((emp) => ({
+      ...emp,
+      lancamentos: (emp.lancamentos || []).map((l) => {
+        if (String(l.id) !== String(id) || String(l.source || '') !== SOURCE) return l;
+        if (Math.abs(Number(l.valor) - esperado) < 0.005) return l;
+        fixes += 1;
+        return { ...l, valor: esperado };
+      }),
+    }));
+    return { dados: { ...prepared, empresas }, fixes };
+  };
+
+  const syncPj = syncLado(dadosPj, 'pj', pjWrite);
+  const syncPf = syncLado(dadosPf, 'pf', pfWrite);
+  dadosPj = syncPj.dados;
+  dadosPf = syncPf.dados;
+  fixedPj = syncPj.fixes;
+  fixedPf = syncPf.fixes;
+
+  await client.query(
+    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+    [JSON.stringify(dadosPj), op.usuario_pj_id]
+  );
+  await client.query(
+    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+    [JSON.stringify(dadosPf), op.usuario_pf_id]
+  );
+
+  await insertIntegracaoAuditoria(client, {
+    operacaoId: op.id,
+    vinculoId: op.vinculo_id,
+    usuarioPjId: op.usuario_pj_id,
+    usuarioPfId: op.usuario_pf_id,
+    acao: AUDIT_ACAO.REPAIR,
+    tipoOperacao: op.tipo_operacao,
+    valorCentavos: centsOp,
+    payload: { recreatedPj, recreatedPf, fixedPj, fixedPf },
+  });
+
+  return {
+    ok: true,
+    operacaoId: op.id,
+    recreatedPj,
+    recreatedPf,
+    fixedPj,
+    fixedPf,
+  };
 }
 
 export function mapOperacao(row) {

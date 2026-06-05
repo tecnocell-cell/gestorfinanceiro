@@ -130,7 +130,11 @@ async function main() {
   assert(isLancamentoPago({ status: 'quitada' }), 'status quitada');
   assert(!isLancamentoPago({ status: 'pendente' }), 'pendente não é pago');
   assert(isLancamentoPago({ pago: true }), 'pago boolean');
-  assert(getDataRealizacao({ dataPagamento: '2026-06-05', data: '2026-06-01' }) === '2026-06-05', 'dataPagamento prioridade');
+  assert(
+    getDataRealizacao({ pago: true, dataPagamento: '2026-06-05', data: '2026-06-01' }) === '2026-06-05',
+    'dataPagamento prioridade'
+  );
+  assert(getDataRealizacao({ status: 'pendente', data: '2026-06-01' }) === null, 'pendente sem realização');
   assert(getValorRealizado({ pago: true, valor: 2500 }) === 2500, 'valor realizado');
   assert(getValorRealizado({ status: 'pendente', valor: 2500 }) === 0, 'pendente valor 0');
   assert(normalizeLancamentoStatus({ pago: false, status: 'pendente' }) === 'pendente', 'normalize pendente');

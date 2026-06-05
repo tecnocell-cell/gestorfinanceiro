@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao } from "../finance.js";
+import { addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao, calcFluxoPrevisto30d } from "../finance.js";
 import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
@@ -107,7 +107,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
     let despesas = 0;
     for (const l of lancamentos) {
       if (!isLancamentoPago(l)) continue;
-      const dataRef = getDataRealizacao(l) || l.data;
+      const dataRef = getDataRealizacao(l);
       if (!dataRef) continue;
       if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
       if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) continue;
@@ -141,16 +141,10 @@ export default function DashboardPFV2Page({ onNavigate }) {
     return recAtivas.filter((r) => toKey(r.proxima_data) <= limite);
   }, [recorrencias, recAtivas]);
 
-  const fluxoPrevisto = useMemo(() => {
-    if (!recAtivas.length) return 0;
-    const limite = em30Str();
-    return recAtivas
-      .filter((r) => toKey(r.proxima_data) <= limite)
-      .reduce(
-        (acc, r) => (r.tipo === "Receita" ? addMoney(acc, r.valor) : subMoney(acc, r.valor)),
-        0
-      );
-  }, [recAtivas]);
+  const fluxoPrevisto = useMemo(
+    () => calcFluxoPrevisto30d(lancamentos, hojeStr()),
+    [lancamentos]
+  );
 
   const pfMensal = useMemo(() => {
     const totais = Array.from({ length: 12 }, () => ({ rec: 0, desp: 0 }));

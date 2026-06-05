@@ -90,14 +90,25 @@ async function main() {
     const centsPj = cents(lPj);
     const centsPf = cents(lPf);
 
+    const diffPj = centsPj != null ? centsOp - centsPj : null;
+    const diffPf = centsPf != null ? centsOp - centsPf : null;
     const row = {
       operacao_id: op.id,
       tipo: op.tipo_operacao,
+      valor_centavos_operacao: centsOp,
       valor_operacao: reaisFromCentavos(centsOp),
+      valor_centavos_pj: centsPj,
+      valor_centavos_pf: centsPf,
+      valor_pj: lPj ? lPj.valor : null,
+      valor_pf: lPf ? lPf.valor : null,
+      diff_centavos_pj: diffPj,
+      diff_centavos_pf: diffPf,
+      rollback_possivel: !!(lPj && lPf),
       lancamento_pj: lPj ? `${lPj.valor} (${lPj.historico})` : 'AUSENTE',
       lancamento_pf: lPf ? `${lPf.valor} (${lPf.historico})` : 'AUSENTE',
       divergencia_valor: null,
       divergencia_conta: null,
+      bug_float_14999: lPj?.valor === 14999.99 || lPf?.valor === 14999.99,
     };
 
     if (!lPj || !lPf) {

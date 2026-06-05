@@ -1,9 +1,12 @@
 import { MESES } from "./constants.js";
 import {
   isLancamentoPago,
+  getDataPagamento,
+  getDataPrevista,
   getDataRealizacao,
   getStatusLancamentoDisplay,
   filterLancamentosRealizados,
+  filterLancamentosPrevistos,
   normalizeLancamentoStatus,
   getValorRealizado,
   isLancamentoVencido,
@@ -12,13 +15,28 @@ import {
 
 export {
   isLancamentoPago,
+  getDataPagamento,
+  getDataPrevista,
   getDataRealizacao,
   normalizeLancamentoStatus,
   getValorRealizado,
   isLancamentoVencido,
   isLancamentoPendente,
   filterLancamentosRealizados,
+  filterLancamentosPrevistos,
 } from "./financeStatus.js";
+
+/** Converte centavos inteiros em reais sem erro de float (ex.: 1500000 → 15000). */
+export function reaisFromCentavos(centavos) {
+  const c = Math.round(Number(centavos));
+  if (!Number.isFinite(c)) return 0;
+  const neg = c < 0;
+  const abs = Math.abs(c);
+  const ints = Math.floor(abs / 100);
+  const decs = abs % 100;
+  const n = Number(`${ints}.${String(decs).padStart(2, "0")}`);
+  return neg ? -n : n;
+}
 
 export const generateId = () => Math.random().toString(36).slice(2, 11);
 
@@ -47,6 +65,21 @@ export const fmtBRL = (v) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(safeNum(v));
 
 /** Converte entrada do usuário (15000, "15.000,00", etc.) em centavos inteiros. */
+const emNDiasStr = (n, base) => {
+  const ref = base ? new Date(base + "T00:00:00") : new Date();
+  return new Date(ref.getTime() + n * 86_400_000).toISOString().slice(0, 10);
+};
+
+/** Fluxo previsto 30d: somente pendentes com vencimento/data nos próximos 30 dias. */
+export function calcFluxoPrevisto30d(lancamentos, hoje) {
+  const ref = hoje || new Date().toISOString().slice(0, 10);
+  const ate = emNDiasStr(30, ref);
+  return filterLancamentosPrevistos(lancamentos, { hoje: ref, ate }).reduce(
+    (acc, l) => (l.tipo === "Entrada" ? addMoney(acc, l.valor) : subMoney(acc, l.valor)),
+    0
+  );
+}
+
 export function parseMoneyInputToCentavos(valor) {
   if (valor == null || valor === "") return null;
 
@@ -207,7 +240,7 @@ const movPlano = (lancamentos, planoId, opts = {}) => {
     .filter((l) => {
       if (l.planoId !== planoId) return false;
       if (modoCaixa && !isLancamentoPago(l)) return false;
-      const dataRef = modoCaixa ? (getDataRealizacao(l) || l.data) : l.data;
+      const dataRef = modoCaixa ? (getDataRealizacao(l) || getDataPrevista(l)) : (getDataPrevista(l) || l.data);
       if (!dataRef) return false;
       if (from !== undefined) {
         if (before) return dataRef < from;

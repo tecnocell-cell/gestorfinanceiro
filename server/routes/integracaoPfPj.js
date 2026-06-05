@@ -14,6 +14,7 @@
  *   POST   /api/integracao-pf-pj/transferencia/preview | /transferencia
  *   GET    /api/integracao-pf-pj/operacoes
  *   POST   /api/integracao-pf-pj/operacoes/:id/rollback
+ *   POST   /api/integracao-pf-pj/operacoes/:id/repair
  *   GET    /api/integracao-pf-pj/agendamentos
  *   POST   /api/integracao-pf-pj/agendamentos
  *   PATCH  /api/integracao-pf-pj/agendamentos/:id
@@ -32,6 +33,8 @@ import {
   previewOperacao,
   confirmOperacao,
   rollbackOperacao,
+  repairOperacao,
+  auditOperacaoConsistencia,
   mapOperacao,
 } from '../integracaoPfPj/operacaoWriter.js';
 import {
@@ -780,9 +783,29 @@ router.get('/operacoes', async (req, res) => {
     );
 
     const operacoes = await attachAuditoriaToOperacoes(rows.map(mapOperacao));
+
+    const { rows: vincRows } = await query(
+      `SELECT v.usuario_pf_id FROM integracao_pf_pj_vinculo v WHERE v.usuario_pj_id = $1 LIMIT 1`,
+      [req.user.id]
+    );
+    let enriched = operacoes;
+    if (vincRows.length) {
+      const pfId = vincRows[0].usuario_pf_id;
+      const [estPj, estPf] = await Promise.all([
+        query('SELECT dados FROM estados WHERE usuario_id = $1', [req.user.id]),
+        query('SELECT dados FROM estados WHERE usuario_id = $1', [pfId]),
+      ]);
+      const dadosPj = estPj.rows[0]?.dados;
+      const dadosPf = estPf.rows[0]?.dados;
+      enriched = operacoes.map((op) => ({
+        ...op,
+        ...auditOperacaoConsistencia(op, dadosPj, dadosPf),
+      }));
+    }
+
     return res.json({
-      operacoes,
-      total: operacoes.length,
+      operacoes: enriched,
+      total: enriched.length,
     });
   } catch (err) {
     console.error('integracao-pf-pj GET /operacoes:', err.message);
@@ -1034,9 +1057,41 @@ router.post('/operacoes/:id/rollback', async (req, res) => {
     return res.json(result);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (err.status) return res.status(err.status).json({ error: err.message });
+    if (err.status) {
+      return res.status(err.status).json({
+        error: err.message,
+        code: err.code || undefined,
+        details: err.details || undefined,
+      });
+    }
     console.error('integracao-pf-pj POST /operacoes/:id/rollback:', err.message);
     res.status(500).json({ error: 'Erro ao desfazer operação.' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─── POST /operacoes/:id/repair ───────────────────────────────────────────────
+
+router.post('/operacoes/:id/repair', async (req, res) => {
+  if (!(await requirePerfil(req, res, 'juridica'))) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await repairOperacao(client, {
+      usuarioPjId: req.user.id,
+      operacaoId: req.params.id,
+    });
+
+    await client.query('COMMIT');
+    return res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('integracao-pf-pj POST /operacoes/:id/repair:', err.message);
+    res.status(500).json({ error: 'Erro ao reparar operação.' });
   } finally {
     client.release();
   }

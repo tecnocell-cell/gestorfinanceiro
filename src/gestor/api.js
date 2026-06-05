@@ -476,6 +476,9 @@ export const integracaoPfPjApi = {
   rollbackOperacao: (id) =>
     request(`/integracao-pf-pj/operacoes/${id}/rollback`, { method: "POST" }),
 
+  repairOperacao: (id) =>
+    request(`/integracao-pf-pj/operacoes/${id}/repair`, { method: "POST" }),
+
   listAgendamentos: () => request("/integracao-pf-pj/agendamentos"),
 
   createAgendamento: ({ tipoOperacao, valor, valorCentavos, diaMes, observacao }) => {

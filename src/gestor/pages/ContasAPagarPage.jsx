@@ -15,7 +15,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
-import { addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao } from "../finance.js";
+import { addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista } from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
@@ -104,7 +104,7 @@ export default function ContasAPagarPage() {
       .filter((l) => l.tipo !== "Transferencia")
       .map((l) => ({
         ...l,
-        _venc:   l.vencimento ?? l.data,
+        _venc:   getDataPrevista(l) ?? l.data,
         _status: getStatusLancamento(l),
       }))
       .sort((a, b) => a._venc.localeCompare(b._venc)),
@@ -142,7 +142,14 @@ export default function ContasAPagarPage() {
     const h = hojeStr();
     const h7 = em7Str();
     const abertos = periodFiltered.filter((l) => l._status !== "pago");
-    const pagosMes = periodFiltered.filter((l) => l._status === "pago");
+    const pagosMes = periodFiltered.filter((l) => {
+      if (l._status !== "pago") return false;
+      const dataRef = getDataRealizacao(l);
+      if (!dataRef) return false;
+      if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) return false;
+      if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) return false;
+      return true;
+    });
     const aPagar = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => addMoney(s, l.valor), 0);
     const aReceber = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => addMoney(s, l.valor), 0);
     const pagasMes = pagosMes.reduce((s, l) => addMoney(s, l.valor), 0);
@@ -156,7 +163,8 @@ export default function ContasAPagarPage() {
     if (viewOnly) return;
     const lanc = lancamentos.find((l) => l.id === id);
     const hoje = hojeStr();
-    lancCrud.update(id, { status: "pago", pago: true, dataPagamento: hoje, pagoEm: hoje });
+    const agora = new Date().toISOString();
+    lancCrud.update(id, { status: "pago", pago: true, dataPagamento: hoje, pagoEm: agora });
     if (lanc?.recorrenciaId) {
       const dataVenc = lanc.vencimento || lanc.data;
       recorrenciasApi

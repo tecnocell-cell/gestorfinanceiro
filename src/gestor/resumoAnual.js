@@ -38,7 +38,8 @@ function sumPlanoNoMes(lancamentos, planoId, ano, mesIndex, modo = "auto") {
     .filter((l) => {
       if (l.planoId !== planoId) return false;
       if (!isLancamentoPago(l)) return false;
-      const dataRef = getDataRealizacao(l) || l.data;
+      const dataRef = getDataRealizacao(l);
+      if (!dataRef) return false;
       const d = new Date(dataRef + "T00:00:00");
       if (d.getFullYear().toString() !== ano) return false;
       if ((d.getMonth() + 1).toString().padStart(2, "0") !== mk) return false;

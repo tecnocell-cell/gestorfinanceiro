@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { isPessoaJuridica } from "../profileLabels.js";
 import { integracaoPfPjApi } from "../api.js";
-import { fmtBRL, fmtDate, fmtDateTime } from "../finance.js";
+import { fmtBRL, fmtDate, fmtDateTime, reaisFromCentavos } from "../finance.js";
 import { INTEGRACAO_TIPO_OPERACAO_LABELS } from "../integracaoPfPjLabels.js";
 import {
   Link2, User, CheckCircle, Clock, XCircle, AlertCircle, Banknote, TrendingUp,
@@ -426,7 +426,7 @@ function AgendamentosPanel({
               {agendamentos.map((ag) => {
                 const tipoLabel = TIPO_OP_LABEL[ag.tipoOperacao] || ag.tipoOperacao;
                 const valorExibir =
-                  ag.valorCentavos != null ? ag.valorCentavos / 100 : ag.valor;
+                  ag.valor != null ? ag.valor : reaisFromCentavos(ag.valorCentavos);
                 return (
                   <tr key={ag.id}>
                     <td style={{ fontWeight: 600, fontSize: 13 }}>{tipoLabel}</td>
@@ -495,7 +495,7 @@ function AgendamentosPanel({
   );
 }
 
-function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRollback }) {
+function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, reparandoId, onRollback, onRepair }) {
   if (loading) {
     return (
       <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13 }}>Carregando histórico...</div>
@@ -528,9 +528,9 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
             const b = statusBadgeOperacao(op.status);
             const tipoLabel = TIPO_OP_LABEL[op.tipoOperacao] || op.tipoOperacao;
             const valorExibir =
-              op.valorCentavos != null && Number.isFinite(op.valorCentavos)
-                ? op.valorCentavos / 100
-                : op.valor;
+              op.valor != null && Number.isFinite(op.valor)
+                ? op.valor
+                : reaisFromCentavos(op.valorCentavos);
             return (
               <tr key={op.id}>
                 <td className="td-mono" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(op.data)}</td>
@@ -547,6 +547,11 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
                     <b.Icon size={12} strokeWidth={2} aria-hidden />
                     {b.label}
                   </span>
+                  {op.divergente && op.status === "ok" && (
+                    <span className="badge badge-cp-atrasado" style={{ display: "inline-flex", marginLeft: 6, fontSize: 10 }}>
+                      Divergente
+                    </span>
+                  )}
                 </td>
                 <td className="integracao-hist-lanc" style={{ fontSize: 12, lineHeight: 1.5, verticalAlign: "top" }}>
                   <span className="badge badge-cp-pendente" style={{ marginBottom: 4, display: "inline-block" }}>
@@ -562,17 +567,27 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, onRoll
                   )}
                 </td>
                 <td>
-                  {!viewOnly && op.status === "ok" && (
-                    <button type="button" className="btn btn-secondary btn-sm"
-                      disabled={desfazendoId === op.id}
-                      title="Remove o lançamento na PJ e na PF"
-                      onClick={() => onRollback(op)}>
-                      {desfazendoId === op.id ? "Desfazendo..." : "Desfazer"}
-                    </button>
-                  )}
-                  {op.status === "rollback" && (
-                    <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Lançamentos removidos</span>
-                  )}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {!viewOnly && op.status === "ok" && op.divergente && (
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        disabled={reparandoId === op.id}
+                        title="Corrige valores e recria lançamento ausente"
+                        onClick={() => onRepair(op)}>
+                        {reparandoId === op.id ? "Reparando..." : "Reparar"}
+                      </button>
+                    )}
+                    {!viewOnly && op.status === "ok" && (
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        disabled={desfazendoId === op.id}
+                        title="Remove o lançamento na PJ e na PF"
+                        onClick={() => onRollback(op)}>
+                        {desfazendoId === op.id ? "Desfazendo..." : "Desfazer"}
+                      </button>
+                    )}
+                    {op.status === "rollback" && (
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Lançamentos removidos</span>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -628,6 +643,7 @@ export default function IntegracaoPfPjPage() {
   const [operacoes, setOperacoes] = useState([]);
   const [loadingOps, setLoadingOps] = useState(false);
   const [desfazendoId, setDesfazendoId] = useState(null);
+  const [reparandoId, setReparandoId] = useState(null);
 
   const [agendamentos, setAgendamentos] = useState([]);
   const [loadingAg, setLoadingAg] = useState(false);
@@ -887,28 +903,47 @@ export default function IntegracaoPfPjPage() {
 
   const handleRollback = async (op) => {
     const tipoOp = TIPO_OP_LABEL[op.tipoOperacao] || "operação";
+    const valorFmt = fmtBRL(op.valor ?? reaisFromCentavos(op.valorCentavos));
     if (!window.confirm(
-      `Desfazer ${tipoOp} de ${fmtBRL(op.valor)}? Os lançamentos de saída na PJ e entrada na PF serão removidos.`
+      `Desfazer ${tipoOp} de ${valorFmt}? Os lançamentos de saída na PJ e entrada na PF serão removidos.`
     )) return;
     setDesfazendoId(op.id);
     setErro(null);
+    setMsg(null);
     try {
       const res = await integracaoPfPjApi.rollbackOperacao(op.id);
       const remPj = res?.removidosPj ?? 0;
       const remPf = res?.removidosPf ?? 0;
-      if (remPf === 0) {
-        setMsg(
-          "Saída removida na PJ. Se a entrada ainda aparecer na PF, abra a conta PF e recarregue a página (F5)."
-        );
-      } else {
-        setMsg(`Operação desfeita: ${remPj} lançamento(s) na PJ e ${remPf} na PF vinculada.`);
-      }
+      setMsg(`Operação desfeita: ${remPj} lançamento(s) na PJ e ${remPf} na PF vinculada.`);
       if (reloadAppState) reloadAppState({ skipFlush: true });
       loadOperacoes();
     } catch (err) {
       setErro(err.message || "Erro ao desfazer.");
     } finally {
       setDesfazendoId(null);
+    }
+  };
+
+  const handleRepair = async (op) => {
+    const valorFmt = fmtBRL(op.valor ?? reaisFromCentavos(op.valorCentavos));
+    if (!window.confirm(`Reparar vínculo da operação de ${valorFmt}? Valores serão alinhados e lançamentos ausentes recriados.`)) return;
+    setReparandoId(op.id);
+    setErro(null);
+    setMsg(null);
+    try {
+      const res = await integracaoPfPjApi.repairOperacao(op.id);
+      const parts = [];
+      if (res.recreatedPj) parts.push("PJ recriada");
+      if (res.recreatedPf) parts.push("PF recriada");
+      if (res.fixedPj) parts.push(`${res.fixedPj} valor(es) PJ`);
+      if (res.fixedPf) parts.push(`${res.fixedPf} valor(es) PF`);
+      setMsg(parts.length ? `Reparo concluído: ${parts.join(", ")}.` : "Operação já estava consistente.");
+      if (reloadAppState) reloadAppState({ skipFlush: true });
+      loadOperacoes();
+    } catch (err) {
+      setErro(err.message || "Erro ao reparar.");
+    } finally {
+      setReparandoId(null);
     }
   };
 
@@ -957,7 +992,7 @@ export default function IntegracaoPfPjPage() {
     setAgEditId(ag.id);
     setAgForm({
       tipoOperacao: ag.tipoOperacao,
-      valor: String(ag.valor ?? ag.valorCentavos / 100),
+      valor: String(ag.valor ?? reaisFromCentavos(ag.valorCentavos)),
       diaMes: String(ag.diaMes),
       observacao: ag.observacao || "",
       status: ag.status,
@@ -1316,7 +1351,9 @@ export default function IntegracaoPfPjPage() {
               loading={loadingOps}
               viewOnly={viewOnly}
               desfazendoId={desfazendoId}
+              reparandoId={reparandoId}
               onRollback={handleRollback}
+              onRepair={handleRepair}
             />
           </div>
         )}

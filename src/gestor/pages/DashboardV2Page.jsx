@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, fmtPct, safeNum, subMoney } from "../finance.js";
+import { addMoney, fmtBRL, fmtPct, safeNum, subMoney, calcFluxoPrevisto30d } from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -118,17 +118,10 @@ export default function DashboardV2Page({ onNavigate }) {
     return recorrencias.filter((r) => r.status === "ativa" && r.proxima_data <= limite);
   }, [recorrencias]);
 
-  const fluxoPrevisto = useMemo(() => {
-    if (!recorrencias.length) return 0;
-    const hoje = hojeStr();
-    const limite = em30Str();
-    return recorrencias
-      .filter((r) => r.status === "ativa" && r.proxima_data >= hoje && r.proxima_data <= limite)
-      .reduce(
-        (acc, r) => (r.tipo === "Receita" ? addMoney(acc, r.valor) : subMoney(acc, r.valor)),
-        0
-      );
-  }, [recorrencias]);
+  const fluxoPrevisto = useMemo(
+    () => calcFluxoPrevisto30d(lancamentos, hojeStr()),
+    [lancamentos]
+  );
 
   const hero12m = useMemo(
     () => mensal.map((m) => ({
