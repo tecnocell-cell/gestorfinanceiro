@@ -3602,6 +3602,57 @@ export const css = `
     background: var(--rn-page-canvas);
   }
 
+  .dash-v2-preamble {
+    padding: 1.5rem 1.75rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .dash-v2-preamble .card,
+  .dash-v2-preamble .beta-checklist-card {
+    margin-bottom: 0;
+  }
+
+  .dash-guide-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+
+  .dash-guide-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 1rem 1.125rem 1.0625rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
+    background: var(--card);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+  }
+  .dash-guide-card:hover {
+    border-color: color-mix(in oklab, var(--rn-primary) 32%, var(--border));
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+    transform: translateY(-1px);
+  }
+  .dash-guide-card:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--rn-primary) 45%, transparent);
+    outline-offset: 2px;
+  }
+  .dash-guide-card__title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 5px;
+    color: var(--foreground);
+    letter-spacing: -0.01em;
+  }
+  .dash-guide-card__desc {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    line-height: 1.45;
+  }
+
   /* Topo: toolbar + KPIs no fundo claro (sem faixa verde escura) */
   .dash-hero {
     padding: 1.75rem 1.75rem 1.5rem;

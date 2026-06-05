@@ -7,7 +7,7 @@ export default function OnboardingDashboardCard({ empresa, isPF, onContinue }) {
     <div
       className="card"
       style={{
-        marginBottom: 16,
+        marginBottom: 0,
         border: "1px solid oklch(0.88 0.04 155)",
         background: "linear-gradient(145deg, oklch(0.98 0.02 150), oklch(0.96 0.03 155))",
       }}

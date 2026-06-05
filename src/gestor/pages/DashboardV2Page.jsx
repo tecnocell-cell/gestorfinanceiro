@@ -325,15 +325,17 @@ export default function DashboardV2Page({ onNavigate }) {
 
   return (
     <div className="dash-v2-root">
-      <OnboardingDashboardCard
-        empresa={empresa}
-        isPF={false}
-        onContinue={() => onNavigate?.("onboarding")}
-      />
-      {isOnboardingDone(empresa) && onNavigate && (
-        <DashboardGuideCardsPJ onNavigate={onNavigate} showEquipe={showEquipe} />
-      )}
-      <BetaChecklistCard onNavigate={onNavigate} />
+      <div className="dash-v2-preamble">
+        <OnboardingDashboardCard
+          empresa={empresa}
+          isPF={false}
+          onContinue={() => onNavigate?.("onboarding")}
+        />
+        {isOnboardingDone(empresa) && onNavigate && (
+          <DashboardGuideCardsPJ onNavigate={onNavigate} showEquipe={showEquipe} />
+        )}
+        <BetaChecklistCard onNavigate={onNavigate} />
+      </div>
 
       <div className="dash-hero">
         <DashPeriodToolbar
