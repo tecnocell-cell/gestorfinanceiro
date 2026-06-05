@@ -80,11 +80,63 @@ export function inPeriodoPrevisto(l, { ano, mes }) {
 }
 
 export function filterLancamentosRealizados(lancamentos, opts = {}) {
-  const { ano, mes, tipo } = opts;
-  return (lancamentos || []).filter((l) => {
+  const { ano, mes, tipo, incluirTransferencias = true } = opts;
+  return dedupeLancamentosById(lancamentos).filter((l) => {
     if (!isLancamentoPago(l)) return false;
     if (tipo && tipo !== "Todos" && l.tipo !== tipo) return false;
+    if (!incluirTransferencias && isTransferenciaInterna(l)) return false;
     return inPeriodoRealizacao(l, { ano, mes });
+  });
+}
+
+/** Repasse entre contas PF↔PJ (não é receita/despesa operacional). */
+export function isTransferenciaInterna(l) {
+  if (!l || typeof l !== "object") return false;
+  if (l.tipo === "Transferencia") return true;
+
+  const opLabel = String(l.operacao || "");
+  if (/transf\.?\s*pj/i.test(opLabel)) return true;
+
+  if (String(l.source || "") === "integracao_pf_pj" || l.integracaoPfPj) {
+    const tipo = l.tipoOperacao || l.integracaoPfPj?.tipoOperacao;
+    if (tipo === "transferencia_pj_pf") return true;
+    const h = String(l.historico || l.descricao || "").toLowerCase();
+    if (/transfer[eê]ncia\s*(pj\s*[→\-]\s*pf|recebida\s*[-—]\s*pj)/.test(h)) return true;
+    if (/transfer[eê]ncia\s*pj\s*[→\-]\s*pf/.test(h)) return true;
+    return false;
+  }
+
+  const h = String(l.historico || l.descricao || "").toLowerCase();
+  if (/transfer[eê]ncia\s*pf\s*[→\-]\s*pj/.test(h)) return true;
+  return false;
+}
+
+export function dedupeLancamentosById(lancamentos) {
+  const seen = new Set();
+  const out = [];
+  for (const l of lancamentos || []) {
+    const id = String(l?.id || "");
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(l);
+  }
+  return out;
+}
+
+/** Receitas/despesas reais — sem repasses internos nem tipo Transferencia. */
+export function filterLancamentosResultado(lancamentos) {
+  return dedupeLancamentosById(lancamentos).filter((l) => {
+    if (l.tipo !== "Entrada" && l.tipo !== "Saida") return false;
+    return !isTransferenciaInterna(l);
+  });
+}
+
+/** Movimentação de caixa — inclui repasses (afetam saldo da conta). */
+export function filterLancamentosCaixa(lancamentos) {
+  return dedupeLancamentosById(lancamentos).filter((l) => {
+    if (l.tipo === "Entrada" || l.tipo === "Saida" || l.tipo === "Transferencia") return true;
+    if (String(l.source || "") === "integracao_pf_pj") return true;
+    return false;
   });
 }
 
@@ -93,6 +145,7 @@ export function filterLancamentosPrevistos(lancamentos, opts = {}) {
   const refHoje = hoje || new Date().toISOString().slice(0, 10);
   return (lancamentos || []).filter((l) => {
     if (l.tipo === "Transferencia") return false;
+    if (isTransferenciaInterna(l)) return false;
     if (!isLancamentoPendente(l)) return false;
     if (tipo && tipo !== "Todos" && l.tipo !== tipo) return false;
     const prev = getDataPrevista(l);

@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, fmtPct, safeNum, subMoney, calcFluxoPrevisto30d } from "../finance.js";
+import { addMoney, fmtBRL, fmtPct, safeNum, subMoney, calcFluxoPrevisto30d, calcTotaisResultadoPeriodo } from "../finance.js";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
 import ContasAPagarAlert    from "../components/ContasAPagarAlert.jsx";
@@ -121,6 +121,11 @@ export default function DashboardV2Page({ onNavigate }) {
   const fluxoPrevisto = useMemo(
     () => calcFluxoPrevisto30d(lancamentos, hojeStr()),
     [lancamentos]
+  );
+
+  const repassesPj = useMemo(
+    () => calcTotaisResultadoPeriodo(lancamentos, filterPeriodo),
+    [lancamentos, filterPeriodo]
   );
 
   const hero12m = useMemo(
@@ -260,7 +265,9 @@ export default function DashboardV2Page({ onNavigate }) {
       icon: TrendingUp,
       label: "Receitas",
       value: fmtBRL(dreAtual.receitas),
-      sub: "Entradas no período",
+      sub: repassesPj.transfRecebidas > 0
+        ? `Operacionais · repasses receb. ${fmtBRL(repassesPj.transfRecebidas)}`
+        : "Receitas operacionais",
       valueClass: "success",
       sparkline: sparkReceitas,
       tone: "success",
@@ -272,7 +279,9 @@ export default function DashboardV2Page({ onNavigate }) {
       icon: TrendingDown,
       label: "Custos + Despesas",
       value: fmtBRL(dreAtual.custos + dreAtual.despesas),
-      sub: `Impostos: ${fmtBRL(dreAtual.impostos)}`,
+      sub: repassesPj.transfEnviadas > 0
+        ? `Operacionais · repasses env. ${fmtBRL(repassesPj.transfEnviadas)} · Imp. ${fmtBRL(dreAtual.impostos)}`
+        : `Impostos: ${fmtBRL(dreAtual.impostos)}`,
       valueClass: "danger",
       sparkline: sparkDespesas,
       tone: "danger",

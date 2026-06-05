@@ -15,7 +15,10 @@ import { useState, useMemo, useCallback } from "react";
 import { useGestor }            from "../GestorContext.jsx";
 import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
-import { addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista } from "../finance.js";
+import {
+  addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista,
+  filterLancamentosResultado, sumPagasNoMes,
+} from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
 import { SummaryIcon, EmptyIcon } from "../components/IconBox.jsx";
@@ -100,8 +103,7 @@ export default function ContasAPagarPage() {
 
   // ── Base: Entrada + Saída anotadas com _venc e _status ────────────────────
   const base = useMemo(() =>
-    lancamentos
-      .filter((l) => l.tipo !== "Transferencia")
+    filterLancamentosResultado(lancamentos)
       .map((l) => ({
         ...l,
         _venc:   getDataPrevista(l) ?? l.data,
@@ -142,21 +144,13 @@ export default function ContasAPagarPage() {
     const h = hojeStr();
     const h7 = em7Str();
     const abertos = periodFiltered.filter((l) => l._status !== "pago");
-    const pagosMes = periodFiltered.filter((l) => {
-      if (l._status !== "pago") return false;
-      const dataRef = getDataRealizacao(l);
-      if (!dataRef) return false;
-      if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) return false;
-      if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) return false;
-      return true;
-    });
     const aPagar = abertos.filter((l) => l.tipo === "Saida").reduce((s, l) => addMoney(s, l.valor), 0);
     const aReceber = abertos.filter((l) => l.tipo === "Entrada").reduce((s, l) => addMoney(s, l.valor), 0);
-    const pagasMes = pagosMes.reduce((s, l) => addMoney(s, l.valor), 0);
+    const pagasMes = sumPagasNoMes(lancamentos, filterPeriodo);
     const vencidos = abertos.filter((l) => l._status === "atrasado").length;
     const vencendo7 = abertos.filter((l) => l._venc > h && l._venc <= h7).length;
     return { aPagar, aReceber, pagasMes, vencidos, vencendo7 };
-  }, [periodFiltered]);
+  }, [periodFiltered, lancamentos, filterPeriodo]);
 
   // ── Mutações ──────────────────────────────────────────────────────────────
   const marcarPago = useCallback((id) => {

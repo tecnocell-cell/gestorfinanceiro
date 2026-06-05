@@ -17,7 +17,10 @@ import {
 } from "recharts";
 import { useGestor }        from "../GestorContext.jsx";
 import { useRecorrencias }  from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao, calcFluxoPrevisto30d } from "../finance.js";
+import {
+  addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao,
+  calcFluxoPrevisto30d, calcTotaisResultadoPeriodo, filterLancamentosResultado,
+} from "../finance.js";
 import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import { MESES, CHART }     from "../constants.js";
 import RecorrenciaAlert     from "../components/RecorrenciaAlert.jsx";
@@ -41,6 +44,8 @@ import {
   Hourglass,
   Repeat,
   Wallet,
+  ArrowRight,
+  ArrowDownRight,
 } from "../components/icons.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -102,27 +107,17 @@ export default function DashboardPFV2Page({ onNavigate }) {
 
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
 
-  const pfTotais = useMemo(() => {
-    let receitas = 0;
-    let despesas = 0;
-    for (const l of lancamentos) {
-      if (!isLancamentoPago(l)) continue;
-      const dataRef = getDataRealizacao(l);
-      if (!dataRef) continue;
-      if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
-      if (filterPeriodo.mes && dataRef.slice(5, 7) !== filterPeriodo.mes) continue;
-      if (l.tipo === "Entrada") receitas = addMoney(receitas, l.valor);
-      else if (l.tipo === "Saida") despesas = addMoney(despesas, l.valor);
-    }
-    return { receitas: roundMoney(receitas), despesas: roundMoney(despesas) };
-  }, [lancamentos, filterPeriodo]);
+  const pfTotais = useMemo(
+    () => calcTotaisResultadoPeriodo(lancamentos, filterPeriodo),
+    [lancamentos, filterPeriodo]
+  );
 
   const contasNegativas = useMemo(
     () => contas.filter((c) => !c.inativo && getSaldoConta(c.id) < 0).length,
     [contas, getSaldoConta]
   );
 
-  const saldoMes = subMoney(pfTotais.receitas, pfTotais.despesas);
+  const saldoMes = pfTotais.saldo;
 
   const toKey = (v) => {
     if (!v) return "";
@@ -148,10 +143,12 @@ export default function DashboardPFV2Page({ onNavigate }) {
 
   const pfMensal = useMemo(() => {
     const totais = Array.from({ length: 12 }, () => ({ rec: 0, desp: 0 }));
-    for (const l of lancamentos) {
-      if (!l.data) continue;
-      if (filterPeriodo.ano && !l.data.startsWith(filterPeriodo.ano)) continue;
-      const mesIdx = parseInt(l.data.slice(5, 7), 10) - 1;
+    for (const l of filterLancamentosResultado(lancamentos)) {
+      if (!isLancamentoPago(l)) continue;
+      const dataRef = getDataRealizacao(l);
+      if (!dataRef) continue;
+      if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
+      const mesIdx = parseInt(dataRef.slice(5, 7), 10) - 1;
       if (mesIdx < 0 || mesIdx > 11) continue;
       if (l.tipo === "Entrada") totais[mesIdx].rec = addMoney(totais[mesIdx].rec, l.valor);
       else if (l.tipo === "Saida") totais[mesIdx].desp = addMoney(totais[mesIdx].desp, l.valor);
@@ -286,7 +283,9 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: TrendingUp,
       label: "Receitas",
       value: fmtBRL(pfTotais.receitas),
-      sub: "Entradas no período",
+      sub: pfTotais.transfRecebidas > 0
+        ? `Operacionais · ${fmtBRL(pfTotais.transfRecebidas)} em repasses`
+        : "Receitas operacionais",
       valueClass: "success",
       sparkline: sparkReceitas,
       tone: "success",
@@ -298,7 +297,9 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: TrendingDown,
       label: "Despesas",
       value: fmtBRL(pfTotais.despesas),
-      sub: "Gastos no período",
+      sub: pfTotais.transfEnviadas > 0
+        ? `Operacionais · ${fmtBRL(pfTotais.transfEnviadas)} repassadas`
+        : "Despesas operacionais",
       valueClass: pfTotais.despesas > pfTotais.receitas ? "danger" : "",
       sparkline: sparkDespesas,
       tone: "danger",
@@ -324,6 +325,24 @@ export default function DashboardPFV2Page({ onNavigate }) {
       value: fmtBRL(saldoTotal),
       sub: `${contas.filter((c) => !c.inativo).length} conta${contas.filter((c) => !c.inativo).length !== 1 ? "s" : ""}`,
       valueClass: saldoTotal >= 0 ? "success" : "danger",
+      tone: "default",
+      compact: true,
+    },
+    {
+      icon: ArrowRight,
+      label: "Transf. recebidas",
+      value: fmtBRL(pfTotais.transfRecebidas),
+      sub: "Repasses PJ → PF no período",
+      valueClass: pfTotais.transfRecebidas > 0 ? "info" : "",
+      tone: "default",
+      compact: true,
+    },
+    {
+      icon: ArrowDownRight,
+      label: "Transf. enviadas",
+      value: fmtBRL(pfTotais.transfEnviadas),
+      sub: "Repasses PF → PJ no período",
+      valueClass: "",
       tone: "default",
       compact: true,
     },

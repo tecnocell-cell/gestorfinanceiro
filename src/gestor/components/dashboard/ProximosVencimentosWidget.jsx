@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { useGestor } from "../../GestorContext.jsx";
 import { useRecorrencias } from "../../hooks/useRecorrencias.js";
-import { fmtBRL, fmtDate, isLancamentoPago, getDataPrevista } from "../../finance.js";
+import { fmtBRL, fmtDate, isLancamentoPago, getDataPrevista, isTransferenciaInterna } from "../../finance.js";
 import EmptyState from "./EmptyState.jsx";
 import { WidgetTitle } from "../IconBox.jsx";
 import { CalendarDays, CircleCheck, ArrowUpRight, ArrowDownLeft } from "../icons.jsx";
@@ -35,7 +35,7 @@ function ProximosVencimentosWidget({ limit = 6, dias = 14, onVerTodos }) {
   const items = useMemo(() => {
     const out = [];
     for (const l of lancamentos) {
-      if (l.tipo === "Transferencia") continue;
+      if (l.tipo === "Transferencia" || isTransferenciaInterna(l)) continue;
       if (isLancamentoPago(l)) continue;
       const venc = getDataPrevista(l);
       if (!venc || venc > limiteData) continue;

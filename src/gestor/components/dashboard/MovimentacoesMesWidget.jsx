@@ -1,6 +1,9 @@
 import { memo, useMemo } from "react";
 import { useGestor } from "../../GestorContext.jsx";
-import { addMoney, fmtBRL, fmtDate, getDataRealizacao, getDataPrevista, getStatusLancamento, isLancamentoPago } from "../../finance.js";
+import {
+  addMoney, fmtBRL, fmtDate, getDataRealizacao, getDataPrevista, getStatusLancamento,
+  isLancamentoPago, isTransferenciaInterna,
+} from "../../finance.js";
 import { WidgetTitle } from "../IconBox.jsx";
 import { ArrowDownLeft, ArrowUpRight, Clock, CircleCheck } from "../icons.jsx";
 
@@ -21,7 +24,7 @@ function MovimentacoesMesWidget({ onVerContas }) {
     const quitadas = [];
 
     for (const l of lancamentos) {
-      if (l.tipo === "Transferencia") continue;
+      if (l.tipo === "Transferencia" || isTransferenciaInterna(l)) continue;
       const st = getStatusLancamento(l);
 
       if (isLancamentoPago(l)) {

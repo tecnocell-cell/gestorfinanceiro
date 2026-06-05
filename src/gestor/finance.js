@@ -7,6 +7,11 @@ import {
   getStatusLancamentoDisplay,
   filterLancamentosRealizados,
   filterLancamentosPrevistos,
+  filterLancamentosResultado,
+  filterLancamentosCaixa,
+  dedupeLancamentosById,
+  isTransferenciaInterna,
+  inPeriodoRealizacao,
   normalizeLancamentoStatus,
   getValorRealizado,
   isLancamentoVencido,
@@ -24,6 +29,11 @@ export {
   isLancamentoPendente,
   filterLancamentosRealizados,
   filterLancamentosPrevistos,
+  filterLancamentosResultado,
+  filterLancamentosCaixa,
+  dedupeLancamentosById,
+  isTransferenciaInterna,
+  inPeriodoRealizacao,
 } from "./financeStatus.js";
 
 /** Converte centavos inteiros em reais sem erro de float (ex.: 1500000 → 15000). */
@@ -78,6 +88,55 @@ export function calcFluxoPrevisto30d(lancamentos, hoje) {
     (acc, l) => (l.tipo === "Entrada" ? addMoney(acc, l.valor) : subMoney(acc, l.valor)),
     0
   );
+}
+
+/** Despesas quitadas no período (Contas a Pagar — sem repasses internos). */
+export function sumPagasNoMes(lancamentos, { ano, mes }) {
+  let total = 0;
+  for (const l of filterLancamentosRealizados(filterLancamentosResultado(lancamentos), {
+    ano,
+    mes,
+    tipo: "Saida",
+    incluirTransferencias: false,
+  })) {
+    total = addMoney(total, l.valor);
+  }
+  return roundMoney(total);
+}
+
+/** Totais operacionais + repasses PF/PJ separados no período. */
+export function calcTotaisResultadoPeriodo(lancamentos, { ano, mes }) {
+  let receitas = 0;
+  let despesas = 0;
+  let transfRecebidas = 0;
+  let transfEnviadas = 0;
+
+  for (const l of filterLancamentosRealizados(filterLancamentosResultado(lancamentos), {
+    ano,
+    mes,
+    incluirTransferencias: false,
+  })) {
+    if (l.tipo === "Entrada") receitas = addMoney(receitas, l.valor);
+    else if (l.tipo === "Saida") despesas = addMoney(despesas, l.valor);
+  }
+
+  for (const l of filterLancamentosRealizados(dedupeLancamentosById(lancamentos), {
+    ano,
+    mes,
+    incluirTransferencias: true,
+  })) {
+    if (!isTransferenciaInterna(l)) continue;
+    if (l.tipo === "Entrada") transfRecebidas = addMoney(transfRecebidas, l.valor);
+    else if (l.tipo === "Saida") transfEnviadas = addMoney(transfEnviadas, l.valor);
+  }
+
+  return {
+    receitas: roundMoney(receitas),
+    despesas: roundMoney(despesas),
+    transfRecebidas: roundMoney(transfRecebidas),
+    transfEnviadas: roundMoney(transfEnviadas),
+    saldo: subMoney(receitas, despesas),
+  };
 }
 
 export function parseMoneyInputToCentavos(valor) {
@@ -148,10 +207,11 @@ export const fmtDateTime = (iso) => {
 export const getSaldoConta = (contaId, contas, lancamentos) => {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) return 0;
-  const entradas = lancamentos
+  const lancs = filterLancamentosCaixa(lancamentos);
+  const entradas = lancs
     .filter((l) => l.contaEntradaId === contaId)
     .reduce((s, l) => addMoney(s, l.valor), 0);
-  const saidas = lancamentos
+  const saidas = lancs
     .filter((l) => l.contaSaidaId === contaId)
     .reduce((s, l) => addMoney(s, l.valor), 0);
   return addMoney(conta.saldoInicial, subMoney(entradas, saidas));
@@ -301,18 +361,20 @@ function computeDRE(resultado, planoContas) {
 }
 
 export const getDRE = (lancamentos, planoContas, ano, mes) => {
+  const lancs = filterLancamentosResultado(lancamentos);
   const resultado = {};
   planoContas.forEach((pc) => {
-    const { entradas, saidas } = movPlano(lancamentos, pc.id, { ano, mes });
+    const { entradas, saidas } = movPlano(lancs, pc.id, { ano, mes });
     resultado[pc.id] = { entradas, saidas, saldo: subMoney(entradas, saidas) };
   });
   return computeDRE(resultado, planoContas);
 };
 
 export const getDREByRange = (lancamentos, planoContas, from, to) => {
+  const lancs = filterLancamentosResultado(lancamentos);
   const resultado = {};
   planoContas.forEach((pc) => {
-    const { entradas, saidas } = movPlano(lancamentos, pc.id, { from, to });
+    const { entradas, saidas } = movPlano(lancs, pc.id, { from, to });
     resultado[pc.id] = { entradas, saidas, saldo: subMoney(entradas, saidas) };
   });
   return computeDRE(resultado, planoContas);
