@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { generateId, safeNum, addMoney, subMoney } from "../finance.js";
+import { generateId, safeNum, addMoney, subMoney, getContaPadrao } from "../finance.js";
 import { useGestor } from "../GestorContext.jsx";
 import { isLancamentoPago } from "../pfDueDates.js";
 import {
@@ -184,6 +184,8 @@ export function ModalLancamento() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const initVenc = item?.vencimento || item?.data || todayIso;
   const initTipo = item?.tipo || "Entrada";
+  const contasAtivasInit = contas.filter((c) => !c.inativo);
+  const contaPadraoId = getContaPadrao(contasAtivasInit)?.id || "";
 
   const [form, setForm] = useState({
     codigo:       item?.codigo        ?? "",
@@ -192,8 +194,8 @@ export function ModalLancamento() {
     vencimento:   initVenc,
     pago:         item?.pago ?? (item ? isLancamentoPago(item) : initTipo !== "Saida"),
     tipo:         initTipo,
-    contaEntradaId: item?.contaEntradaId || "",
-    contaSaidaId: item?.contaSaidaId  || "",
+    contaEntradaId: item?.contaEntradaId || (item ? "" : initTipo === "Entrada" ? contaPadraoId : ""),
+    contaSaidaId: item?.contaSaidaId  || (item ? "" : initTipo === "Saida" ? contaPadraoId : ""),
     planoId:      item?.planoId       || "",
     valor:        item?.valor         ?? "",
     historico:    item?.historico     || "",
@@ -216,6 +218,17 @@ export function ModalLancamento() {
       return;
     }
     const valorNum = safeNum(form.valor);
+    const semContaPago =
+      form.pago &&
+      form.tipo !== "Transferencia" &&
+      ((form.tipo === "Saida" && !form.contaSaidaId) ||
+        (form.tipo === "Entrada" && !form.contaEntradaId));
+    if (semContaPago) {
+      const ok = window.confirm(
+        "Sem conta, este lançamento entra nos relatórios, mas não altera saldo de Caixa/Banco.\n\nDeseja salvar mesmo assim?"
+      );
+      if (!ok) return;
+    }
     if (form.tipo === "Saida" && form.contaSaidaId) {
       const saldoAtual = getSaldoConta(form.contaSaidaId);
       const saldoApos = subMoney(saldoAtual, valorNum);
@@ -273,12 +286,15 @@ export function ModalLancamento() {
     const novaLista = filterPlanoByTipo(v);
     const planoValido = novaLista.some((p) => p.id === form.planoId);
     const isSaida = v === "Saida";
+    const padrao = getContaPadrao(contas.filter((c) => !c.inativo))?.id || "";
     setForm((prev) => ({
       ...prev,
       tipo: v,
       planoId: planoValido ? prev.planoId : "",
       vencimento: prev.vencimento || prev.data,
       pago: isSaida ? prev.pago : true,
+      contaEntradaId: v === "Entrada" && !prev.contaEntradaId ? padrao : prev.contaEntradaId,
+      contaSaidaId: v === "Saida" && !prev.contaSaidaId ? padrao : prev.contaSaidaId,
     }));
   };
 
@@ -386,6 +402,11 @@ export function ModalLancamento() {
                 <option value="">— Selecione —</option>
                 {contasAtivas.map((c) => <option key={c.id} value={c.id}>{c.apelido || c.nome}</option>)}
               </select>
+              {form.pago && !form.contaSaidaId && form.tipo !== "Transferencia" && (
+                <p className="modal-field-hint" style={{ color: "var(--warning, #b45309)" }}>
+                  Sem conta, este lançamento não altera saldo de Caixa/Banco.
+                </p>
+              )}
             </ModalField>
           )}
         </ModalGrid>

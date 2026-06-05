@@ -8,9 +8,15 @@ import {
   filterLancamentosRealizados,
   filterLancamentosPrevistos,
   filterLancamentosResultado,
+  filterResultadoPF,
+  filterResultadoPJ,
   filterLancamentosCaixa,
   dedupeLancamentosById,
   isTransferenciaInterna,
+  isIntegracaoPfPj,
+  isRepassePfParaPj,
+  isRepassePjParaPf,
+  isRendimentoIntegracaoPf,
   inPeriodoRealizacao,
   normalizeLancamentoStatus,
   getValorRealizado,
@@ -31,15 +37,43 @@ export {
   filterLancamentosRealizados,
   filterLancamentosPrevistos,
   filterLancamentosResultado,
+  filterResultadoPF,
+  filterResultadoPJ,
   filterLancamentosCaixa,
   dedupeLancamentosById,
   isTransferenciaInterna,
+  isIntegracaoPfPj,
+  isRepassePfParaPj,
+  isRepassePjParaPf,
+  isRendimentoIntegracaoPf,
   inPeriodoRealizacao,
   lancamentoAfetaSaldoCaixa,
 } from "./financeStatus.js";
 
-/** Resolve conta bancária do lançamento (id, código ou conta única ativa). */
-export function resolveContaIdsLancamento(l, contas) {
+/** Lançamento originado de recorrência (herda conta padrão se faltar). */
+export function isLancamentoRecorrencia(l) {
+  if (!l) return false;
+  if (l.recorrenciaId) return true;
+  const src = String(l.source || l.origem || "");
+  return src === "recorrencia";
+}
+
+/**
+ * Conta padrão para débito/crédito: principal → tipo Caixa → primeira ativa.
+ */
+export function getContaPadrao(contas) {
+  const ativas = (contas || []).filter((c) => !c.inativo);
+  if (!ativas.length) return null;
+  return (
+    ativas.find((c) => c.principal === true) ||
+    ativas.find((c) => /^caixa$/i.test(String(c.tipo || "").trim())) ||
+    ativas.find((c) => /caixa/i.test(`${c.tipo || ""} ${c.nome || ""} ${c.apelido || ""}`)) ||
+    ativas[0]
+  );
+}
+
+/** Resolve conta bancária do lançamento (id, código; recorrência usa conta padrão). */
+export function resolveContaIdsLancamento(l, contas, { inferRecorrencia = true } = {}) {
   let contaEntradaId = l.contaEntradaId || null;
   let contaSaidaId = l.contaSaidaId || null;
 
@@ -52,16 +86,65 @@ export function resolveContaIdsLancamento(l, contas) {
     if (c) contaSaidaId = c.id;
   }
 
-  const ativas = (contas || []).filter((c) => !c.inativo);
-  if (!contaEntradaId && !contaSaidaId && ativas.length && isLancamentoPago(l)) {
-    const preferida =
-      ativas.find((c) => /caixa|banco|conta corrente/i.test(`${c.tipo || ""} ${c.nome || ""}`)) ||
-      ativas[0];
-    if (l.tipo === "Entrada") contaEntradaId = preferida.id;
-    if (l.tipo === "Saida") contaSaidaId = preferida.id;
+  const podeInferir =
+    inferRecorrencia && isLancamentoPago(l) && isLancamentoRecorrencia(l) && !isTransferenciaInterna(l);
+  if (podeInferir) {
+    const padrao = getContaPadrao(contas);
+    if (padrao) {
+      if (l.tipo === "Entrada" && !contaEntradaId) contaEntradaId = padrao.id;
+      if (l.tipo === "Saida" && !contaSaidaId) contaSaidaId = padrao.id;
+    }
   }
 
   return { contaEntradaId, contaSaidaId };
+}
+
+/** Patch de conta para lançamento pago (recorrência preenche; manual só se allowManual). */
+export function patchContaLancamentoPago(l, contas, { allowManual = false } = {}) {
+  if (!l || !isLancamentoPago(l) || isTransferenciaInterna(l) || l.tipo === "Transferencia") {
+    return null;
+  }
+  const isRec = isLancamentoRecorrencia(l);
+  if (!isRec && !allowManual) return null;
+
+  const { contaEntradaId, contaSaidaId } = resolveContaIdsLancamento(l, contas);
+  const patch = {};
+  if (l.tipo === "Saida" && !l.contaSaidaId && contaSaidaId) {
+    patch.contaSaidaId = contaSaidaId;
+    const c = (contas || []).find((x) => x.id === contaSaidaId);
+    if (c?.codigo != null) patch.codigoOrigem = c.codigo;
+  }
+  if (l.tipo === "Entrada" && !l.contaEntradaId && contaEntradaId) {
+    patch.contaEntradaId = contaEntradaId;
+    const c = (contas || []).find((x) => x.id === contaEntradaId);
+    if (c?.codigo != null) patch.codigoDestino = c.codigo;
+  }
+  return Object.keys(patch).length ? patch : null;
+}
+
+/** Auditoria: pagos sem conta (recorrência reparável; manual apenas alerta). */
+export function auditLancamentosSemConta(lancamentos, contas) {
+  const itens = [];
+  for (const l of lancamentos || []) {
+    if (!isLancamentoPago(l) || isTransferenciaInterna(l) || l.tipo === "Transferencia") continue;
+    const resolved = resolveContaIdsLancamento(l, contas);
+    const semSaida = l.tipo === "Saida" && !l.contaSaidaId && !resolved.contaSaidaId;
+    const semEntrada = l.tipo === "Entrada" && !l.contaEntradaId && !resolved.contaEntradaId;
+    if (!semSaida && !semEntrada) continue;
+    itens.push({
+      id: l.id,
+      historico: l.historico,
+      tipo: l.tipo,
+      valor: l.valor,
+      recorrenciaId: l.recorrenciaId || null,
+      source: l.source || null,
+      reparavel: isLancamentoRecorrencia(l),
+      motivo: isLancamentoRecorrencia(l)
+        ? "recorrencia_paga_sem_conta"
+        : "manual_pago_sem_conta",
+    });
+  }
+  return itens;
 }
 
 /** Converte centavos inteiros em reais sem erro de float (ex.: 1500000 → 15000). */
@@ -118,31 +201,33 @@ export function calcFluxoPrevisto30d(lancamentos, hoje) {
   );
 }
 
-/** Despesas quitadas no período (Contas a Pagar — sem repasses internos). */
-export function sumPagasNoMes(lancamentos, { ano, mes }) {
+/** Despesas quitadas no período (Contas a Pagar — só Saídas operacionais). */
+export function sumPagasNoMes(lancamentos, { ano, mes, perfil = "pf" } = {}) {
+  const filterFn = perfil === "pj" ? filterResultadoPJ : filterResultadoPF;
   let total = 0;
-  for (const l of filterLancamentosRealizados(filterLancamentosResultado(lancamentos), {
+  for (const l of filterLancamentosRealizados(filterFn(lancamentos), {
     ano,
     mes,
     tipo: "Saida",
-    incluirTransferencias: false,
+    incluirTransferencias: true,
   })) {
     total = addMoney(total, l.valor);
   }
   return roundMoney(total);
 }
 
-/** Totais operacionais + repasses PF/PJ separados no período. */
-export function calcTotaisResultadoPeriodo(lancamentos, { ano, mes }) {
+/** Totais do período — PF inclui rendimentos integração; PJ trata repasses como despesa. */
+export function calcTotaisResultadoPeriodo(lancamentos, { ano, mes, perfil = "pf" } = {}) {
+  const filterFn = perfil === "pj" ? filterResultadoPJ : filterResultadoPF;
   let receitas = 0;
   let despesas = 0;
   let transfRecebidas = 0;
   let transfEnviadas = 0;
 
-  for (const l of filterLancamentosRealizados(filterLancamentosResultado(lancamentos), {
+  for (const l of filterLancamentosRealizados(filterFn(lancamentos), {
     ano,
     mes,
-    incluirTransferencias: false,
+    incluirTransferencias: true,
   })) {
     if (l.tipo === "Entrada") receitas = addMoney(receitas, l.valor);
     else if (l.tipo === "Saida") despesas = addMoney(despesas, l.valor);
@@ -153,9 +238,18 @@ export function calcTotaisResultadoPeriodo(lancamentos, { ano, mes }) {
     mes,
     incluirTransferencias: true,
   })) {
-    if (!isTransferenciaInterna(l)) continue;
-    if (l.tipo === "Entrada") transfRecebidas = addMoney(transfRecebidas, l.valor);
-    else if (l.tipo === "Saida") transfEnviadas = addMoney(transfEnviadas, l.valor);
+    if (perfil === "pj") {
+      if (isIntegracaoPfPj(l) && l.tipo === "Saida") {
+        transfEnviadas = addMoney(transfEnviadas, l.valor);
+      }
+      continue;
+    }
+    if (isRepassePjParaPf(l) && l.tipo === "Entrada") {
+      transfRecebidas = addMoney(transfRecebidas, l.valor);
+    }
+    if (isRepassePfParaPj(l)) {
+      transfEnviadas = addMoney(transfEnviadas, l.valor);
+    }
   }
 
   return {
@@ -401,8 +495,8 @@ function computeDRE(resultado, planoContas) {
   };
 }
 
-export const getDRE = (lancamentos, planoContas, ano, mes) => {
-  const lancs = filterLancamentosResultado(lancamentos);
+export const getDRE = (lancamentos, planoContas, ano, mes, { perfil = "pj" } = {}) => {
+  const lancs = perfil === "pf" ? filterResultadoPF(lancamentos) : filterResultadoPJ(lancamentos);
   const resultado = {};
   planoContas.forEach((pc) => {
     const { entradas, saidas } = movPlano(lancs, pc.id, { ano, mes });
@@ -411,8 +505,8 @@ export const getDRE = (lancamentos, planoContas, ano, mes) => {
   return computeDRE(resultado, planoContas);
 };
 
-export const getDREByRange = (lancamentos, planoContas, from, to) => {
-  const lancs = filterLancamentosResultado(lancamentos);
+export const getDREByRange = (lancamentos, planoContas, from, to, { perfil = "pj" } = {}) => {
+  const lancs = perfil === "pf" ? filterResultadoPF(lancamentos) : filterResultadoPJ(lancamentos);
   const resultado = {};
   planoContas.forEach((pc) => {
     const { entradas, saidas } = movPlano(lancs, pc.id, { from, to });
@@ -503,10 +597,10 @@ export const getConsultaDREByRange = (lancamentos, planoContas, contas, from, to
 export const contaPorCodigo = (contas, codigo) =>
   contas.find((c) => String(c.codigo) === String(codigo));
 
-export const getMensal = (lancamentos, planoContas, ano) =>
+export const getMensal = (lancamentos, planoContas, ano, { perfil = "pj" } = {}) =>
   MESES.map((name, i) => {
     const mes = (i + 1).toString().padStart(2, "0");
-    const dre = getDRE(lancamentos, planoContas, ano, mes);
+    const dre = getDRE(lancamentos, planoContas, ano, mes, { perfil });
     return {
       name,
       Receita: dre.receitas,

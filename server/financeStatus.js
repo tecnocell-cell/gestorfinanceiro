@@ -113,11 +113,51 @@ export function dedupeLancamentosById(lancamentos) {
   return out;
 }
 
-export function filterLancamentosResultado(lancamentos) {
+export function isIntegracaoPfPj(l) {
+  if (!l || typeof l !== 'object') return false;
+  return String(l.source || '') === 'integracao_pf_pj' || !!l.integracaoPfPj;
+}
+
+export function isRepassePfParaPj(l) {
+  if (!l || l.tipo !== 'Saida') return false;
+  const h = String(l.historico || l.descricao || '').toLowerCase();
+  if (/transfer[eê]ncia\s*pf\s*[→\-]\s*pj/.test(h)) return true;
+  if (isIntegracaoPfPj(l)) {
+    const lado = l.integracaoPfPj?.lado || l.lado;
+    return lado === 'pf';
+  }
+  return false;
+}
+
+export function isRepassePjParaPf(l) {
+  if (!l) return false;
+  if (isIntegracaoPfPj(l)) {
+    const tipo = l.tipoOperacao || l.integracaoPfPj?.tipoOperacao;
+    if (tipo === 'transferencia_pj_pf') return true;
+  }
+  return isTransferenciaInterna(l);
+}
+
+export function filterResultadoPF(lancamentos) {
   return dedupeLancamentosById(lancamentos).filter((l) => {
     if (l.tipo !== 'Entrada' && l.tipo !== 'Saida') return false;
-    return !isTransferenciaInterna(l);
+    if (l.tipo === 'Transferencia') return false;
+    if (isRepassePfParaPj(l)) return false;
+    return true;
   });
+}
+
+export function filterResultadoPJ(lancamentos) {
+  return dedupeLancamentosById(lancamentos).filter((l) => {
+    if (l.tipo !== 'Entrada' && l.tipo !== 'Saida') return false;
+    if (l.tipo === 'Transferencia') return false;
+    if (l.tipo === 'Entrada' && (isIntegracaoPfPj(l) || isTransferenciaInterna(l))) return false;
+    return true;
+  });
+}
+
+export function filterLancamentosResultado(lancamentos) {
+  return filterResultadoPJ(lancamentos);
 }
 
 export function filterLancamentosCaixa(lancamentos) {

@@ -124,7 +124,7 @@ export default function DashboardV2Page({ onNavigate }) {
   );
 
   const repassesPj = useMemo(
-    () => calcTotaisResultadoPeriodo(lancamentos, filterPeriodo),
+    () => calcTotaisResultadoPeriodo(lancamentos, { ...filterPeriodo, perfil: "pj" }),
     [lancamentos, filterPeriodo]
   );
 

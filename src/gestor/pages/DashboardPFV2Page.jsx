@@ -20,7 +20,7 @@ import { useRecorrencias }  from "../hooks/useRecorrencias.js";
 import {
   addMoney, fmtBRL, roundMoney, safeNum, subMoney, isLancamentoPago, getDataRealizacao,
   calcFluxoPrevisto30d, calcTotaisResultadoPeriodo, calcSaldoCaixaPeriodo,
-  filterLancamentosResultado,
+  filterResultadoPF, filterLancamentosRealizados,
 } from "../finance.js";
 import MovimentacoesMesWidget from "../components/dashboard/MovimentacoesMesWidget.jsx";
 import { MESES, CHART }     from "../constants.js";
@@ -109,7 +109,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
   const saldoTotal = useMemo(() => getSaldoTotal(), [getSaldoTotal]);
 
   const pfTotais = useMemo(
-    () => calcTotaisResultadoPeriodo(lancamentos, filterPeriodo),
+    () => calcTotaisResultadoPeriodo(lancamentos, { ...filterPeriodo, perfil: "pf" }),
     [lancamentos, filterPeriodo]
   );
 
@@ -148,8 +148,10 @@ export default function DashboardPFV2Page({ onNavigate }) {
 
   const pfMensal = useMemo(() => {
     const totais = Array.from({ length: 12 }, () => ({ rec: 0, desp: 0 }));
-    for (const l of filterLancamentosResultado(lancamentos)) {
-      if (!isLancamentoPago(l)) continue;
+    for (const l of filterLancamentosRealizados(filterResultadoPF(lancamentos), {
+      ano: filterPeriodo.ano,
+      incluirTransferencias: true,
+    })) {
       const dataRef = getDataRealizacao(l);
       if (!dataRef) continue;
       if (filterPeriodo.ano && !dataRef.startsWith(filterPeriodo.ano)) continue;
@@ -289,8 +291,8 @@ export default function DashboardPFV2Page({ onNavigate }) {
       label: "Receitas",
       value: fmtBRL(pfTotais.receitas),
       sub: pfTotais.transfRecebidas > 0
-        ? `Operacionais · ${fmtBRL(pfTotais.transfRecebidas)} em repasses`
-        : "Receitas operacionais",
+        ? `Inclui ${fmtBRL(pfTotais.transfRecebidas)} de repasses PJ`
+        : "Rendimentos do período",
       valueClass: "success",
       sparkline: sparkReceitas,
       tone: "success",

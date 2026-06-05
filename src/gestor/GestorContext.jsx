@@ -471,8 +471,15 @@ export function GestorProvider({ children }) {
     [lancamentos, filterPeriodo, tipoFilter, search, contaFilter, consiliadoFilter]
   );
 
-  const dreAtual   = useMemo(() => getDRE(lancamentos, planoContas, filterPeriodo.ano, filterPeriodo.mes),    [lancamentos, planoContas, filterPeriodo]);
-  const mensal     = useMemo(() => getMensal(lancamentos, planoContas, filterPeriodo.ano),                    [lancamentos, planoContas, filterPeriodo.ano]);
+  const perfilFin = tipo === "fisica" ? "pf" : "pj";
+  const dreAtual   = useMemo(
+    () => getDRE(lancamentos, planoContas, filterPeriodo.ano, filterPeriodo.mes, { perfil: perfilFin }),
+    [lancamentos, planoContas, filterPeriodo, perfilFin]
+  );
+  const mensal     = useMemo(
+    () => getMensal(lancamentos, planoContas, filterPeriodo.ano, { perfil: perfilFin }),
+    [lancamentos, planoContas, filterPeriodo.ano, perfilFin]
+  );
   const balancete  = useMemo(() => getBalancete(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes), [lancamentos, planoContas, contas, filterPeriodo]);
   const fluxoCaixa = useMemo(() => getFluxoCaixa(lancamentos, filterPeriodo.ano, filterPeriodo.mes),          [lancamentos, filterPeriodo]);
   const consultaDRE = useMemo(() => getConsultaDRE(lancamentos, planoContas, contas, filterPeriodo.ano, filterPeriodo.mes), [lancamentos, planoContas, contas, filterPeriodo]);
@@ -508,7 +515,7 @@ export function GestorProvider({ children }) {
     lancsFiltrados, dreAtual, consultaDRE, mensal, balancete, fluxoCaixa,
     getSaldoConta: saldoContaFn,
     getSaldoTotal: saldoTotalFn,
-    getDRE: (ano, mes) => getDRE(lancamentos, planoContas, ano, mes),
+    getDRE: (ano, mes) => getDRE(lancamentos, planoContas, ano, mes, { perfil: perfilFin }),
     getDREByRange: getDREByRangeFn,
     getConsultaDREByRange: getConsultaDREByRangeFn,
     nextLote: () => nextLote(lancamentos),

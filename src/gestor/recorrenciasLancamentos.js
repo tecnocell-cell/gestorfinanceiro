@@ -1,7 +1,9 @@
 /**
  * Geração segura de lançamentos a partir de recorrências.
  */
-import { getStatusLancamento, toDateKey, safeNum } from "./finance.js";
+import {
+  getStatusLancamento, toDateKey, safeNum, getContaPadrao, patchContaLancamentoPago,
+} from "./finance.js";
 
 export const SOURCE_RECORRENCIA = "recorrencia";
 
@@ -112,16 +114,6 @@ export function getRecorrenciaLancamentoMesStatus(rec, lancamentos, mesReferenci
     };
   }
 
-  if (!rec.conta_id) {
-    return {
-      code: "sem_conta",
-      label: "Sem conta",
-      badge: "muted",
-      canGerar: false,
-      jaGerada: false,
-    };
-  }
-
   if (podeGerarRecorrenciaNoMes(rec, lancamentos, mesReferencia)) {
     const venc = vencimentoNoMesReferencia(rec, mesReferencia);
     return {
@@ -194,9 +186,14 @@ function proximaAcimaDoMesReferencia(proximaMonthKey, mesReferencia) {
 }
 
 /** Pode gerar lançamento do mês ref. (ainda não gerado; ciclo não “futuro” demais). */
+/** Conta da recorrência ou fallback (principal → Caixa → primeira ativa). */
+export function resolveContaIdRecorrencia(recorrencia, contas) {
+  if (recorrencia?.conta_id) return recorrencia.conta_id;
+  return getContaPadrao(contas)?.id || null;
+}
+
 export function podeGerarRecorrenciaNoMes(recorrencia, lancamentos, mesReferencia) {
   if (recorrencia?.status !== "ativa") return false;
-  if (!recorrencia.conta_id) return false;
   if (!mesReferencia) return false;
   if (isRecorrenciaGeradaNoMes(lancamentos, recorrencia.id, mesReferencia)) return false;
 
@@ -226,11 +223,6 @@ export function classificarRecorrenciasParaMes(recorrencias, lancamentos, monthK
     const mesProx = monthKeyFromDate(rec.proxima_data);
     if (mesProx && proximaAcimaDoMesReferencia(mesProx, monthKey)) {
       foraDoMes.push(rec);
-      continue;
-    }
-
-    if (!rec.conta_id) {
-      semConta.push(rec);
       continue;
     }
 
@@ -264,18 +256,21 @@ export function upsertLancamentoRecorrenciaPago({
   const hoje = dataPagamento || new Date().toISOString().slice(0, 10);
 
   if (existente) {
-    return {
-      action: "update",
-      id: existente.id,
-      patch: {
-        status: "pago",
-        pago: true,
-        dataPagamento: hoje,
-        pagoEm: hoje,
-        origem: "recorrencia",
-        recorrenciaId: recorrencia.id,
-      },
+    const patch = {
+      status: "pago",
+      pago: true,
+      dataPagamento: hoje,
+      pagoEm: hoje,
+      origem: "recorrencia",
+      source: SOURCE_RECORRENCIA,
+      recorrenciaId: recorrencia.id,
     };
+    const contaPatch = patchContaLancamentoPago(
+      { ...existente, ...patch },
+      contas
+    );
+    if (contaPatch) Object.assign(patch, contaPatch);
+    return { action: "update", id: existente.id, patch };
   }
 
   const novo = buildLancamentoFromRecorrencia({
@@ -314,8 +309,8 @@ export function buildLancamentoFromRecorrencia({
   const monthKey = monthKeyFromDate(dataVenc);
   const valor = valorOverride != null ? safeNum(valorOverride) : safeNum(recorrencia.valor);
   const tipoLanc = recorrencia.tipo === "Receita" ? "Entrada" : "Saida";
-  const contaId = recorrencia.conta_id;
-  const conta = (contas || []).find((c) => c.id === contaId);
+  const contaId = resolveContaIdRecorrencia(recorrencia, contas);
+  const conta = contaId ? (contas || []).find((c) => c.id === contaId) : null;
 
   const nums = (lancamentos || [])
     .map((l) => Number(l.codigo))

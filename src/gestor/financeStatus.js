@@ -132,12 +132,65 @@ export function dedupeLancamentosById(lancamentos) {
   return out;
 }
 
-/** Receitas/despesas reais — sem repasses internos nem tipo Transferencia. */
-export function filterLancamentosResultado(lancamentos) {
+export function isIntegracaoPfPj(l) {
+  if (!l || typeof l !== "object") return false;
+  return String(l.source || "") === "integracao_pf_pj" || !!l.integracaoPfPj;
+}
+
+/** Entrada PF via integração PJ (pró-labore, salário, lucros, repasse). */
+export function isRendimentoIntegracaoPf(l) {
+  return !!l && l.tipo === "Entrada" && isIntegracaoPfPj(l);
+}
+
+/** PF → PJ: não é despesa operacional na PF. */
+export function isRepassePfParaPj(l) {
+  if (!l || l.tipo !== "Saida") return false;
+  const h = String(l.historico || l.descricao || "").toLowerCase();
+  if (/transfer[eê]ncia\s*pf\s*[→\-]\s*pj/.test(h)) return true;
+  if (isIntegracaoPfPj(l)) {
+    const lado = l.integracaoPfPj?.lado || l.lado;
+    return lado === "pf";
+  }
+  return false;
+}
+
+/** PJ → PF (repasse recebido na PF ou saída na PJ). */
+export function isRepassePjParaPf(l) {
+  if (!l) return false;
+  if (isIntegracaoPfPj(l)) {
+    const tipo = l.tipoOperacao || l.integracaoPfPj?.tipoOperacao;
+    if (tipo === "transferencia_pj_pf") return true;
+  }
+  return isTransferenciaInterna(l);
+}
+
+/**
+ * Resultado PF: rendimentos incluem integração PJ→PF; exclui PF→PJ enviado.
+ */
+export function filterResultadoPF(lancamentos) {
   return dedupeLancamentosById(lancamentos).filter((l) => {
     if (l.tipo !== "Entrada" && l.tipo !== "Saida") return false;
-    return !isTransferenciaInterna(l);
+    if (l.tipo === "Transferencia") return false;
+    if (isRepassePfParaPj(l)) return false;
+    return true;
   });
+}
+
+/**
+ * Resultado PJ: saídas integração (pró-labore, PJ→PF) são despesa; entradas internas não são receita.
+ */
+export function filterResultadoPJ(lancamentos) {
+  return dedupeLancamentosById(lancamentos).filter((l) => {
+    if (l.tipo !== "Entrada" && l.tipo !== "Saida") return false;
+    if (l.tipo === "Transferencia") return false;
+    if (l.tipo === "Entrada" && (isIntegracaoPfPj(l) || isTransferenciaInterna(l))) return false;
+    return true;
+  });
+}
+
+/** @deprecated Use filterResultadoPJ ou filterResultadoPF conforme o perfil. */
+export function filterLancamentosResultado(lancamentos) {
+  return filterResultadoPJ(lancamentos);
 }
 
 /** Movimentação de caixa — inclui repasses (afetam saldo da conta). */

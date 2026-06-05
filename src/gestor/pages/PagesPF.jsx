@@ -177,11 +177,11 @@ export function LancamentosPFPage() {
   };
 
   const resumo = useMemo(() => {
-    const totais = calcTotaisResultadoPeriodo(lancsFiltrados, filterPeriodo);
+    const totais = calcTotaisResultadoPeriodo(lancsFiltrados, { ...filterPeriodo, perfil: "pf" });
     const saldoCaixa = calcSaldoCaixaPeriodo(lancsFiltrados, filterPeriodo);
     return {
-      entradas: addMoney(totais.receitas, totais.transfRecebidas),
-      saidas: addMoney(totais.despesas, totais.transfEnviadas),
+      entradas: totais.receitas,
+      saidas: totais.despesas,
       saldo: saldoCaixa,
       saldoOperacional: totais.saldo,
       qtd: lancsFiltrados.length,
@@ -899,7 +899,7 @@ export function RelatoriosPFPage() {
   const mensal = useMemo(() =>
     MESES.map((name, i) => {
       const mes = (i + 1).toString().padStart(2, "0");
-      const dre = getDRE(lancamentos, planoContas, filterPeriodo.ano, mes);
+      const dre = getDRE(lancamentos, planoContas, filterPeriodo.ano, mes, { perfil: "pf" });
       return { name, Receitas: dre.receitas, Despesas: dre.despesas, Saldo: dre.receitas - dre.despesas };
     }),
     [lancamentos, planoContas, filterPeriodo.ano]

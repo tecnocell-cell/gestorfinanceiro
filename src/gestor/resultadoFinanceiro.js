@@ -2,8 +2,8 @@
  * Agregação de receitas/despesas/resultado por dimensão (centro, cliente, projeto).
  */
 import {
-  addMoney, filterLancamentosRealizados, filterLancamentosResultado,
-  isTransferenciaInterna, subMoney, safeNum,
+  addMoney, filterLancamentosRealizados, filterResultadoPF, filterResultadoPJ,
+  isRepassePfParaPj, isTransferenciaInterna, subMoney, safeNum,
 } from "./finance.js";
 
 function isPlanoReceita(plano) {
@@ -25,10 +25,11 @@ export function accumulateResultadoPorCampo(
   fieldName,
   { ano, mes, isPF = false } = {}
 ) {
-  const filtered = filterLancamentosRealizados(filterLancamentosResultado(lancamentos || []), {
+  const filterFn = isPF ? filterResultadoPF : filterResultadoPJ;
+  const filtered = filterLancamentosRealizados(filterFn(lancamentos || []), {
     ano,
     mes,
-    incluirTransferencias: false,
+    incluirTransferencias: true,
   });
   const planoById = new Map((planoContas || []).map((p) => [p.id, p]));
   const buckets = new Map();
@@ -45,7 +46,9 @@ export function accumulateResultadoPorCampo(
   };
 
   for (const l of filtered) {
-    if (l.tipo === "Transferencia" || isTransferenciaInterna(l)) continue;
+    if (l.tipo === "Transferencia") continue;
+    if (!isPF && isTransferenciaInterna(l)) continue;
+    if (isPF && isRepassePfParaPj(l)) continue;
     const plano = planoById.get(l.planoId);
     if (!plano) continue;
     const key = l[fieldName] || "__none__";

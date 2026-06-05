@@ -17,7 +17,7 @@ import PfPageShell              from "../components/pf/PfPageShell.jsx";
 import { PF_PAGE_HINTS }        from "../pfHints.js";
 import {
   addMoney, fmtBRL, fmtDate, getStatusLancamento, getDataRealizacao, getDataPrevista,
-  filterLancamentosResultado, sumPagasNoMes, resolveContaIdsLancamento,
+  filterResultadoPF, sumPagasNoMes, patchContaLancamentoPago,
 } from "../finance.js";
 import { recorrenciasApi } from "../api.js";
 import { MESES }                from "../constants.js";
@@ -103,7 +103,7 @@ export default function ContasAPagarPage() {
 
   // ── Base: Entrada + Saída anotadas com _venc e _status ────────────────────
   const base = useMemo(() =>
-    filterLancamentosResultado(lancamentos)
+    filterResultadoPF(lancamentos)
       .map((l) => ({
         ...l,
         _venc:   getDataPrevista(l) ?? l.data,
@@ -160,13 +160,8 @@ export default function ContasAPagarPage() {
     const agora = new Date().toISOString();
     const patch = { status: "pago", pago: true, dataPagamento: hoje, pagoEm: agora };
     if (lanc) {
-      const resolved = resolveContaIdsLancamento({ ...lanc, pago: true }, contas);
-      if (lanc.tipo === "Saida" && !lanc.contaSaidaId && resolved.contaSaidaId) {
-        patch.contaSaidaId = resolved.contaSaidaId;
-      }
-      if (lanc.tipo === "Entrada" && !lanc.contaEntradaId && resolved.contaEntradaId) {
-        patch.contaEntradaId = resolved.contaEntradaId;
-      }
+      const contaPatch = patchContaLancamentoPago({ ...lanc, ...patch }, contas);
+      if (contaPatch) Object.assign(patch, contaPatch);
     }
     lancCrud.update(id, patch);
     if (lanc?.recorrenciaId) {

@@ -1,7 +1,7 @@
 import { MESES } from "./constants.js";
 import {
   addMoney, getDRE, getSaldoTotal, safeNum, subMoney, isLancamentoPago, getDataRealizacao,
-  isTransferenciaInterna,
+  isRepassePfParaPj, isIntegracaoPfPj,
 } from "./finance.js";
 
 /** SER / VBSP / GSC — metodologia inspirada em orçamento consciente (Anatomia Financeira). */
@@ -35,12 +35,13 @@ function lastDayOfMonth(ano, mesIndex) {
   return new Date(parseInt(ano, 10), mesIndex + 1, 0).toISOString().slice(0, 10);
 }
 
-function sumPlanoNoMes(lancamentos, planoId, ano, mesIndex, modo = "auto") {
+function sumPlanoNoMes(lancamentos, planoId, ano, mesIndex, modo = "auto", { isPF = false } = {}) {
   const mk = mesKey(mesIndex);
   return lancamentos
     .filter((l) => {
       if (l.planoId !== planoId) return false;
-      if (isTransferenciaInterna(l)) return false;
+      if (isPF && isRepassePfParaPj(l)) return false;
+      if (!isPF && l.tipo === "Entrada" && isIntegracaoPfPj(l)) return false;
       if (!isLancamentoPago(l)) return false;
       const dataRef = getDataRealizacao(l);
       if (!dataRef) return false;
@@ -92,11 +93,12 @@ export function buildResumoAnual({
   const gscPlano = despesasPlano.filter((p) => grupoResumoCategoria(p) === "gsc");
   const serPlano = despesasPlano.filter((p) => grupoResumoCategoria(p) === "ser");
 
+  const perfil = isPF ? "pf" : "pj";
   const mapCategorias = (lista, modo = "auto") =>
     lista.map((pc) => ({
       id: pc.id,
       label: `${pc.icone ? pc.icone + " " : ""}${pc.descricao}`,
-      meses: MESES.map((_, i) => sumPlanoNoMes(lancs, pc.id, ano, i, modo)),
+      meses: MESES.map((_, i) => sumPlanoNoMes(lancs, pc.id, ano, i, modo, { isPF })),
     }));
 
   const somaMeses = (rows) =>
@@ -134,7 +136,7 @@ export function buildResumoAnual({
     )
   );
 
-  const mensalDre = MESES.map((_, i) => getDRE(lancs, planoContas, ano, mesKey(i)));
+  const mensalDre = MESES.map((_, i) => getDRE(lancs, planoContas, ano, mesKey(i), { perfil }));
 
   const receitaMeses = mensalDre.map((d) => d.receitas);
   const custoMeses = mensalDre.map((d) => addMoney(d.custos, d.impostos));

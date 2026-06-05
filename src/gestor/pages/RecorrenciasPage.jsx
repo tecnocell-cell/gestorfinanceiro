@@ -7,7 +7,7 @@
 import { useState, useMemo } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useRecorrencias } from "../hooks/useRecorrencias.js";
-import { addMoney, fmtBRL, fmtDate, generateId, toDateKey, safeNum } from "../finance.js";
+import { addMoney, fmtBRL, fmtDate, generateId, toDateKey, safeNum, getContaPadrao } from "../finance.js";
 import {
   buildLancamentoFromRecorrencia,
   classificarRecorrenciasParaMes,
@@ -392,7 +392,9 @@ function ModalGerarMesVencimentos({
 
 function ModalGerarLancamento({ recorrencia, mesReferencia, dataVenc, onClose, onConfirm, contas, planoContas, jaGeradaNoMes }) {
   const [valorLanc, setValorLanc] = useState(String(recorrencia.valor));
-  const [contaId, setContaId]     = useState(recorrencia.conta_id || "");
+  const [contaId, setContaId]     = useState(
+    recorrencia.conta_id || getContaPadrao(contas)?.id || ""
+  );
   const [planoId, setPlanoId]     = useState(recorrencia.plano_id || "");
   const [obs, setObs]             = useState(recorrencia.descricao);
   const [loading, setLoading]     = useState(false);
@@ -446,7 +448,7 @@ function ModalGerarLancamento({ recorrencia, mesReferencia, dataVenc, onClose, o
           onClose={onClose}
           onSave={handleConfirm}
           loading={loading}
-          disabled={!contaId}
+          disabled={false}
           saveLabel={loading ? "Gerando…" : "Confirmar lançamento"}
         />
       }

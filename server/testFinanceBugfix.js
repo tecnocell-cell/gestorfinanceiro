@@ -90,19 +90,39 @@ function main() {
   const pagas = sumPagasNoMes(c1, PERIODO);
   assert(pagas === 5000, `pagasNoMes = R$ 5.000 (obteve ${pagas})`);
 
-  console.log('\n— cenário 2 e 3: transferência + receita operacional —');
-  const totais = calcTotaisResultadoPeriodo(c1, PERIODO);
-  assert(totais.receitas === 5000, `receitas operacionais R$ 5.000 (obteve ${totais.receitas})`);
+  console.log('\n— cenário 2: Dashboard PF — rendimentos incluem repasse —');
+  const totais = calcTotaisResultadoPeriodo(c1, { ...PERIODO, perfil: 'pf' });
+  assert(totais.receitas === 20000, `receitas PF R$ 20.000 (obteve ${totais.receitas})`);
   assert(totais.transfRecebidas === 15000, `transferências recebidas R$ 15.000 (obteve ${totais.transfRecebidas})`);
-  assert(totais.saldo === 0, `saldo operacional R$ 5.000 - R$ 5.000 = 0 (obteve ${totais.saldo})`);
+  assert(totais.despesas === 5000, `despesas PF R$ 5.000 (obteve ${totais.despesas})`);
+  assert(totais.saldo === 15000, `saldo período PF R$ 15.000 (obteve ${totais.saldo})`);
+
+  console.log('\n— cenário 2b: PJ — repasse não é receita —');
+  const lancPjSaida = {
+    id: 'pj-out',
+    tipo: 'Saida',
+    valor: 15000,
+    historico: 'Transferência PJ→PF — Sócio',
+    data: `${ANO}-${MES}-05`,
+    status: 'pago',
+    pago: true,
+    dataPagamento: `${ANO}-${MES}-05`,
+    source: 'integracao_pf_pj',
+    tipoOperacao: 'transferencia_pj_pf',
+    integracaoPfPj: { tipoOperacao: 'transferencia_pj_pf', lado: 'pj' },
+    contaSaidaId: 'banco-pj',
+  };
+  const totaisPj = calcTotaisResultadoPeriodo([lancPjSaida], { ...PERIODO, perfil: 'pj' });
+  assert(totaisPj.receitas === 0, `PJ receitas zero (obteve ${totaisPj.receitas})`);
+  assert(totaisPj.despesas === 15000, `PJ despesa repasse R$ 15.000 (obteve ${totaisPj.despesas})`);
 
   console.log('\n— cenário 3: saldo de caixa inclui transferência —');
   const contas = [{ id: 'banco1', nome: 'Banco', tipo: 'Banco', saldoInicial: 0, inativo: false }];
   const saldo = getSaldoConta('banco1', contas, c1);
   assert(saldo === 15000, `saldo caixa quitados + repasses (obteve ${saldo})`);
 
-  console.log('\n— cenário 3b: pedreiro pago sem contaSaidaId ainda desconta —');
-  const pedreiroSemConta = {
+  console.log('\n— cenário 3b: recorrência paga sem contaSaidaId usa inferência —');
+  const pedreiroRecSemConta = {
     id: 'ped2',
     tipo: 'Saida',
     valor: 2500,
@@ -112,14 +132,34 @@ function main() {
     status: 'pago',
     pago: true,
     dataPagamento: `${ANO}-${MES}-08`,
+    recorrenciaId: 'rec-ped2',
+    source: 'recorrencia',
   };
   const cPed = [
     lancTransferPf({ id: 'tr2', valor: 20000 }),
     lancRecPaga({ id: 'fin2', valor: 2500, historico: 'Financiamento' }),
-    pedreiroSemConta,
+    pedreiroRecSemConta,
   ];
   const saldoPed = getSaldoConta('banco1', contas, cPed);
-  assert(saldoPed === 15000, `pedreiro quitado desconta mesmo sem conta explícita (obteve ${saldoPed})`);
+  assert(saldoPed === 15000, `recorrência quitada desconta via conta padrão (obteve ${saldoPed})`);
+
+  console.log('\n— cenário 3b2: manual pago sem conta não desconta —');
+  const manualSemConta = {
+    id: 'man-ped',
+    tipo: 'Saida',
+    valor: 2500,
+    historico: 'Pedreiro manual',
+    data: `${ANO}-${MES}-10`,
+    status: 'pago',
+    pago: true,
+    dataPagamento: `${ANO}-${MES}-08`,
+  };
+  const saldoManual = getSaldoConta('banco1', contas, [
+    lancTransferPf({ id: 'tr2b', valor: 20000 }),
+    lancRecPaga({ id: 'fin2b', valor: 2500, historico: 'Financiamento' }),
+    manualSemConta,
+  ]);
+  assert(saldoManual === 17500, `manual sem conta não abate saldo (obteve ${saldoManual})`);
 
   console.log('\n— cenário 3c: pendente não reduz caixa —');
   const pendente = {
