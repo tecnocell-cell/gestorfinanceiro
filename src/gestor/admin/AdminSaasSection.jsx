@@ -283,13 +283,51 @@ function ModalClienteDetalhe({ clienteId, onClose }) {
                   {(data.pagamentos || []).length === 0 ? (
                     <p className="admin-empty">Nenhum pagamento.</p>
                   ) : (
-                    <ul className="saas-mini-list">
-                      {(data.pagamentos || []).map((p) => (
-                        <li key={p.id}>
-                          {fmtBRL(p.valor_centavos)} — {p.status} — {fmtDt(p.created_at)}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="admin-table-wrap" style={{ boxShadow: "none", border: "none" }}>
+                      <table className="data-table" style={{ width: "100%", fontSize: 12 }}>
+                        <thead>
+                          <tr>
+                            <th>Valor</th>
+                            <th>Gateway</th>
+                            <th>Método</th>
+                            <th>Status</th>
+                            <th>Criado</th>
+                            <th>Pago em</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(data.pagamentos || []).map((p) => {
+                            const payload =
+                              typeof p.payload === "string"
+                                ? (() => {
+                                    try {
+                                      return JSON.parse(p.payload);
+                                    } catch {
+                                      return {};
+                                    }
+                                  })()
+                                : p.payload || {};
+                            const metodo =
+                              payload.metodo ||
+                              (payload.billingType === "PIX"
+                                ? "PIX"
+                                : payload.billingType === "CREDIT_CARD"
+                                  ? "Cartão"
+                                  : "—");
+                            return (
+                              <tr key={p.id}>
+                                <td>{fmtBRL(p.valor_centavos)}</td>
+                                <td>{p.gateway || "—"}</td>
+                                <td>{metodo}</td>
+                                <td>{p.status}</td>
+                                <td>{fmtDt(p.created_at)}</td>
+                                <td>{p.pago_em ? fmtDt(p.pago_em) : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </section>
 

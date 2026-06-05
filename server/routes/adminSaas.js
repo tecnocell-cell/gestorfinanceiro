@@ -163,8 +163,13 @@ router.get('/clientes/:id', authMiddleware, adminMiddleware, async (req, res) =>
     );
 
     const { rows: pagamentos } = await query(
-      `SELECT id, valor_centavos, status, created_at
-       FROM pagamentos WHERE usuario_id = $1 ORDER BY created_at DESC LIMIT 24`,
+      `SELECT p.id, p.valor_centavos, p.status, p.created_at, p.gateway,
+              p.gateway_payment_id, p.fatura_id, p.payload, f.pago_em
+       FROM pagamentos p
+       LEFT JOIN faturas f ON f.id = p.fatura_id
+       WHERE p.usuario_id = $1
+       ORDER BY p.created_at DESC
+       LIMIT 24`,
       [id]
     );
 

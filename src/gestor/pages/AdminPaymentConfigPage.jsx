@@ -223,7 +223,8 @@ export default function AdminPaymentConfigPage() {
 
   const mp = providerRow(data?.providers, "mercado_pago");
   const asaas = providerRow(data?.providers, "asaas");
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const mpWebhookUrl = data?.webhooks?.mercado_pago || "";
+  const asaasWebhookUrl = data?.webhooks?.asaas || "";
   const activeGateway = mp.active ? "Mercado Pago" : asaas.active ? "Asaas" : "Nenhum (manual)";
   const cardPortalHint =
     import.meta.env.VITE_PAYMENT_CARD_ENABLED === "true"
@@ -379,9 +380,15 @@ export default function AdminPaymentConfigPage() {
           description="Cadastre no painel do provedor. O servidor valida assinatura quando o segredo estiver configurado."
         >
           <div className="card admin-inner-card">
-            <CopyUrlRow label="Mercado Pago" url={`${origin}/api/billing/webhook/mercado-pago`} />
-            <CopyUrlRow label="Asaas" url={`${origin}/api/billing/webhook/asaas`} />
+            <CopyUrlRow label="Mercado Pago" url={mpWebhookUrl} />
+            <CopyUrlRow label="Asaas" url={asaasWebhookUrl} />
           </div>
+          {!data?.webhooks?.public_api_url && (
+            <p className="admin-card-hint" style={{ marginTop: 12 }}>
+              Defina <code>PUBLIC_API_URL</code> no servidor (ex.: https://financeiro.fluxiva.app) para
+              gerar a URL correta do webhook. Nunca use localhost em produção.
+            </p>
+          )}
           {data?.webhooks && (
             <div className="card admin-inner-card" style={{ marginTop: 12 }}>
               <div className="card-title">Referência da API</div>
@@ -396,7 +403,7 @@ export default function AdminPaymentConfigPage() {
           <div className="card admin-inner-card">
             <div className="card-title">Comandos no servidor</div>
             <p className="admin-card-hint">Com a API rodando e BILLING_USE_MOCK_GATEWAY=true para homologação local.</p>
-            <pre className="admin-payment-json-preview">npm run test:78</pre>
+            <pre className="admin-payment-json-preview">{`npm run test:mp-pix\nnpm run test:78`}</pre>
             <div className="admin-card-actions">
               <button
                 type="button"

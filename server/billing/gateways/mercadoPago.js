@@ -11,6 +11,11 @@ import {
   mockPaymentIdFromScenario,
   getMockPaymentById,
 } from '../cardSandbox.js';
+import {
+  mockPixPaymentIdFromScenario,
+  registerMockPixPayment,
+  getMockPixPaymentById,
+} from '../pixSandbox.js';
 
 const MP_API = 'https://api.mercadopago.com';
 
@@ -80,12 +85,13 @@ async function mpFetch(path, { method = 'GET', body } = {}) {
  */
 export async function createPixPayment(params) {
   if (useMock()) {
-    const id = mockId('pay');
+    const id = mockPixPaymentIdFromScenario('pending');
     const copia = `00020126MPMOCKPIX${id}`;
-    return {
+    const payment = {
       id,
       status: 'pending',
       mock: true,
+      sandbox: true,
       qrCode: copia,
       qrCodeBase64: null,
       copiaECola: copia,
@@ -93,6 +99,8 @@ export async function createPixPayment(params) {
       transaction_amount: params.valueReais,
       external_reference: params.externalReference,
     };
+    registerMockPixPayment(payment);
+    return payment;
   }
 
   const cfg = await getMercadoPagoConfigRaw();
@@ -181,6 +189,8 @@ export async function createCardPayment(params) {
 
 export async function getPayment(paymentId) {
   if (useMock()) {
+    const pix = getMockPixPaymentById(paymentId);
+    if (pix) return pix;
     return getMockPaymentById(paymentId);
   }
   return mpFetch(`/v1/payments/${paymentId}`);

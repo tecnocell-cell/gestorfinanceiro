@@ -216,6 +216,18 @@ export async function createCheckout(usuarioId, planoSlug, opts = {}) {
       detalhes: { plano_slug: plano.slug, gateway: 'mercado_pago', metodo },
     }).catch(() => {});
 
+    if (metodo === 'pix') {
+      logBillingOp(BILLING_OPS_TYPES.PIX_GERADO, {
+        usuarioId,
+        faturaId: fatura.id,
+        detalhes: {
+          gateway: 'mercado_pago',
+          gateway_payment_id: payment.id,
+          valor_centavos: plano.preco_centavos,
+        },
+      }).catch(() => {});
+    }
+
     return {
       ok: true,
       gateway: 'mercado_pago',
@@ -552,6 +564,14 @@ export async function processMercadoPagoWebhook(body, queryParams = {}) {
   try {
     payment = await getMpPayment(parsed.paymentId);
   } catch (e) {
+    logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+      detalhes: {
+        gateway: 'mercado_pago',
+        payment_id: parsed.paymentId,
+        reason: 'consulta_pagamento',
+        error: e.message,
+      },
+    }).catch(() => {});
     return { ok: false, error: e.message };
   }
 
@@ -586,6 +606,24 @@ export async function processMercadoPagoWebhook(body, queryParams = {}) {
     return { ok: true, cancelled: true, fatura_id: faturaId };
   }
 
+  if (st === 'rejected') {
+    await query(
+      `UPDATE pagamentos SET status = $1, payload = payload || $2::jsonb WHERE gateway_payment_id = $3`,
+      [
+        mapMpStatus(st),
+        JSON.stringify({ webhook: evento, at: new Date().toISOString() }),
+        parsed.paymentId,
+      ]
+    );
+    if (faturaId) {
+      await query(
+        `UPDATE faturas SET status = 'cancelada' WHERE id = $1 AND status = 'pendente'`,
+        [faturaId]
+      );
+    }
+    return { ok: true, rejected: true, fatura_id: faturaId, status: st };
+  }
+
   if (!MP_APPROVED_STATUSES.has(st)) {
     await query(
       `UPDATE pagamentos SET status = $1 WHERE gateway_payment_id = $2`,
@@ -601,6 +639,14 @@ export async function processMercadoPagoWebhook(body, queryParams = {}) {
   );
 
   if (!faturaId) {
+    logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+      detalhes: {
+        gateway: 'mercado_pago',
+        payment_id: parsed.paymentId,
+        reason: 'fatura_nao_identificada',
+        evento,
+      },
+    }).catch(() => {});
     return { ok: false, error: 'Fatura não identificada no webhook.' };
   }
 

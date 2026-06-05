@@ -11,6 +11,11 @@ import {
 } from '../billing/paymentConfigService.js';
 import { testMercadoPagoConnection } from '../billing/gateways/mercadoPago.js';
 import { isAsaasConfiguredAsync } from '../billing/gateways/asaas.js';
+import {
+  expectedMpWebhookUrl,
+  expectedAsaasWebhookUrl,
+  publicApiBaseUrl,
+} from '../billing/billingUrls.js';
 
 const router = Router();
 
@@ -22,8 +27,9 @@ router.get('/payment-config', ...master, async (_req, res) => {
     res.json({
       providers,
       webhooks: {
-        mercado_pago: '/api/billing/webhook/mercado-pago',
-        asaas: '/api/billing/webhook/asaas',
+        mercado_pago: expectedMpWebhookUrl(),
+        asaas: expectedAsaasWebhookUrl(),
+        public_api_url: publicApiBaseUrl() || process.env.PUBLIC_API_URL || '',
       },
     });
   } catch (err) {

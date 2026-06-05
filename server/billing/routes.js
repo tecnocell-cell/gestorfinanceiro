@@ -20,6 +20,7 @@ import {
 import { verifyWebhookToken } from './gateways/asaas.js';
 import { verifyWebhookSignature } from './gateways/mercadoPago.js';
 import { getPublicPaymentMethods } from './paymentGatewayFactory.js';
+import { logBillingOp, BILLING_OPS_TYPES } from './billingOpsLog.js';
 import { getBillingUsage } from './accessControl.js';
 import { refreshSubscriptionLifecycle } from './subscriptionLifecycle.js';
 
@@ -245,6 +246,9 @@ export function registerBillingRoutes(app) {
 
   app.post('/api/billing/webhook/mercado-pago', async (req, res) => {
     if (!(await verifyWebhookSignature(req))) {
+      logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+        detalhes: { gateway: 'mercado_pago', reason: 'webhook_nao_autorizado' },
+      }).catch(() => {});
       return res.status(401).json({ error: 'Webhook não autorizado.' });
     }
 
@@ -253,11 +257,21 @@ export function registerBillingRoutes(app) {
       const result = await processMercadoPagoWebhook(body, req.query || {});
       if (!result.ok && !result.duplicate) {
         console.warn('billing/webhook/mercado-pago:', result.error);
+        logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+          detalhes: {
+            gateway: 'mercado_pago',
+            reason: 'processamento',
+            error: result.error,
+          },
+        }).catch(() => {});
         return res.status(422).json(result);
       }
       res.json(result);
     } catch (err) {
       console.error('billing/webhook/mercado-pago:', err.message);
+      logBillingOp(BILLING_OPS_TYPES.PAGAMENTO_FALHA, {
+        detalhes: { gateway: 'mercado_pago', reason: 'excecao', error: err.message },
+      }).catch(() => {});
       res.status(500).json({ error: 'Erro ao processar webhook.' });
     }
   });

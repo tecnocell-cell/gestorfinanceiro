@@ -6,11 +6,13 @@ import {
   isAsaasRealKeyConfigured,
   isWebhookConfigured,
 } from './gateways/asaas.js';
+import { expectedAsaasWebhookUrl, expectedMpWebhookUrl } from './billingUrls.js';
 
 export function expectedWebhookUrl() {
-  const base = process.env.PUBLIC_API_URL || process.env.API_PUBLIC_URL || 'http://localhost:3001';
-  return `${String(base).replace(/\/$/, '')}/api/billing/webhook/asaas`;
+  return expectedAsaasWebhookUrl();
 }
+
+export { expectedMpWebhookUrl };
 
 export async function pingAsaas() {
   const key = process.env.ASAAS_API_KEY;

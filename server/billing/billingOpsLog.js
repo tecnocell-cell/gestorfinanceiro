@@ -5,6 +5,7 @@ import { query } from '../db.js';
 
 export const BILLING_OPS_TYPES = {
   CHECKOUT_CRIADO: 'checkout_criado',
+  PIX_GERADO: 'pix_gerado',
   WEBHOOK_RECEBIDO: 'webhook_recebido',
   ASSINATURA_ATIVADA: 'assinatura_ativada',
   PAGAMENTO_FALHA: 'pagamento_falha',
