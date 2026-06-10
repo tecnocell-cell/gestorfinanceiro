@@ -150,44 +150,50 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(403).json({ error: "Conta desativada. Entre em contato com o administrador." });
     }
 
-    const risk = await assessSuspiciousLogin(user.id, ip, userAgent);
-    if (risk.suspicious) {
-      let otp;
-      try {
-        otp = await criarEnviarOtp({
-          usuarioId: user.id,
-          tipo: "login_suspeito",
-          canalPreferido: "email",
-          nome: user.nome,
-        });
-      } catch (err) {
-        if (err.code === "OTP_RATE_LIMIT") {
-          otp = await getPendingOtp({ usuarioId: user.id, tipo: "login_suspeito" });
-          if (!otp) {
-            return res.status(429).json({
-              error: err.message,
-              requires_otp: true,
-            });
+    // ADMIN_OTP_BYPASS: super admin ignora verificação OTP quando e-mail pode não estar configurado
+    const adminBypass = user.role === "admin" && process.env.ADMIN_OTP_BYPASS === "true";
+    if (adminBypass) {
+      console.log(`[auth/otp] bypass admin habilitado para ${user.email}`);
+    } else {
+      const risk = await assessSuspiciousLogin(user.id, ip, userAgent);
+      if (risk.suspicious) {
+        let otp;
+        try {
+          otp = await criarEnviarOtp({
+            usuarioId: user.id,
+            tipo: "login_suspeito",
+            canalPreferido: "email",
+            nome: user.nome,
+          });
+        } catch (err) {
+          if (err.code === "OTP_RATE_LIMIT") {
+            otp = await getPendingOtp({ usuarioId: user.id, tipo: "login_suspeito" });
+            if (!otp) {
+              return res.status(429).json({
+                error: err.message,
+                requires_otp: true,
+              });
+            }
+          } else if (err.code === "OTP_CANAL_INDISPONIVEL") {
+            return res.status(503).json({ error: err.message });
+          } else {
+            throw err;
           }
-        } else if (err.code === "OTP_CANAL_INDISPONIVEL") {
-          return res.status(503).json({ error: err.message });
-        } else {
-          throw err;
         }
-      }
 
-      return res.status(403).json({
-        error: "Login suspeito detectado. Confirme com o código enviado.",
-        requires_otp: true,
-        otp_id: otp.otp_id,
-        expires_at: otp.expires_at,
-        canal: otp.canal,
-        destino_mascarado: otp.destino_mascarado,
-        ttl_minutes: OTP_TTL_MIN,
-        motivos: risk.reasons,
-        aviso: otp.aviso,
-        dev_codigo: otp.dev_codigo,
-      });
+        return res.status(403).json({
+          error: "Login suspeito detectado. Confirme com o código enviado.",
+          requires_otp: true,
+          otp_id: otp.otp_id,
+          expires_at: otp.expires_at,
+          canal: otp.canal,
+          destino_mascarado: otp.destino_mascarado,
+          ttl_minutes: OTP_TTL_MIN,
+          motivos: risk.reasons,
+          aviso: otp.aviso,
+          dev_codigo: otp.dev_codigo,
+        });
+      }
     }
 
     await resetLoginAttempts(user.id);
