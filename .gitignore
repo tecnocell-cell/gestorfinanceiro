@@ -55,6 +55,18 @@ gestor_financeiro*.json
 RELATORIO_*.md
 relatorio_*.md
 **/analise_*.md
+server/auditMoney-report.txt
+server/*-report.txt
+
+# Ferramentas locais / workspace
+centerflow-frontend/.lovable/
+centerflow-frontend/.workspace/
+
+# WhatsApp Gateway local (sessões e credenciais)
+whatsapp-gateway/sessions/
+whatsapp-gateway/node_modules/
+whatsapp-gateway/.env
+whatsapp-gateway/.env.*
 
 # ─── SO e editores ───
 .DS_Store
