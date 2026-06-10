@@ -9,7 +9,9 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync } from "fs";
 import { query } from "./db.js";
-import { authMiddleware, adminMiddleware, activeMiddleware, signToken } from "./middleware/auth.js";
+import { authMiddleware, adminMiddleware, adminMasterMiddleware, activeMiddleware, signToken } from "./middleware/auth.js";
+import { subscriptionGuard } from "./middleware/subscriptionGuard.js";
+import { startRenewalJobScheduler, runRenewalJob } from "./billing/billingRenewalJob.js";
 import { findUsuario, rejectProtectedAdmin } from "./adminGuard.js";
 import { createInitialState, normalizeStateForUser } from "./initialState.js";
 import {
@@ -252,7 +254,7 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, 
 });
 
 // ─── Estado do App (protegido + conta ativa) ──────────────────────────────────
-app.get("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, requirePermission("state.read"), async (req, res) => {
+app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attachEmpresaContext, requirePermission("state.read"), async (req, res) => {
   try {
     const stateOwnerId = req.stateOwnerId;
     const { rows } = await query(
@@ -329,7 +331,7 @@ app.get("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, re
   }
 });
 
-app.put("/api/state", authMiddleware, activeMiddleware, attachEmpresaContext, requirePermission("state.write"), async (req, res) => {
+app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attachEmpresaContext, requirePermission("state.write"), async (req, res) => {
   const { dados } = req.body || {};
   if (!dados) return res.status(400).json({ error: "Campo 'dados' obrigatório." });
 
@@ -554,11 +556,12 @@ app.delete("/api/admin/users/:id", authMiddleware, adminMiddleware, async (req, 
   }
 });
 
-// ─── Recorrências (despesas e receitas fixas) ─────────────────────────────────
-app.use("/api/recorrencias", recorrenciasRouter);
-app.use("/api/conexoes", conexoesRouter);
-app.use("/api/importacoes", importacoesRouter);
-app.use("/api/open-finance", openFinanceRouter);
+// ─── Rotas core — protegidas pelo subscriptionGuard ──────────────────────────
+// authMiddleware é necessário antes do guard pois os sub-routers têm auth interno
+app.use("/api/recorrencias", authMiddleware, subscriptionGuard, recorrenciasRouter);
+app.use("/api/conexoes", authMiddleware, subscriptionGuard, conexoesRouter);
+app.use("/api/importacoes", authMiddleware, subscriptionGuard, importacoesRouter);
+app.use("/api/open-finance", authMiddleware, subscriptionGuard, openFinanceRouter);
 app.use("/api/system", systemRouter);
 app.use("/api/admin", adminOverviewRouter);
 app.use("/api/admin", adminSaasRouter);
@@ -567,10 +570,10 @@ app.use("/api/admin", adminPaymentConfigRouter);
 app.use("/api/admin", adminReleaseRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/beta", betaRouter);
-app.use("/api/integracao-pf-pj", integracaoPfPjRouter);
+app.use("/api/integracao-pf-pj", authMiddleware, subscriptionGuard, integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
-app.use("/api/whatsapp", whatsappRouter);
+app.use("/api/whatsapp", authMiddleware, subscriptionGuard, whatsappRouter);
 app.use("/api/whatsapp-admin", whatsappAdminRouter);
 
 // Admin: lê recorrências de um tenant (somente leitura, modo impersonation)
@@ -627,6 +630,17 @@ app.patch("/api/auth/change-password", authMiddleware, async (req, res) => {
   }
 });
 
+// ─── Admin: job de renovação manual ──────────────────────────────────────────
+app.post("/api/admin/billing/run-renewal-job", authMiddleware, adminMasterMiddleware, async (_req, res) => {
+  try {
+    const resultado = await runRenewalJob();
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    console.error("admin/run-renewal-job:", err.message);
+    res.status(500).json({ error: "Erro ao executar job de renovação.", detalhe: err.message });
+  }
+});
+
 // ─── SPA fallback (React Router) — não capturar /api/* ───────────────────────
 if (existsSync(DIST)) {
   app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(join(DIST, "index.html")));
@@ -644,6 +658,7 @@ async function start() {
     console.log(`\n✅ Gestor Financeiro API rodando em http://0.0.0.0:${PORT}`);
     console.log(`   Banco: ${process.env.DATABASE_URL ? "PostgreSQL (env)" : "PostgreSQL (padrão local)"}`);
     console.log(`   Modo:  ${process.env.NODE_ENV || "development"}\n`);
+    startRenewalJobScheduler();
   });
 }
 

@@ -76,13 +76,22 @@ export function detectQueryCommand(text) {
   if (t === "extrato mes" || t === "extrato mês" || t === "lancamentos mes" || t === "lancamentos mês")
     return { cmd: "extrato", period: "mes" };
 
+  if (t === "extrato anual" || t === "extrato ano" || t === "lancamentos anual" || t === "lancamentos ano")
+    return { cmd: "extrato", period: "anual" };
+
   for (const [nome, num] of Object.entries(MESES)) {
     if (t === `lancamentos ${nome}` || t === `extrato ${nome}`)
       return { cmd: "extrato", period: "mesNome", month: num, monthNome: nome };
   }
 
+  // "gastos por categoria mês" | "gastos por categoria anual"
+  if (t === "gastos por categoria mes" || t === "gastos por categoria mês")
+    return { cmd: "gastos_categoria", period: "mes" };
+  if (t === "gastos por categoria anual" || t === "gastos por categoria ano")
+    return { cmd: "gastos_categoria", period: "anual" };
+
   // "gastos alimentação mês" | "gasto alimentação mes"
-  const gastosMatch = t.match(/^gastos?\s+(.+?)\s+(mes|mês|hoje)$/);
+  const gastosMatch = t.match(/^gastos?\s+(.+?)\s+(mes|mês|hoje|anual|ano)$/);
   if (gastosMatch)
     return { cmd: "gastos", categoria: gastosMatch[1].trim(), period: norm(gastosMatch[2]) };
 
@@ -97,6 +106,7 @@ export async function handleQueryCommand(usuarioId, cmd) {
     if (cmd.cmd === "saldo") return await cmdSaldo(usuarioId, cmd.conta);
     if (cmd.cmd === "extrato") return await cmdExtrato(usuarioId, cmd.period, cmd.month, cmd.monthNome);
     if (cmd.cmd === "gastos") return await cmdGastos(usuarioId, cmd.categoria, cmd.period);
+    if (cmd.cmd === "gastos_categoria") return await cmdGastosPorCategoria(usuarioId, cmd.period);
   } catch (err) {
     console.error(`[whatsapp/query] erro cmd=${cmd.cmd}:`, err.message);
     return "Erro ao processar consulta. Tente novamente.";
@@ -167,6 +177,10 @@ async function cmdExtrato(usuarioId, period, monthNum, monthNome) {
     const mes = String(now.getMonth() + 1).padStart(2, "0");
     lancamentos = lancamentos.filter((l) => l.data?.startsWith(`${ano}-${mes}`));
     titulo = `Extrato de ${now.toLocaleString("pt-BR", { month: "long" })}`;
+  } else if (period === "anual") {
+    const ano = String(now.getFullYear());
+    lancamentos = lancamentos.filter((l) => l.data?.startsWith(ano));
+    titulo = `Extrato de ${ano}`;
   } else if (period === "mesNome" && monthNum) {
     const ano = now.getFullYear();
     const mes = String(monthNum).padStart(2, "0");
@@ -216,6 +230,8 @@ async function cmdGastos(usuarioId, categoriaBusca, period) {
 
   if (period === "hoje") {
     lancamentos = lancamentos.filter((l) => l.data === todayStr);
+  } else if (period === "anual" || period === "ano") {
+    lancamentos = lancamentos.filter((l) => l.data?.startsWith(String(now.getFullYear())));
   } else {
     const ano = now.getFullYear();
     const mes = String(now.getMonth() + 1).padStart(2, "0");
@@ -230,7 +246,7 @@ async function cmdGastos(usuarioId, categoriaBusca, period) {
   }
 
   const filtrados = lancamentos.filter((l) => l.planoId === plano.id);
-  const periodoLabel = period === "hoje" ? "hoje" : "neste mês";
+  const periodoLabel = period === "hoje" ? "hoje" : (period === "anual" || period === "ano") ? "este ano" : "neste mês";
 
   if (!filtrados.length) {
     return `Nenhum gasto em "${plano.descricao}" ${periodoLabel}.`;
@@ -246,4 +262,52 @@ async function cmdGastos(usuarioId, categoriaBusca, period) {
     `Gastos em ${plano.descricao} ${periodoLabel}: ${fmtMoney(total)}\n\n` +
     `Principais lançamentos:\n${principais.join("\n")}`
   );
+}
+
+// ── Gastos por categoria (todas) ─────────────────────────────────────────────
+
+async function cmdGastosPorCategoria(usuarioId, period) {
+  const state = await getEmpresaDados(usuarioId);
+  if (!state) return "Nenhum estado financeiro encontrado.";
+
+  const { empresa } = state;
+  const planoContas = (Array.isArray(empresa?.planoContas) ? empresa.planoContas : [])
+    .filter((p) => !p.inativo);
+  const now = new Date();
+
+  let lancamentos = (Array.isArray(empresa?.lancamentos) ? empresa.lancamentos : [])
+    .filter((l) => l.tipo === "Saida");
+
+  let titulo;
+  if (period === "anual") {
+    lancamentos = lancamentos.filter((l) => l.data?.startsWith(String(now.getFullYear())));
+    titulo = `Gastos por categoria em ${now.getFullYear()}`;
+  } else {
+    const ano = now.getFullYear();
+    const mes = String(now.getMonth() + 1).padStart(2, "0");
+    lancamentos = lancamentos.filter((l) => l.data?.startsWith(`${ano}-${mes}`));
+    titulo = `Gastos por categoria em ${now.toLocaleString("pt-BR", { month: "long" })}`;
+  }
+
+  if (!lancamentos.length) return `${titulo}:\n\nNenhum gasto encontrado no período.`;
+
+  // Agrupar por planoId
+  const porCategoria = new Map();
+  for (const l of lancamentos) {
+    const id = l.planoId || "__sem_categoria__";
+    porCategoria.set(id, (porCategoria.get(id) || 0) + Number(l.valor || 0));
+  }
+
+  // Montar linhas ordenadas por valor desc
+  const linhas = [...porCategoria.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .map(([id, total], i) => {
+      const plano = planoContas.find((p) => p.id === id);
+      const nome = plano ? plano.descricao : "Sem categoria";
+      return `${i + 1}. ${nome}: ${fmtMoney(total)}`;
+    });
+
+  const totalGeral = [...porCategoria.values()].reduce((a, b) => a + b, 0);
+
+  return `${titulo}:\n\n${linhas.join("\n")}\n\nTotal: ${fmtMoney(totalGeral)}`;
 }
