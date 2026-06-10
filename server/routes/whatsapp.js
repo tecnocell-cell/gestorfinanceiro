@@ -12,9 +12,20 @@ import {
   gatewayHealth,
   sendText,
 } from "../whatsapp/evolutionProvider.js";
-import { parseMessage, detectConfirmation } from "../whatsapp/messageParser.js";
-import { addLancamentoFromWhatsApp } from "../whatsapp/lancamentoWriter.js";
+import { parseMessage } from "../whatsapp/messageParser.js";
 import { processMediaInbox }         from "../whatsapp/mediaProcessor.js";
+import {
+  getAnyPending,
+  createPending,
+  updatePending,
+  deletePending,
+  getCategories,
+  confirmPendingLancamento,
+  buildConfirmacaoMsg,
+  buildCategoryListMsg,
+  todayIso,
+} from "../whatsapp/financePending.js";
+import { detectQueryCommand, handleQueryCommand } from "../whatsapp/financeCommands.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
 import {
   whatsappCapabilitiesFromRecursos,
@@ -104,115 +115,244 @@ async function processMediaMessage(
   console.log(`[whatsapp/media] ack enviado: usuario=${usuarioId} tipo=${messageType} from=${fromNumber}`);
 }
 
+/**
+ * Processa mensagem financeira recebida.
+ *
+ * Fluxo:
+ *   1. Pendência ativa → tratar como resposta do fluxo (confirmar/categoria/cancelar)
+ *   2. Comando de consulta → saldo, extrato, lançamentos, gastos
+ *   3. Parse como novo lançamento → criar pendente e pedir confirmação
+ *   4. Fallback → mensagem de ajuda
+ *
+ * Fire-and-forget — nunca bloqueia o webhook.
+ */
 async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgBody) {
   const body = String(msgBody || "").trim();
 
-  // ── Helpers inline ──────────────────────────────────────────────────────
   const markInbox = (sent, error = null) =>
     query(
       "UPDATE whatsapp_inbox SET response_sent = $1, response_error = $2 WHERE id = $3",
       [sent, error, inboxId]
     ).catch(() => {});
 
-  // ── 1. Verificar se é SIM ou NAO ────────────────────────────────────────
-  const confirmation = detectConfirmation(body);
+  // ── 1. Verificar pendência (ativa ou expirada) ───────────────────────────
+  const anyPending = await getAnyPending(usuarioId);
 
-  if (confirmation) {
-    const variants = phoneVariantsBR(digitsOnly(fromNumber));
-    const { rows: pending } = await query(
-      `SELECT id, tipo, valor, descricao
-         FROM whatsapp_pending_transactions
-        WHERE usuario_id = $1
-          AND from_number = ANY($2)
-          AND status = 'pending_confirmation'
-        ORDER BY created_at DESC
-        LIMIT 1`,
-      [usuarioId, variants]
-    );
-
-    if (!pending.length) {
+  if (anyPending) {
+    if (new Date(anyPending.expires_at) < new Date()) {
+      await deletePending(usuarioId);
       sendReply(instanceName, fromNumber,
-        "Não há lançamento pendente. Envie uma mensagem como: paguei 50 gasolina");
+        "Esse lançamento pendente expirou. Envie a informação novamente.");
       await markInbox(true);
       return;
     }
 
-    const pt = pending[0];
-
-    if (confirmation === "nao") {
-      await query(
-        "UPDATE whatsapp_pending_transactions SET status = 'rejected', updated_at = NOW() WHERE id = $1",
-        [pt.id]
-      );
-      sendReply(instanceName, fromNumber, "Ok, cancelado.");
-      await markInbox(true);
-      console.log(`[whatsapp/confirm] rejeitado: usuario=${usuarioId} pending=${pt.id}`);
-      return;
-    }
-
-    // SIM → criar lançamento real
-    try {
-      await addLancamentoFromWhatsApp(usuarioId, {
-        tipo:      pt.tipo,
-        valor:     parseFloat(pt.valor),
-        descricao: pt.descricao,
-      });
-      await query(
-        "UPDATE whatsapp_pending_transactions SET status = 'confirmed', updated_at = NOW() WHERE id = $1",
-        [pt.id]
-      );
-      const valorFmt = `R$ ${parseFloat(pt.valor).toFixed(2).replace(".", ",")}`;
-      const tipoLabel = pt.tipo === "Receita" ? "Receita" : "Despesa";
-      sendReply(instanceName, fromNumber,
-        `✅ Lançamento criado!
-${tipoLabel}: ${valorFmt}
-Descrição: ${pt.descricao}`);
-      await markInbox(true);
-      console.log(`[whatsapp/confirm] lançamento criado: usuario=${usuarioId} tipo=${pt.tipo} valor=${pt.valor}`);
-    } catch (err) {
-      console.error(`[whatsapp/confirm] erro ao criar lançamento:`, err.message);
-      sendReply(instanceName, fromNumber, "Erro ao criar lançamento. Tente novamente.");
-      await markInbox(false, err.message.slice(0, 500));
-    }
+    await handlePendingFlow(usuarioId, fromNumber, instanceName, anyPending, body);
+    await markInbox(true);
     return;
   }
 
-  // ── 2. Tentar parsear como novo lançamento ───────────────────────────────
+  // ── 2. Comando de consulta ────────────────────────────────────────────────
+  const queryCmd = detectQueryCommand(body);
+  if (queryCmd) {
+    console.log(`[whatsapp/query] cmd=${queryCmd.cmd} usuario=${usuarioId}`);
+    const resp = await handleQueryCommand(usuarioId, queryCmd);
+    sendReply(instanceName, fromNumber, resp);
+    await markInbox(true);
+    return;
+  }
+
+  // ── 3. Parse como novo lançamento ────────────────────────────────────────
   const parsed = parseMessage(body);
-
-  if (!parsed) {
-    sendReply(instanceName, fromNumber,
-      `Não entendi. Envie no formato:\npaguei 50 gasolina\nou: recebi 1200 cliente João`);
+  if (parsed) {
+    try {
+      await handleNewLancamento(usuarioId, fromNumber, instanceName, parsed);
+    } catch (err) {
+      console.error("[whatsapp/message] erro ao criar pending:", err.message);
+      sendReply(instanceName, fromNumber, "Erro ao processar a mensagem. Tente novamente.");
+      await markInbox(false, err.message.slice(0, 500));
+      return;
+    }
     await markInbox(true);
     return;
   }
 
-  // ── 3. Inserir pré-lançamento e solicitar confirmação ────────────────────
-  try {
-    await query(
-      `INSERT INTO whatsapp_pending_transactions
-         (usuario_id, inbox_id, from_number, instance_name, tipo, valor, descricao)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [usuarioId, inboxId, fromNumber, instanceName, parsed.tipo, parsed.valor, parsed.descricao]
-    );
-    const tipoLabel = parsed.tipo === "Receita" ? "Receita 💚" : "Despesa 🔴";
-    const valorFmt  = `R$ ${parsed.valor.toFixed(2).replace(".", ",")}`;
-    sendReply(instanceName, fromNumber,
-      `Identifiquei:
-${tipoLabel}
-Valor: ${valorFmt}
-Descrição: ${parsed.descricao}
+  // ── 4. Ajuda ─────────────────────────────────────────────────────────────
+  console.log(`[whatsapp/message] comando recebido sem match: usuario=${usuarioId} body=${body.slice(0, 80)}`);
+  sendReply(instanceName, fromNumber,
+    "Não entendi. Você pode:\n\n" +
+    "Registrar: paguei 80 mercado | recebi 1500 pix\n" +
+    "Consultar: saldo | extrato hoje | extrato mês\n" +
+    "Filtrar: gastos alimentação mês | lançamentos junho"
+  );
+  await markInbox(true);
+}
 
-Responda SIM para confirmar ou NAO para cancelar.`);
-    await markInbox(true);
-    console.log(
-      `[whatsapp/parse] pending criado: usuario=${usuarioId}` +
-      ` tipo=${parsed.tipo} valor=${parsed.valor} desc=${parsed.descricao}`
-    );
-  } catch (err) {
-    console.error(`[whatsapp/parse] erro ao inserir pending:`, err.message);
-    await markInbox(false, err.message.slice(0, 500));
+/** Normaliza texto para comparação. */
+function normStr(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+
+/**
+ * Trata resposta do usuário para uma pendência ativa.
+ * step="confirmacao":    1=confirmar, 2=trocar categoria, 3=cancelar
+ * step="aguardando_categoria": número = escolher categoria
+ */
+async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, body) {
+  const payload = pending.payload;
+  const t = normStr(body);
+
+  if (payload.step === "confirmacao") {
+    // Confirmar
+    if (["1", "confirmar", "sim", "s", "ok", "pode"].includes(t)) {
+      try {
+        const lancamento = await confirmPendingLancamento(usuarioId, pending);
+        sendReply(instanceName, fromNumber, "Lançamento confirmado e salvo com sucesso.");
+        console.log(
+          `[whatsapp/pending] confirmado: usuario=${usuarioId}` +
+          ` valor=${lancamento.valor} tipo=${lancamento.tipo}`
+        );
+      } catch (err) {
+        console.error("[whatsapp/pending] erro ao confirmar:", err.message);
+        sendReply(instanceName, fromNumber, "Erro ao salvar lançamento. Tente novamente.");
+      }
+      return;
+    }
+
+    // Trocar categoria
+    if (["2", "trocar", "trocar categoria", "categoria"].includes(t)) {
+      const categorias = await getCategories(usuarioId, payload.lancamento?.tipo);
+      if (!categorias.length) {
+        sendReply(instanceName, fromNumber,
+          "Nenhuma categoria encontrada.\n\n" +
+          buildConfirmacaoMsg(payload)
+        );
+        return;
+      }
+      const newPayload = {
+        ...payload,
+        step: "aguardando_categoria",
+        categoria_opcoes: categorias.slice(0, 20),
+      };
+      await updatePending(pending.id, newPayload);
+      sendReply(instanceName, fromNumber, buildCategoryListMsg(categorias));
+      console.log(`[whatsapp/pending] aguardando categoria: usuario=${usuarioId}`);
+      return;
+    }
+
+    // Cancelar
+    if (["3", "cancelar", "cancel", "nao", "n", "não"].includes(t)) {
+      await deletePending(usuarioId);
+      sendReply(instanceName, fromNumber, "Lançamento cancelado.");
+      return;
+    }
+
+    // Resposta não reconhecida — reapresenta confirmação
+    sendReply(instanceName, fromNumber, buildConfirmacaoMsg(payload));
+    return;
   }
+
+  if (payload.step === "aguardando_categoria") {
+    const opcoes = payload.categoria_opcoes || [];
+
+    // Cancelar
+    if (["cancelar", "3", "nao", "n", "não"].includes(t)) {
+      await deletePending(usuarioId);
+      sendReply(instanceName, fromNumber, "Lançamento cancelado.");
+      return;
+    }
+
+    const num = parseInt(t, 10);
+    if (Number.isFinite(num) && num >= 1 && num <= opcoes.length) {
+      const escolhida = opcoes[num - 1];
+      const newPayload = {
+        ...payload,
+        step: "confirmacao",
+        lancamento: {
+          ...payload.lancamento,
+          planoId: escolhida.id,
+          categoriaNome: escolhida.descricao,
+        },
+        categoria_sugerida: { id: escolhida.id, descricao: escolhida.descricao },
+      };
+      await updatePending(pending.id, newPayload);
+      sendReply(instanceName, fromNumber,
+        `Categoria alterada para ${escolhida.descricao}.\n\n` +
+        buildConfirmacaoMsg(newPayload)
+      );
+      console.log(
+        `[whatsapp/pending] categoria alterada: usuario=${usuarioId} cat=${escolhida.descricao}`
+      );
+      return;
+    }
+
+    // Número inválido — reapresenta lista
+    sendReply(instanceName, fromNumber, buildCategoryListMsg(opcoes));
+    return;
+  }
+}
+
+/**
+ * Cria um novo pending a partir de uma mensagem parseada.
+ * Busca a melhor categoria no planoContas real do tenant.
+ */
+async function handleNewLancamento(usuarioId, fromNumber, instanceName, parsed) {
+  const tipo = parsed.tipo === "Receita" ? "Entrada" : "Saida";
+  const categorias = await getCategories(usuarioId, tipo);
+
+  let catSugerida = null;
+  let confidence = "baixa";
+
+  if (parsed.categoria && categorias.length) {
+    const hint = normStr(parsed.categoria);
+    const match = categorias.find((c) => {
+      const n = normStr(c.descricao);
+      return n.includes(hint) || hint.includes(n);
+    });
+    if (match) {
+      catSugerida = match;
+      confidence = "media";
+    }
+  }
+
+  // Fallback: primeira categoria compatível
+  if (!catSugerida && categorias.length) {
+    catSugerida = categorias[0];
+    confidence = "baixa";
+  }
+
+  const payload = {
+    action: "create_lancamento",
+    step: "confirmacao",
+    lancamento: {
+      data: todayIso(),
+      tipo,
+      valor: parsed.valor,
+      contaEntradaId: null,
+      contaSaidaId: null,
+      planoId: catSugerida?.id || null,
+      categoriaNome: catSugerida?.descricao || "",
+      historico: parsed.descricao,
+      observacao: "Criado via WhatsApp",
+      status: "pago",
+      pago: true,
+      exportado: false,
+      consiliado: false,
+    },
+    categoria_confidence: confidence,
+    categoria_sugerida: catSugerida
+      ? { id: catSugerida.id, descricao: catSugerida.descricao }
+      : { id: "", descricao: "" },
+    categoria_opcoes: [],
+  };
+
+  await createPending(usuarioId, fromNumber, payload);
+  sendReply(instanceName, fromNumber, buildConfirmacaoMsg(payload));
+  console.log(
+    `[whatsapp/pending] criado: usuario=${usuarioId}` +
+    ` tipo=${tipo} valor=${parsed.valor}` +
+    ` cat=${catSugerida?.descricao || "nenhuma"} confidence=${confidence}`
+  );
 }
 
 /** Cooldowns — chamadas repetidas a /instance/connect derrubam a sessão na Evolution v2.1.1 */
