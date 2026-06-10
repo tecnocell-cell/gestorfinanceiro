@@ -23,6 +23,7 @@ import BetaBanner from "./components/beta/BetaBanner.jsx";
 import BetaBadge from "./components/beta/BetaBadge.jsx";
 import BetaFeedbackFab from "./components/beta/BetaFeedbackFab.jsx";
 import { useBetaMode } from "./hooks/useBetaMode.js";
+import { useInactivityLogout } from "./hooks/useInactivityLogout.js";
 import {
   ADMIN_NAV,
   DEFAULT_ADMIN_PAGE,
@@ -169,6 +170,7 @@ function SyncPill({ syncing, lastSyncAt, onClick, apiOnline }) {
 export default function GestorApp() {
   const { user, logout, isSuperAdmin } = useAuth();
   const { betaMode, message: betaMessage } = useBetaMode();
+  useInactivityLogout();
   const [page, setPage] = useState(() => {
     if (user?.role !== "admin") return "dashboard";
     const saved = typeof sessionStorage !== "undefined" && sessionStorage.getItem("admin_page");

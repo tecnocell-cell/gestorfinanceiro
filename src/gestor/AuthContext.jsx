@@ -61,11 +61,10 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.warn("Flush ao sair:", err.message);
     }
+    // Limpa storage e navega imediatamente — sem setState para evitar
+    // o flash da tela de login antes do redirecionamento.
     tokenStorage.clear();
-    setToken(null);
-    setUser(null);
-    setProfileReady(true);
-    window.location.href = "https://fluxiva.app";
+    window.location.replace("https://fluxiva.app");
   }, []);
 
   const clearError = useCallback(() => setError(null), []);

@@ -6,12 +6,21 @@ function suspiciousLoginDisabled() {
   return v === 'false' || v === '0' || v === 'off';
 }
 
+function requireOtpAlways() {
+  return String(process.env.REQUIRE_OTP_LOGIN || '').toLowerCase() === 'true';
+}
+
 /**
  * Marca login como suspeito quando há combinação de risco (não só IP ou UA novo isolado).
+ * Se REQUIRE_OTP_LOGIN=true, exige OTP em todo login independente de risco.
  */
 export async function assessSuspiciousLogin(userId, ip, userAgent) {
   if (suspiciousLoginDisabled()) {
     return { suspicious: false, reasons: [] };
+  }
+
+  if (requireOtpAlways()) {
+    return { suspicious: true, reasons: ['verificacao_obrigatoria'] };
   }
 
   const reasons = [];
