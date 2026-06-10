@@ -2,8 +2,8 @@
  * financeCommands.js — Consultas financeiras via WhatsApp.
  *
  * Comandos suportados:
- *   saldo
- *   saldo <nome da conta>
+ *   opções | opcoes | ajuda | comandos | menu | o que posso fazer
+ *   saldo | saldo <conta>
  *   extrato hoje | extrato mês | extrato <mês em português>
  *   lançamentos hoje | lançamentos mês | lançamentos <mês em português>
  *   gastos <categoria> mês | gastos <categoria> hoje
@@ -30,8 +30,40 @@ function norm(s) {
  * Detecta se o texto é um comando de consulta.
  * Retorna { cmd, ... } ou null.
  */
+const AJUDA_TRIGGERS = new Set([
+  "opcoes", "opções", "ajuda", "comandos", "menu", "o que posso fazer",
+]);
+
+export const MENU_TEXTO =
+  `Menu do WhatsApp Financeiro:\n\n` +
+  `Consultas:\n` +
+  `1. saldo\n` +
+  `2. saldo banco\n` +
+  `3. extrato hoje\n` +
+  `4. extrato mês\n` +
+  `5. extrato anual\n` +
+  `6. lançamentos hoje\n` +
+  `7. lançamentos junho\n` +
+  `8. gastos alimentação mês\n` +
+  `9. gastos por categoria mês\n` +
+  `10. gastos por categoria anual\n\n` +
+  `Lançamentos:\n` +
+  `11. paguei 80 mercado\n` +
+  `12. recebi 1500 pix cliente\n` +
+  `13. gasolina 200\n` +
+  `14. aluguel 1200\n\n` +
+  `Durante uma confirmação:\n` +
+  `1 - Confirmar\n` +
+  `2 - Trocar categoria\n` +
+  `3 - Cancelar\n\n` +
+  `Observação:\n` +
+  `Para trocar categoria, responda "2" ou "trocar categoria".\n` +
+  `Depois escolha o número da categoria listada.`;
+
 export function detectQueryCommand(text) {
   const t = norm(text);
+
+  if (AJUDA_TRIGGERS.has(t)) return { cmd: "ajuda" };
 
   if (t === "saldo") return { cmd: "saldo", conta: null };
 
@@ -60,6 +92,7 @@ export function detectQueryCommand(text) {
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
 export async function handleQueryCommand(usuarioId, cmd) {
+  if (cmd.cmd === "ajuda") return MENU_TEXTO;
   try {
     if (cmd.cmd === "saldo") return await cmdSaldo(usuarioId, cmd.conta);
     if (cmd.cmd === "extrato") return await cmdExtrato(usuarioId, cmd.period, cmd.month, cmd.monthNome);

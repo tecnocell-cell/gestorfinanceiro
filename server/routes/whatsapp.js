@@ -25,7 +25,7 @@ import {
   buildCategoryListMsg,
   todayIso,
 } from "../whatsapp/financePending.js";
-import { detectQueryCommand, handleQueryCommand } from "../whatsapp/financeCommands.js";
+import { detectQueryCommand, handleQueryCommand, MENU_TEXTO } from "../whatsapp/financeCommands.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
 import {
   whatsappCapabilitiesFromRecursos,
@@ -177,14 +177,9 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
     return;
   }
 
-  // ── 4. Ajuda ─────────────────────────────────────────────────────────────
+  // ── 4. Fallback — exibe menu de ajuda ────────────────────────────────────
   console.log(`[whatsapp/message] comando recebido sem match: usuario=${usuarioId} body=${body.slice(0, 80)}`);
-  sendReply(instanceName, fromNumber,
-    "Não entendi. Você pode:\n\n" +
-    "Registrar: paguei 80 mercado | recebi 1500 pix\n" +
-    "Consultar: saldo | extrato hoje | extrato mês\n" +
-    "Filtrar: gastos alimentação mês | lançamentos junho"
-  );
+  sendReply(instanceName, fromNumber, MENU_TEXTO);
   await markInbox(true);
 }
 
