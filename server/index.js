@@ -573,6 +573,13 @@ app.use("/api/beta", betaRouter);
 app.use("/api/integracao-pf-pj", authMiddleware, subscriptionGuard, integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
+// Webhook público (Evolution API não envia JWT) — bypass antes do authMiddleware
+app.use("/api/whatsapp", (req, res, next) => {
+  if (req.method === "POST" && req.path.startsWith("/webhook/")) {
+    return whatsappRouter(req, res, next);
+  }
+  next();
+});
 app.use("/api/whatsapp", authMiddleware, subscriptionGuard, whatsappRouter);
 app.use("/api/whatsapp-admin", whatsappAdminRouter);
 

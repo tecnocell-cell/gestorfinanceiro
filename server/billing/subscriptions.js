@@ -107,8 +107,9 @@ function formatAssinatura(row, extras = {}) {
 }
 
 export async function ensureAssinaturaPadrao(usuarioId) {
+  // Fast-path: já existe
   const existing = await query(
-    `SELECT a.id FROM assinaturas a WHERE a.usuario_id = $1`,
+    `SELECT id FROM assinaturas WHERE usuario_id = $1`,
     [usuarioId]
   );
   if (existing.rows.length) return existing.rows[0].id;
@@ -125,11 +126,18 @@ export async function ensureAssinaturaPadrao(usuarioId) {
   const trialAte = new Date();
   trialAte.setDate(trialAte.getDate() + trialDaysForTipo(tipoPerfil));
 
-  const { rows } = await query(
+  // UPSERT atômico: requests simultâneos não geram duplicate key
+  await query(
     `INSERT INTO assinaturas (usuario_id, plano_id, status, inicio_em, trial_ate)
      VALUES ($1, $2, 'trial', NOW(), $3)
-     RETURNING id`,
+     ON CONFLICT (usuario_id) DO NOTHING`,
     [usuarioId, plano.id, trialAte]
+  );
+
+  // Sempre busca a linha resultante (criada agora ou já existente)
+  const { rows } = await query(
+    `SELECT id FROM assinaturas WHERE usuario_id = $1`,
+    [usuarioId]
   );
   return rows[0].id;
 }
