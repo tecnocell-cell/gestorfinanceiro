@@ -32,6 +32,10 @@ function norm(s) {
  */
 const AJUDA_TRIGGERS = new Set([
   "opcoes", "opções", "ajuda", "comandos", "menu", "o que posso fazer",
+  // Saudações — sempre retornam o menu principal
+  "oi", "ola", "olá", "opa", "ei", "eai", "e ai", "e aí",
+  "bom dia", "boa tarde", "boa noite", "boas", "hello", "hi", "hey",
+  "oi tudo bem", "tudo bem", "tudo bom", "tudo certo",
 ]);
 
 export const MENU_TEXTO =

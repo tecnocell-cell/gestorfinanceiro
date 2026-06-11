@@ -15,12 +15,16 @@ import { query }            from "../db.js";
 import { sendText, sendMedia } from "./evolutionProvider.js";
 import {
   createPending,
-  updatePending,
   deletePending,
   BOT_AVATAR,
   DIV,
-  fmtMoney,
 } from "./financePending.js";
+
+/** Formata centavos → R$ X,XX */
+function fmtMoney(centavos) {
+  const n = Number(centavos || 0) / 100;
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 import {
   createCheckout,
   regeneratePendingFaturaCheckout,
