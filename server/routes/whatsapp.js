@@ -255,13 +255,7 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
   if (payload.step === "aguardando_categoria") {
     const opcoes = payload.categoria_opcoes || [];
 
-    // Cancelar
-    if (["cancelar", "3", "nao", "n", "não"].includes(t)) {
-      await deletePending(usuarioId);
-      sendReply(instanceName, fromNumber, MSG_CANCELADO);
-      return;
-    }
-
+    // Números são sempre índice de categoria — checar ANTES do cancelar
     const num = parseInt(t, 10);
     if (Number.isFinite(num) && num >= 1 && num <= opcoes.length) {
       const escolhida = opcoes[num - 1];
@@ -277,7 +271,7 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
       };
       await updatePending(pending.id, newPayload);
       sendReply(instanceName, fromNumber,
-        `Categoria alterada para ${escolhida.descricao}.\n\n` +
+        `Categoria alterada para *${escolhida.descricao}*.\n\n` +
         buildConfirmacaoMsg(newPayload)
       );
       console.log(
@@ -286,7 +280,14 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
       return;
     }
 
-    // Número inválido — reapresenta lista
+    // Palavras de cancelamento (sem números — para não conflitar com índices)
+    if (["cancelar", "cancel", "nao", "n", "não"].includes(t)) {
+      await deletePending(usuarioId);
+      sendReply(instanceName, fromNumber, MSG_CANCELADO);
+      return;
+    }
+
+    // Entrada inválida — reapresenta lista
     sendReply(instanceName, fromNumber, buildCategoryListMsg(opcoes));
     return;
   }
