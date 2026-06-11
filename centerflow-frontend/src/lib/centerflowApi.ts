@@ -71,6 +71,26 @@ export interface ApiError extends Error {
   data:   unknown;
 }
 
+/** Retornado pelo backend quando login exige verificação OTP (login_suspeito ou REQUIRE_OTP_LOGIN). */
+export interface OtpRequiredData {
+  requires_otp:        true;
+  otp_id:              string;
+  expires_at:          string;
+  canal:               string;
+  destino_mascarado:   string;
+  ttl_minutes:         number;
+  motivos:             string[];
+  aviso:               string | null;
+  /** Presente apenas em dev (console mode, sem e-mail configurado) */
+  dev_codigo?:         string;
+}
+
+export interface OtpVerifyResponse {
+  ok:    boolean;
+  token: string;
+  user:  CfUser;
+}
+
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -148,10 +168,50 @@ export async function fetchPublicBillingStatus(): Promise<PublicBillingStatus> {
 
 /**
  * POST /api/auth/login
- * Retorna token + user. Salvar com saveSession() e redirecionar com redirectToApp().
+ * Retorna token + user em caso de sucesso.
+ * Quando o backend exige OTP (REQUIRE_OTP_LOGIN ou login suspeito), retorna OtpRequiredData
+ * em vez de lançar erro — o componente decide o que mostrar.
  */
-export async function login(email: string, senha: string): Promise<LoginResponse> {
-  return post<LoginResponse>("/auth/login", { email, senha });
+export async function login(
+  email: string,
+  senha: string
+): Promise<LoginResponse | OtpRequiredData> {
+  try {
+    return await post<LoginResponse>("/auth/login", { email, senha });
+  } catch (err) {
+    const apiErr = err as ApiError;
+    if (apiErr.status === 403 && (apiErr.data as Record<string, unknown>)?.requires_otp) {
+      return apiErr.data as OtpRequiredData;
+    }
+    throw err;
+  }
+}
+
+/**
+ * POST /api/auth/otp/verify
+ * Confirma o código OTP enviado no login suspeito / obrigatório.
+ * Retorna token + user após verificação bem-sucedida.
+ */
+export async function verifyLoginOtp(
+  otp_id: string,
+  codigo: string
+): Promise<OtpVerifyResponse> {
+  return post<OtpVerifyResponse>("/auth/otp/verify", {
+    otp_id,
+    codigo,
+    tipo: "login_suspeito",
+  });
+}
+
+/**
+ * POST /api/auth/otp/send
+ * Reenviar OTP de login.
+ */
+export async function resendLoginOtp(otp_id: string): Promise<OtpRequiredData> {
+  return post<OtpRequiredData>("/auth/otp/send", {
+    tipo: "login_suspeito",
+    otp_id,
+  });
 }
 
 /**
