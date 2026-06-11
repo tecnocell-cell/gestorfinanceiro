@@ -32,6 +32,7 @@ import {
 } from "../whatsapp/financePending.js";
 import { detectQueryCommand, handleQueryCommand, MENU_TEXTO } from "../whatsapp/financeCommands.js";
 import { detectBillingCommand, handleBillingCommand, handleBillingPendingFlow } from "../whatsapp/billingFlow.js";
+import { handleLeadMessage } from "../whatsapp/leadFlow.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
 import {
   whatsappCapabilitiesFromRecursos,
@@ -1163,9 +1164,14 @@ router.post("/webhook/:instanceName", async (req, res) => {
         // ── Modo PF: allowlist obrigatoria ──────────────────────────────
         const authRow = await lookupAuthorizedPhone(fromNumber);
         if (!authRow) {
-          console.warn(
-            `[whatsapp/webhook] MESSAGES_UPSERT PF -- numero NAO autorizado: ${fromNumber || "?"}`
+          console.log(
+            `[whatsapp/webhook] MESSAGES_UPSERT PF -- numero nao autorizado, fluxo comercial: ${fromNumber || "?"}`
           );
+          if (fromNumber && (msgBody || "").trim()) {
+            handleLeadMessage(instanceName, fromNumber, msgBody).catch(
+              (e) => console.error("[whatsapp/leadFlow]:", e.message)
+            );
+          }
           return;
         }
         query(

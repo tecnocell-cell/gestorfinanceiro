@@ -20,6 +20,8 @@ export function registerAuthRoutes(app) {
       nome_perfil,
       telefone,
       canal_verificacao = "email",
+      whatsapp_phone,
+      whatsapp_source,
     } = req.body || {};
 
     if (!nome?.trim() || !email?.trim() || !senha) {
@@ -75,6 +77,33 @@ export function registerAuthRoutes(app) {
         nome: user.nome,
         telefone: tel || user.telefone,
       });
+
+      // Auto-authorize WhatsApp number from lead flow
+      const waPhone = normalizePhone(whatsapp_phone);
+      if (waPhone && whatsapp_source === "whatsapp") {
+        const { rows: conflict } = await query(
+          `SELECT id FROM whatsapp_authorized_numbers
+             WHERE phone_number = $1 AND active = true AND usuario_id != $2
+             LIMIT 1`,
+          [waPhone, user.id]
+        );
+        if (conflict.length) {
+          // Rollback: remove o usuário recém-criado e retorna erro
+          await query("DELETE FROM estados WHERE usuario_id = $1", [user.id]);
+          await query("DELETE FROM usuarios WHERE id = $1", [user.id]);
+          return res.status(409).json({
+            error: "Este número já está vinculado a outra conta Fluxiva. Remova da conta anterior antes de usar aqui.",
+            code: "WHATSAPP_PHONE_CONFLICT",
+          });
+        }
+        await query(
+          `INSERT INTO whatsapp_authorized_numbers (usuario_id, phone_number, label, is_primary)
+           VALUES ($1, $2, 'WhatsApp', true)
+           ON CONFLICT DO NOTHING`,
+          [user.id, waPhone]
+        );
+        console.log(`[register] WhatsApp auto-autorizado: usuario=${user.id} phone=${waPhone}`);
+      }
 
       res.status(201).json({
         ok: true,

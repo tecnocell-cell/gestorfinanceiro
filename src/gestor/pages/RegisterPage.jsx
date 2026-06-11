@@ -11,7 +11,7 @@ const STEP_META = {
   [STEPS.verificacao]: { title: "Verificar conta", sub: "Passo 2 de 2 — escolha o canal e confirme" },
 };
 
-export default function RegisterPage({ onLogin, onVerified }) {
+export default function RegisterPage({ onLogin, onVerified, initialPhone = "", whatsappSource = "" }) {
   const [step, setStep] = useState(STEPS.dados);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -24,7 +24,7 @@ export default function RegisterPage({ onLogin, onVerified }) {
     nome: "",
     nome_perfil: "",
     email: "",
-    telefone: "",
+    telefone: initialPhone ? initialPhone.replace(/\D/g, "") : "",
     senha: "",
     senha2: "",
     canal_verificacao: "email",
@@ -93,6 +93,9 @@ export default function RegisterPage({ onLogin, onVerified }) {
       nome_perfil: form.nome_perfil.trim(),
       telefone: form.telefone.trim(),
       canal_verificacao: form.canal_verificacao,
+      ...(whatsappSource === "whatsapp" && initialPhone
+        ? { whatsapp_phone: initialPhone.replace(/\D/g, ""), whatsapp_source: "whatsapp" }
+        : {}),
     });
     setVerify({
       email: data.email,

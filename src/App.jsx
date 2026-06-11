@@ -53,8 +53,27 @@ function AppWithLoading() {
   return <GestorApp />;
 }
 
+function parseCadastroRoute() {
+  // Path-based: /cadastro?phone=xxx&source=whatsapp  (landing page)
+  const path = window.location.pathname || "";
+  if (path === "/cadastro" || path.startsWith("/cadastro?")) {
+    const params = new URLSearchParams(window.location.search || "");
+    return { phone: params.get("phone") || "", source: params.get("source") || "" };
+  }
+  // Hash-based: /#/cadastro?phone=xxx&source=whatsapp  (fallback / SPA interno)
+  const hash = window.location.hash || "";
+  if (hash.startsWith("#/cadastro")) {
+    const qIdx = hash.indexOf("?");
+    if (qIdx < 0) return { phone: "", source: "" };
+    const params = new URLSearchParams(hash.slice(qIdx + 1));
+    return { phone: params.get("phone") || "", source: params.get("source") || "" };
+  }
+  return null;
+}
+
 function AuthScreen() {
-  const [mode, setMode] = useState('login');
+  const cadastro = parseCadastroRoute();
+  const [mode, setMode] = useState(cadastro ? 'register' : 'login');
   const { setSession } = useAuth();
 
   if (mode === 'register') {
@@ -62,6 +81,8 @@ function AuthScreen() {
       <RegisterPage
         onLogin={() => setMode('login')}
         onVerified={(data) => setSession(data.token, data.user)}
+        initialPhone={cadastro?.phone || ""}
+        whatsappSource={cadastro?.source || ""}
       />
     );
   }
