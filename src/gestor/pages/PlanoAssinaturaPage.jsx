@@ -854,6 +854,7 @@ export default function PlanoAssinaturaPage() {
                 onCardResult={async (data) => {
                   if (data.activated) await load();
                 }}
+                onRefreshStatus={load}
                 busy={busy}
                 setBusy={setBusy}
                 setError={setError}

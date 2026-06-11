@@ -64,11 +64,12 @@ export async function getPublicPaymentMethods() {
   const cardEnv = isCardPaymentEnabled();
   const cardSandbox = useMock() && cardEnv && mpReady;
   const hasPublicKey = Boolean(mpCfg.public_key);
+  // Cartão disponível sempre que PAYMENT_CARD_ENABLED=true e MP estiver pronto com chave pública.
+  // PAYMENT_CARD_ALLOW_PRODUCTION removido: homologação concluída.
   const cardAvailable =
     mpReady &&
     cardEnv &&
-    (hasPublicKey || cardSandbox) &&
-    (process.env.NODE_ENV !== 'production' || isCardAllowedInProduction());
+    (hasPublicKey || cardSandbox);
 
   const pagamentoOnline = mpReady || asaasReady;
 

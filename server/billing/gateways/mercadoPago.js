@@ -56,16 +56,21 @@ function mockId(prefix) {
   return `${prefix}_mp_mock_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function mpFetch(path, { method = 'GET', body } = {}) {
+async function mpFetch(path, { method = 'GET', body, idempotencyKey } = {}) {
   const token = await accessToken();
   if (!token) throw new Error('Pagamento online não configurado.');
 
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+  if (method !== 'GET') {
+    headers['X-Idempotency-Key'] = idempotencyKey || `fluxiva-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
   const res = await fetch(`${MP_API}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
@@ -106,6 +111,7 @@ export async function createPixPayment(params) {
   const cfg = await getMercadoPagoConfigRaw();
   const payment = await mpFetch('/v1/payments', {
     method: 'POST',
+    idempotencyKey: `pix-${params.externalReference}`,
     body: {
       transaction_amount: params.valueReais,
       description: params.description,
@@ -134,12 +140,6 @@ export async function createPixPayment(params) {
 export function assertCardPaymentAllowed() {
   if (process.env.PAYMENT_CARD_ENABLED !== 'true') {
     throw new Error('Pagamento com cartão não está habilitado neste ambiente.');
-  }
-  if (
-    process.env.NODE_ENV === 'production' &&
-    process.env.PAYMENT_CARD_ALLOW_PRODUCTION !== 'true'
-  ) {
-    throw new Error('Cartão indisponível em produção até homologação.');
   }
 }
 
