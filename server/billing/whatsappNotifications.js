@@ -74,8 +74,9 @@ function msgContaVencendo({ planoNome, diasRestantes }) {
     `${urgencia} *Sua assinatura vence ${prazo}*\n\n` +
     `  📦 Plano  ${planoNome || 'Fluxiva'}\n` +
     `${DIV}\n` +
-    `Renove agora para não perder o acesso.\n` +
-    `_Acesse o app → Plano → Renovar_`
+    `Renove agora para não perder o acesso.\n\n` +
+    `💳 Responda *mensalidade* para pagar pelo WhatsApp\n` +
+    `   (PIX com QR code ou link para cartão)`
   );
 }
 

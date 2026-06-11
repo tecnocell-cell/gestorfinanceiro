@@ -52,6 +52,10 @@ export const MENU_TEXTO =
   `  • recebi 1500 pix cliente\n` +
   `  • gasolina 200\n` +
   `  • aluguel 1200\n\n` +
+  `💳 *Mensalidade / Plano*\n` +
+  `  • mensalidade\n` +
+  `  • renovar\n` +
+  `  • plano\n\n` +
   `${DIV}\n` +
   `✅ *Durante uma confirmação*\n` +
   `  1️⃣  Confirmar\n` +

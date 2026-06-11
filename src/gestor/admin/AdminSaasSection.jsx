@@ -406,6 +406,35 @@ function ModalClienteDetalhe({ clienteId, onClose }) {
                       {actBusy === "cancelar" ? "…" : "Cancelar assinatura"}
                     </button>
                   </div>
+                  <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                    <p className="admin-card-hint" style={{ marginBottom: 8 }}>
+                      <strong>Prorrogar trial</strong> — estende o período de teste a partir de hoje (ou do vencimento atual, se ainda não expirou). Reativa status para <em>trial</em> se vencido ou cancelado.
+                    </p>
+                    <div className="admin-card-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={!!actBusy}
+                        onClick={() => {
+                          if (!window.confirm("Prorrogar trial em +7 dias?")) return;
+                          runAdminAction("trial7", () => adminApi.prorrogarTrial(clienteId, 7));
+                        }}
+                      >
+                        {actBusy === "trial7" ? "…" : "+ 7 dias de trial"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={!!actBusy}
+                        onClick={() => {
+                          if (!window.confirm("Prorrogar trial em +30 dias?")) return;
+                          runAdminAction("trial30", () => adminApi.prorrogarTrial(clienteId, 30));
+                        }}
+                      >
+                        {actBusy === "trial30" ? "…" : "+ 30 dias de trial"}
+                      </button>
+                    </div>
+                  </div>
                   {actMsg && <p className="admin-card-hint" style={{ marginTop: 10 }}>{actMsg}</p>}
                 </section>
 

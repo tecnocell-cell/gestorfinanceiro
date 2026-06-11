@@ -31,6 +31,7 @@ import {
   MSG_ERRO_PROCESSAR,
 } from "../whatsapp/financePending.js";
 import { detectQueryCommand, handleQueryCommand, MENU_TEXTO } from "../whatsapp/financeCommands.js";
+import { detectBillingCommand, handleBillingCommand, handleBillingPendingFlow } from "../whatsapp/billingFlow.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
 import {
   whatsappCapabilitiesFromRecursos,
@@ -146,8 +147,14 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
   if (anyPending) {
     if (new Date(anyPending.expires_at) < new Date()) {
       await deletePending(usuarioId);
-      sendReply(instanceName, fromNumber,
-        MSG_EXPIRADO);
+      sendReply(instanceName, fromNumber, MSG_EXPIRADO);
+      await markInbox(true);
+      return;
+    }
+
+    // Billing flow tem seu próprio handler
+    if (anyPending.payload?.action === "billing_payment") {
+      await handleBillingPendingFlow(usuarioId, fromNumber, instanceName, { ...anyPending, body });
       await markInbox(true);
       return;
     }
@@ -157,7 +164,15 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
     return;
   }
 
-  // ── 2. Comando de consulta ────────────────────────────────────────────────
+  // ── 2. Comando de cobrança/mensalidade ───────────────────────────────────
+  if (detectBillingCommand(body)) {
+    console.log(`[whatsapp/billing] cmd mensalidade: usuario=${usuarioId}`);
+    await handleBillingCommand(usuarioId, fromNumber, instanceName);
+    await markInbox(true);
+    return;
+  }
+
+  // ── 3. Comando de consulta ────────────────────────────────────────────────
   const queryCmd = detectQueryCommand(body);
   if (queryCmd) {
     console.log(`[whatsapp/query] cmd=${queryCmd.cmd} usuario=${usuarioId}`);
@@ -167,7 +182,7 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
     return;
   }
 
-  // ── 3. Parse como novo lançamento ────────────────────────────────────────
+  // ── 4. Parse como novo lançamento ────────────────────────────────────────
   const parsed = parseMessage(body);
   if (parsed) {
     try {
@@ -182,7 +197,7 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
     return;
   }
 
-  // ── 4. Fallback — exibe menu de ajuda ────────────────────────────────────
+  // ── 5. Fallback — exibe menu de ajuda ────────────────────────────────────
   console.log(`[whatsapp/message] comando recebido sem match: usuario=${usuarioId} body=${body.slice(0, 80)}`);
   sendReply(instanceName, fromNumber, MENU_TEXTO);
   await markInbox(true);
@@ -1583,6 +1598,21 @@ router.post("/authorized", ...auth, async (req, res) => {
   }
 
   try {
+    // Verificar conflito com outro usuário — número ativo em outra conta
+    const phoneVariants = phoneVariantsBR(phone);
+    const { rows: conflict } = await query(
+      `SELECT usuario_id FROM whatsapp_authorized_numbers
+        WHERE phone_number = ANY($1) AND active = true AND usuario_id != $2
+        LIMIT 1`,
+      [phoneVariants, usuarioId]
+    );
+    if (conflict.length) {
+      return res.status(409).json({
+        error: "Este número já está autorizado em outra conta. Remova da conta anterior antes de vincular novamente.",
+        code: "PHONE_CONFLICT",
+      });
+    }
+
     // Verificar limite de plano
     const planInfo = await getUserPlanInfo(usuarioId);
     const { plan, max_authorized_numbers, used_authorized_numbers } = planInfo;

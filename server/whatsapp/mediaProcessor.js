@@ -22,6 +22,12 @@ import { downloadMedia }            from "./evolutionProvider.js";
 import { transcribeAudio }          from "./transcriptionProvider.js";
 import { extractImageText }         from "./ocrProvider.js";
 import { parseMessage }             from "./messageParser.js";
+import {
+  createPending as fpCreatePending,
+  getCategories,
+  buildConfirmacaoMsg,
+  todayIso,
+} from "./financePending.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
 import { whatsappCapabilitiesFromRecursos } from "../billing/planRules.js";
 
@@ -64,19 +70,9 @@ async function updateInbox(inboxId, fields) {
   ).catch(e => console.error("[mediaProcessor] updateInbox erro:", e.message));
 }
 
-/** Cria pending_transaction a partir de texto parseado. */
-async function createPending(usuarioId, fromNumber, instanceName, inboxId, parsed) {
-  await query(
-    `INSERT INTO whatsapp_pending_transactions
-       (usuario_id, inbox_id, from_number, instance_name, tipo, valor, descricao)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [usuarioId, inboxId, fromNumber, instanceName, parsed.tipo, parsed.valor, parsed.descricao]
-  );
-}
-
-/** Formata valor para exibição. */
-function fmtValor(v) {
-  return `R$ ${parseFloat(v).toFixed(2).replace(".", ",")}`;
+/** Normaliza texto para comparação de categoria. */
+function normStr(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
 /**
@@ -337,21 +333,55 @@ export async function processMediaInbox({
     }
 
     try {
-      await createPending(usuarioId, fromNumber, instanceName, inboxId, parsed);
+      // Usar o mesmo fluxo de whatsapp_pending que o canal de texto
+      const tipo = parsed.tipo === "Receita" ? "Entrada" : "Saida";
+      const categorias = await getCategories(usuarioId, tipo);
 
-      const tipoLabel = parsed.tipo === "Receita" ? "Receita 💚" : "Despesa 🔴";
-      const origem    = messageType === "audio" ? "áudio" : "comprovante";
+      let catSugerida = null;
+      let confidence = "baixa";
+      if (parsed.categoria && categorias.length) {
+        const hint = normStr(parsed.categoria);
+        const match = categorias.find((c) => {
+          const n = normStr(c.descricao);
+          return n.includes(hint) || hint.includes(n);
+        });
+        if (match) { catSugerida = match; confidence = "media"; }
+      }
+      if (!catSugerida && categorias.length) {
+        catSugerida = categorias[0];
+        confidence = "baixa";
+      }
 
-      sendReply(
-        `Identifiquei via ${origem}:\n` +
-        `${tipoLabel}\n` +
-        `Valor: ${fmtValor(parsed.valor)}\n` +
-        `Descrição: ${parsed.descricao}\n\n` +
-        `Responda SIM para confirmar ou NAO para cancelar.`
-      );
+      const payload = {
+        action: "create_lancamento",
+        step: "confirmacao",
+        lancamento: {
+          data: todayIso(),
+          tipo,
+          valor: parsed.valor,
+          contaEntradaId: null,
+          contaSaidaId: null,
+          planoId: catSugerida?.id || null,
+          categoriaNome: catSugerida?.descricao || "",
+          historico: parsed.descricao,
+          observacao: "Criado via WhatsApp (áudio)",
+          status: "pago",
+          pago: true,
+          exportado: false,
+          consiliado: false,
+        },
+        categoria_confidence: confidence,
+        categoria_sugerida: catSugerida
+          ? { id: catSugerida.id, descricao: catSugerida.descricao }
+          : { id: "", descricao: "" },
+        categoria_opcoes: [],
+      };
+
+      await fpCreatePending(usuarioId, fromNumber, payload);
+      sendReply(buildConfirmacaoMsg(payload));
 
       console.log(
-        `[mediaProcessor] pending criado: inbox=${inboxId} tipo=${parsed.tipo}` +
+        `[mediaProcessor] pending criado (whatsapp_pending): inbox=${inboxId} tipo=${tipo}` +
         ` valor=${parsed.valor} desc=${parsed.descricao}`
       );
     } catch (err) {

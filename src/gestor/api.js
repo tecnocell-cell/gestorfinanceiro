@@ -274,6 +274,8 @@ export const adminApi = {
     request(`/admin/clientes/${id}/marcar-pago`, { method: "POST", body: { fatura_id } }),
   cancelarAssinaturaCliente: (id) =>
     request(`/admin/clientes/${id}/cancelar-assinatura`, { method: "POST", body: {} }),
+  prorrogarTrial: (id, dias) =>
+    request(`/admin/clientes/${id}/prorrogar-trial`, { method: "POST", body: { dias } }),
   clienteWebhooks: (id) => request(`/admin/clientes/${id}/webhooks`),
   cobrancaAlertas: () => request("/admin/cobranca-alertas"),
   saasMetrics: () => request("/admin/saas-metrics"),

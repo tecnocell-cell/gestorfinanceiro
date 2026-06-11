@@ -248,6 +248,27 @@ function extractDescricao(text, tipo) {
   return desc || "";
 }
 
+// ── Limpeza de transcrições estruturadas ──────────────────────────────────────
+
+/**
+ * Remove rótulos técnicos que a IA de transcrição pode inserir.
+ * Ex: "VALOR: 250 | DESCRIÇÃO: aluguel" → "250 aluguel"
+ *     "TIPO: Saída VALOR: 250 DESCRIÇÃO: aluguel" → "Saída 250 aluguel"
+ */
+function cleanTranscription(text) {
+  if (!text || typeof text !== "string") return text;
+  let t = text;
+  // Remove rótulos com dois-pontos e conteúdo até separador | ou fim
+  t = t.replace(/\bVALOR\s*:\s*/gi, "");
+  t = t.replace(/\bDESCRI[ÇC][ÃA]O\s*:\s*/gi, "");
+  t = t.replace(/\bTIPO\s*:\s*/gi, "");
+  t = t.replace(/\bCATEGORIA\s*:\s*/gi, "");
+  // Remove separadores remanescentes
+  t = t.replace(/\s*\|\s*/g, " ");
+  t = t.replace(/\s+/g, " ").trim();
+  return t || text;
+}
+
 // ── API pública ───────────────────────────────────────────────────────────────
 
 /**
@@ -273,12 +294,14 @@ export function detectConfirmation(text) {
 export function parseMessage(text) {
   if (!text || typeof text !== "string") return null;
 
-  const valor = extractValor(text);
+  const cleaned = cleanTranscription(text);
+
+  const valor = extractValor(cleaned);
   if (!valor) return null; // Sem número → não é lançamento
 
-  const normalized = norm(text);
+  const normalized = norm(cleaned);
   const tipo = detectTipo(normalized);
-  const descricao = extractDescricao(text, tipo) || (tipo === "Receita" ? "Receita" : "Despesa");
+  const descricao = extractDescricao(cleaned, tipo) || (tipo === "Receita" ? "Receita" : "Despesa");
 
   const categoria = suggestCategory(descricao + " " + normalized, tipo);
   return { tipo, valor, descricao, categoria };

@@ -9,6 +9,7 @@ import {
   adminCancelarAssinatura,
   listWebhookEventsForUsuario,
 } from '../billing/billingService.js';
+import { query } from '../db.js';
 const router = Router();
 
 router.post('/clientes/:id/reenviar-cobranca', authMiddleware, adminMiddleware, async (req, res) => {
@@ -43,6 +44,43 @@ router.post('/clientes/:id/cancelar-assinatura', authMiddleware, adminMiddleware
   } catch (err) {
     console.error('admin/cancelar-assinatura:', err.message);
     res.status(500).json({ error: 'Erro ao cancelar assinatura.' });
+  }
+});
+
+router.post('/clientes/:id/prorrogar-trial', authMiddleware, adminMasterMiddleware, async (req, res) => {
+  const dias = parseInt(req.body?.dias, 10);
+  if (![7, 30].includes(dias)) {
+    return res.status(400).json({ error: 'Informe dias: 7 ou 30.' });
+  }
+  const usuarioId = req.params.id;
+  try {
+    const { rows } = await query(
+      `SELECT id, status, trial_ate FROM assinaturas WHERE usuario_id = $1 LIMIT 1`,
+      [usuarioId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Assinatura não encontrada.' });
+
+    const row = rows[0];
+    // Base: trial_ate atual (se existir e ainda no futuro) ou hoje
+    const base = row.trial_ate && new Date(row.trial_ate) > new Date()
+      ? new Date(row.trial_ate)
+      : new Date();
+    base.setDate(base.getDate() + dias);
+    const novoTrialAte = base.toISOString().slice(0, 10);
+
+    await query(
+      `UPDATE assinaturas
+         SET trial_ate = $1,
+             status    = CASE WHEN status IN ('trial','vencida','cancelada') THEN 'trial' ELSE status END,
+             updated_at = NOW()
+       WHERE usuario_id = $2`,
+      [novoTrialAte, usuarioId]
+    );
+
+    res.json({ ok: true, message: `Trial prorrogado por ${dias} dias. Novo vencimento: ${novoTrialAte}.`, trial_ate: novoTrialAte });
+  } catch (err) {
+    console.error('admin/prorrogar-trial:', err.message);
+    res.status(500).json({ error: 'Erro ao prorrogar trial.' });
   }
 });
 

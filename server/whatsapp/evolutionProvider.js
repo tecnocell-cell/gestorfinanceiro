@@ -211,6 +211,21 @@ export async function sendText(instanceName, number, text) {
   );
 }
 
+/**
+ * Envia mídia (imagem, áudio, etc.) via WhatsApp.
+ * @param {string} instanceName
+ * @param {string} number
+ * @param {{ mediatype: string, media: string, mimetype: string, caption?: string }} opts
+ */
+export async function sendMedia(instanceName, number, { mediatype, media, mimetype, caption = "" }) {
+  return evoFetch(
+    "POST",
+    `/message/sendMedia/${encodeURIComponent(instanceName)}`,
+    { number: String(number), mediatype, media, mimetype, caption },
+    15_000
+  );
+}
+
 const SAFE_MEDIA_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 
 /**
