@@ -23,6 +23,7 @@ import { query } from '../db.js';
 import { createRenewalInvoice } from './billingService.js';
 import { emailCobrancaCriada } from './billingEmails.js';
 import { logBillingOp } from './billingOpsLog.js';
+import { notificarFaturaGerada, notificarContaVencendo } from './whatsappNotifications.js';
 
 const JOB_LABEL = '[billing/renewal-job]';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -114,6 +115,13 @@ async function processarUsuario(row) {
     console.warn(`${JOB_LABEL} e-mail falhou para ${usuario_id}:`, err.message);
   });
 
+  // 5. WhatsApp (fire-and-forget)
+  notificarFaturaGerada(usuario_id, {
+    planoNome: plano_nome || 'Fluxiva',
+    valorCentavos: plano_preco,
+    vencimento: proxima_cobranca,
+  });
+
   await logBillingOp('renovacao_gerada', {
     usuarioId: usuario_id,
     faturaId: resultado.fatura_id,
@@ -178,6 +186,9 @@ export async function runRenewalJob() {
     }
   }
 
+  // ── Alertas de vencimento próximo (1 e 3 dias) ───────────────────────────
+  await notificarVencimentosProximos();
+
   const ms = Date.now() - inicio;
   console.log(
     `${JOB_LABEL} concluído em ${ms}ms — ` +
@@ -185,6 +196,47 @@ export async function runRenewalJob() {
   );
 
   return resultado;
+}
+
+/**
+ * Envia WhatsApp para usuários cuja assinatura vence em exatamente 1 ou 3 dias.
+ * Só envia para status != 'ativa' (trial vencendo, acesso_ate definido) ou
+ * para ativas com proxima_cobranca chegando sem fatura paga.
+ */
+async function notificarVencimentosProximos() {
+  try {
+    const { rows } = await query(
+      `SELECT
+         a.usuario_id,
+         a.status,
+         a.trial_ate,
+         a.acesso_ate,
+         p.nome AS plano_nome
+       FROM assinaturas a
+       JOIN planos p ON p.id = a.plano_id
+       JOIN usuarios u ON u.id = a.usuario_id
+       WHERE a.status IN ('trial', 'vencida', 'ativa')
+         AND u.role != 'admin'
+         AND u.ativo = true
+         AND (
+           (a.trial_ate::date - CURRENT_DATE) IN (1, 3)
+           OR (a.acesso_ate IS NOT NULL AND (a.acesso_ate::date - CURRENT_DATE) IN (1, 3))
+         )`
+    );
+
+    for (const row of rows) {
+      const ref = row.trial_ate || row.acesso_ate;
+      if (!ref) continue;
+      const dias = Math.round((new Date(ref) - new Date()) / 86400000);
+      notificarContaVencendo(row.usuario_id, {
+        planoNome: row.plano_nome,
+        diasRestantes: dias,
+      });
+      console.log(`${JOB_LABEL} alerta vencimento → ${row.usuario_id} (${dias}d)`);
+    }
+  } catch (err) {
+    console.warn(`${JOB_LABEL} erro em notificarVencimentosProximos:`, err.message);
+  }
 }
 
 // ── Agendamento automático ────────────────────────────────────────────────────
