@@ -177,7 +177,11 @@ app.post("/api/auth/login", async (req, res) => {
           } else if (err.code === "OTP_CANAL_INDISPONIVEL") {
             return res.status(503).json({ error: err.message });
           } else {
-            throw err;
+            // Falha ao enviar e-mail (Resend/SMTP) — não expõe erro interno
+            console.error("[auth/otp] falha ao enviar código:", err.message);
+            return res.status(503).json({
+              error: "Não foi possível enviar o código de verificação. Tente novamente em instantes.",
+            });
           }
         }
 

@@ -129,19 +129,31 @@ async function sendViaResend({ to, subject, text }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: 'RESEND_API_KEY ausente' };
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: [to],
-      subject,
-      text,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000); // 10s timeout
+
+  let res;
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddress(),
+        to: [to],
+        subject,
+        text,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    const msg = err.name === 'AbortError' ? 'Resend timeout (>10s)' : err.message;
+    return { ok: false, error: msg };
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
