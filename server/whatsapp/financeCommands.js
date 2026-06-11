@@ -9,7 +9,7 @@
  *   gastos <categoria> mês | gastos <categoria> hoje
  */
 
-import { getEmpresaDados, fmtMoney, fmtDate, todayIso } from "./financePending.js";
+import { getEmpresaDados, fmtMoney, fmtDate, todayIso, BOT_AVATAR, DIV } from "./financePending.js";
 
 const MESES = {
   janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6,
@@ -35,30 +35,30 @@ const AJUDA_TRIGGERS = new Set([
 ]);
 
 export const MENU_TEXTO =
-  `Menu do WhatsApp Financeiro:\n\n` +
-  `Consultas:\n` +
-  `1. saldo\n` +
-  `2. saldo banco\n` +
-  `3. extrato hoje\n` +
-  `4. extrato mês\n` +
-  `5. extrato anual\n` +
-  `6. lançamentos hoje\n` +
-  `7. lançamentos junho\n` +
-  `8. gastos alimentação mês\n` +
-  `9. gastos por categoria mês\n` +
-  `10. gastos por categoria anual\n\n` +
-  `Lançamentos:\n` +
-  `11. paguei 80 mercado\n` +
-  `12. recebi 1500 pix cliente\n` +
-  `13. gasolina 200\n` +
-  `14. aluguel 1200\n\n` +
-  `Durante uma confirmação:\n` +
-  `1 - Confirmar\n` +
-  `2 - Trocar categoria\n` +
-  `3 - Cancelar\n\n` +
-  `Observação:\n` +
-  `Para trocar categoria, responda "2" ou "trocar categoria".\n` +
-  `Depois escolha o número da categoria listada.`;
+  `${BOT_AVATAR}\n` +
+  `📋 *O que posso fazer por você?*\n\n` +
+  `📊 *Consultas*\n` +
+  `  • saldo\n` +
+  `  • saldo banco\n` +
+  `  • extrato hoje\n` +
+  `  • extrato mês\n` +
+  `  • extrato anual\n` +
+  `  • lançamentos hoje\n` +
+  `  • lançamentos junho\n` +
+  `  • gastos alimentação mês\n` +
+  `  • gastos por categoria mês\n\n` +
+  `💸 *Registrar lançamento*\n` +
+  `  • paguei 80 mercado\n` +
+  `  • recebi 1500 pix cliente\n` +
+  `  • gasolina 200\n` +
+  `  • aluguel 1200\n\n` +
+  `${DIV}\n` +
+  `✅ *Durante uma confirmação*\n` +
+  `  1️⃣  Confirmar\n` +
+  `  2️⃣  Trocar categoria\n` +
+  `  3️⃣  Cancelar\n` +
+  `${DIV}\n` +
+  `_Para trocar categoria, responda "2" e escolha o número da lista._`;
 
 export function detectQueryCommand(text) {
   const t = norm(text);
@@ -140,7 +140,12 @@ async function cmdSaldo(usuarioId, contaNome) {
 
   if (!contaNome) {
     const total = contas.reduce((acc, c) => acc + calcSaldoConta(c, lancamentos), 0);
-    return `Saldo total atual: ${fmtMoney(total)}`;
+    return (
+      `${BOT_AVATAR}\n` +
+      `💰 *Saldo total*\n\n` +
+      `  *${fmtMoney(total)}*\n` +
+      `${DIV}`
+    );
   }
 
   const n = norm(contaNome);
@@ -149,12 +154,25 @@ async function cmdSaldo(usuarioId, contaNome) {
   );
 
   if (!conta) {
-    const lista = contas.map((c, i) => `${i + 1} - ${c.nome || c.descricao}`).join("\n");
-    return `Não encontrei essa conta. Contas disponíveis:\n\n${lista}`;
+    const lista = contas.map((c, i) => `  ${i + 1}. ${c.nome || c.descricao}`).join("\n");
+    return (
+      `⚠️ Conta não encontrada.\n\n` +
+      `📂 *Contas disponíveis:*\n` +
+      `${DIV}\n` +
+      `${lista}\n` +
+      `${DIV}\n` +
+      `_Tente: saldo nome-da-conta_`
+    );
   }
 
   const saldo = calcSaldoConta(conta, lancamentos);
-  return `Saldo de ${conta.nome || conta.descricao}: ${fmtMoney(saldo)}`;
+  const nomeLabel = conta.nome || conta.descricao;
+  return (
+    `${BOT_AVATAR}\n` +
+    `💰 *Saldo — ${nomeLabel}*\n\n` +
+    `  *${fmtMoney(saldo)}*\n` +
+    `${DIV}`
+  );
 }
 
 // ── Extrato ──────────────────────────────────────────────────────────────────
@@ -188,7 +206,14 @@ async function cmdExtrato(usuarioId, period, monthNum, monthNome) {
     titulo = `Extrato de ${monthNome || mes}`;
   }
 
-  if (!lancamentos.length) return `${titulo}:\n\nNenhum lançamento encontrado.`;
+  if (!lancamentos.length) {
+    return (
+      `${BOT_AVATAR}\n` +
+      `📋 *${titulo}*\n\n` +
+      `_Nenhum lançamento encontrado no período._\n` +
+      `${DIV}`
+    );
+  }
 
   const MAX = 20;
   const truncado = lancamentos.length > MAX;
@@ -197,20 +222,25 @@ async function cmdExtrato(usuarioId, period, monthNum, monthNome) {
   let totalEntradas = 0;
   let totalSaidas = 0;
 
-  const linhas = lista.map((l, i) => {
+  const linhas = lista.map((l) => {
     const v = Number(l.valor || 0);
     if (l.tipo === "Entrada") totalEntradas += v;
     if (l.tipo === "Saida") totalSaidas += v;
-    const icon = l.tipo === "Entrada" ? "Entrada" : "Saída";
-    return `${i + 1}. ${icon} ${fmtMoney(v)} - ${l.historico || l.descricao || ""} - ${fmtDate(l.data)}`;
+    const icon = l.tipo === "Entrada" ? "📈" : "📉";
+    const desc = l.historico || l.descricao || "—";
+    return `${icon} ${fmtMoney(v)}  ${desc}  _${fmtDate(l.data)}_`;
   });
 
-  let resp = `${titulo}:\n\n`;
-  if (truncado) resp += `(Mostrando os últimos ${MAX} lançamentos)\n\n`;
+  let resp =
+    `${BOT_AVATAR}\n` +
+    `📋 *${titulo}*`;
+  if (truncado) resp += ` _(últimos ${MAX})_`;
+  resp += `\n${DIV}\n`;
   resp += linhas.join("\n");
-  resp += `\n\nTotal entradas: ${fmtMoney(totalEntradas)}`;
-  resp += `\nTotal saídas: ${fmtMoney(totalSaidas)}`;
-  resp += `\nSaldo do período: ${fmtMoney(totalEntradas - totalSaidas)}`;
+  resp += `\n${DIV}\n`;
+  resp += `📈 Entradas   *${fmtMoney(totalEntradas)}*\n`;
+  resp += `📉 Saídas     *${fmtMoney(totalSaidas)}*\n`;
+  resp += `💰 Saldo      *${fmtMoney(totalEntradas - totalSaidas)}*`;
   return resp;
 }
 
@@ -249,18 +279,27 @@ async function cmdGastos(usuarioId, categoriaBusca, period) {
   const periodoLabel = period === "hoje" ? "hoje" : (period === "anual" || period === "ano") ? "este ano" : "neste mês";
 
   if (!filtrados.length) {
-    return `Nenhum gasto em "${plano.descricao}" ${periodoLabel}.`;
+    return (
+      `${BOT_AVATAR}\n` +
+      `📊 *Gastos — ${plano.descricao}*\n\n` +
+      `_Nenhum gasto encontrado ${periodoLabel}._\n` +
+      `${DIV}`
+    );
   }
 
   const total = filtrados.reduce((acc, l) => acc + Number(l.valor || 0), 0);
   const principais = filtrados
     .sort((a, b) => Number(b.valor) - Number(a.valor))
     .slice(0, 5)
-    .map((l, i) => `${i + 1}. ${fmtMoney(Number(l.valor))} - ${l.historico || l.descricao || ""}`);
+    .map((l, i) => `  ${i + 1}. ${fmtMoney(Number(l.valor))}  ${l.historico || l.descricao || "—"}`);
 
   return (
-    `Gastos em ${plano.descricao} ${periodoLabel}: ${fmtMoney(total)}\n\n` +
-    `Principais lançamentos:\n${principais.join("\n")}`
+    `${BOT_AVATAR}\n` +
+    `📊 *Gastos — ${plano.descricao}* ${periodoLabel}\n` +
+    `${DIV}\n` +
+    `${principais.join("\n")}\n` +
+    `${DIV}\n` +
+    `💸 Total   *${fmtMoney(total)}*`
   );
 }
 
@@ -289,7 +328,14 @@ async function cmdGastosPorCategoria(usuarioId, period) {
     titulo = `Gastos por categoria em ${now.toLocaleString("pt-BR", { month: "long" })}`;
   }
 
-  if (!lancamentos.length) return `${titulo}:\n\nNenhum gasto encontrado no período.`;
+  if (!lancamentos.length) {
+    return (
+      `${BOT_AVATAR}\n` +
+      `📊 *${titulo}*\n\n` +
+      `_Nenhum gasto encontrado no período._\n` +
+      `${DIV}`
+    );
+  }
 
   // Agrupar por planoId
   const porCategoria = new Map();
@@ -304,10 +350,17 @@ async function cmdGastosPorCategoria(usuarioId, period) {
     .map(([id, total], i) => {
       const plano = planoContas.find((p) => p.id === id);
       const nome = plano ? plano.descricao : "Sem categoria";
-      return `${i + 1}. ${nome}: ${fmtMoney(total)}`;
+      return `  ${i + 1}. ${nome.padEnd(18)}${fmtMoney(total)}`;
     });
 
   const totalGeral = [...porCategoria.values()].reduce((a, b) => a + b, 0);
 
-  return `${titulo}:\n\n${linhas.join("\n")}\n\nTotal: ${fmtMoney(totalGeral)}`;
+  return (
+    `${BOT_AVATAR}\n` +
+    `📊 *${titulo}*\n` +
+    `${DIV}\n` +
+    `${linhas.join("\n")}\n` +
+    `${DIV}\n` +
+    `💸 Total   *${fmtMoney(totalGeral)}*`
+  );
 }

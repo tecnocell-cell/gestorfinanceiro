@@ -24,6 +24,11 @@ import {
   buildConfirmacaoMsg,
   buildCategoryListMsg,
   todayIso,
+  MSG_CONFIRMADO,
+  MSG_CANCELADO,
+  MSG_EXPIRADO,
+  MSG_ERRO_SALVAR,
+  MSG_ERRO_PROCESSAR,
 } from "../whatsapp/financePending.js";
 import { detectQueryCommand, handleQueryCommand, MENU_TEXTO } from "../whatsapp/financeCommands.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
@@ -142,7 +147,7 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
     if (new Date(anyPending.expires_at) < new Date()) {
       await deletePending(usuarioId);
       sendReply(instanceName, fromNumber,
-        "Esse lançamento pendente expirou. Envie a informação novamente.");
+        MSG_EXPIRADO);
       await markInbox(true);
       return;
     }
@@ -169,7 +174,7 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
       await handleNewLancamento(usuarioId, fromNumber, instanceName, parsed);
     } catch (err) {
       console.error("[whatsapp/message] erro ao criar pending:", err.message);
-      sendReply(instanceName, fromNumber, "Erro ao processar a mensagem. Tente novamente.");
+      sendReply(instanceName, fromNumber, MSG_ERRO_PROCESSAR);
       await markInbox(false, err.message.slice(0, 500));
       return;
     }
@@ -202,14 +207,14 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
     if (["1", "confirmar", "sim", "s", "ok", "pode"].includes(t)) {
       try {
         const lancamento = await confirmPendingLancamento(usuarioId, pending);
-        sendReply(instanceName, fromNumber, "Lançamento confirmado e salvo com sucesso.");
+        sendReply(instanceName, fromNumber, MSG_CONFIRMADO);
         console.log(
           `[whatsapp/pending] confirmado: usuario=${usuarioId}` +
           ` valor=${lancamento.valor} tipo=${lancamento.tipo}`
         );
       } catch (err) {
         console.error("[whatsapp/pending] erro ao confirmar:", err.message);
-        sendReply(instanceName, fromNumber, "Erro ao salvar lançamento. Tente novamente.");
+        sendReply(instanceName, fromNumber, MSG_ERRO_SALVAR);
       }
       return;
     }
@@ -238,7 +243,7 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
     // Cancelar
     if (["3", "cancelar", "cancel", "nao", "n", "não"].includes(t)) {
       await deletePending(usuarioId);
-      sendReply(instanceName, fromNumber, "Lançamento cancelado.");
+      sendReply(instanceName, fromNumber, MSG_CANCELADO);
       return;
     }
 
@@ -253,7 +258,7 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
     // Cancelar
     if (["cancelar", "3", "nao", "n", "não"].includes(t)) {
       await deletePending(usuarioId);
-      sendReply(instanceName, fromNumber, "Lançamento cancelado.");
+      sendReply(instanceName, fromNumber, MSG_CANCELADO);
       return;
     }
 

@@ -583,7 +583,21 @@ app.use("/api/beta", betaRouter);
 app.use("/api/integracao-pf-pj", authMiddleware, subscriptionGuard, integracaoPfPjRouter);
 
 // ─── WhatsApp Financeiro ──────────────────────────────────────────────────────
-// Webhook público (Evolution API não envia JWT) — bypass antes do authMiddleware
+//
+// ⚠️  IMPORTANTE — NÃO ALTERAR ESTE BLOCO SEM LER ABAIXO ⚠️
+//
+// O webhook POST /api/whatsapp/webhook/:instanceName é chamado pela Evolution API
+// (gateway WhatsApp externo). A Evolution NÃO envia Bearer token — portanto este
+// endpoint NÃO pode passar por authMiddleware nem subscriptionGuard.
+//
+// A segurança do webhook é feita INTERNAMENTE pelo handler via validateWebhookAuth,
+// que valida o secret de cada instância (header x-centerflow-webhook-secret ou
+// query ?secret). Alterar ou remover o bypass abaixo quebra todo o WhatsApp
+// Financeiro (mensagens, lançamentos, comprovantes, confirmações).
+//
+// Demais rotas /api/whatsapp (connect, status, qrcode, etc.) continuam protegidas
+// por authMiddleware + subscriptionGuard na linha seguinte.
+//
 app.use("/api/whatsapp", (req, res, next) => {
   if (req.method === "POST" && req.path.startsWith("/webhook/")) {
     return whatsappRouter(req, res, next);

@@ -215,29 +215,65 @@ export async function confirmPendingLancamento(usuarioId, pending) {
   return lancamento;
 }
 
+// ── Identidade do bot ────────────────────────────────────────────────────────
+
+export const DIV = "──────────────────────";
+export const BOT_AVATAR = `💼 *Fluxiva*\n${DIV}`;
+
+// ── Mensagens fixas ──────────────────────────────────────────────────────────
+
+export const MSG_CONFIRMADO =
+  `✅ *Lançamento salvo!*\n\n` +
+  `_Registrado com sucesso no seu financeiro._`;
+
+export const MSG_CANCELADO =
+  `❌ *Lançamento cancelado.*\n\n` +
+  `_Nenhuma alteração foi feita._`;
+
+export const MSG_EXPIRADO =
+  `⏰ *Esse lançamento expirou.*\n\n` +
+  `Envie a informação novamente para registrar.`;
+
+export const MSG_ERRO_SALVAR =
+  `⚠️ *Erro ao salvar lançamento.*\n\nTente novamente em instantes.`;
+
+export const MSG_ERRO_PROCESSAR =
+  `⚠️ *Erro ao processar a mensagem.*\n\nTente novamente em instantes.`;
+
 // ── Construtores de mensagem ─────────────────────────────────────────────────
 
 export function buildConfirmacaoMsg(payload) {
   const l = payload.lancamento;
-  const tipoLabel = l.tipo === "Entrada" ? "Entrada" : "Saída";
+  const isEntrada = l.tipo === "Entrada";
+  const tipoIcon = isEntrada ? "📈" : "📉";
+  const tipoLabel = isEntrada ? "Entrada" : "Saída";
   const catNome = payload.categoria_sugerida?.descricao || l.categoriaNome || "Sem categoria";
+
   return (
-    `Encontrei um lançamento:\n\n` +
-    `Tipo: ${tipoLabel}\n` +
-    `Valor: ${fmtMoney(l.valor)}\n` +
-    `Histórico: ${l.historico}\n` +
-    `Categoria sugerida: ${catNome}\n\n` +
-    `Confirmar?\n` +
-    `1 - Confirmar\n` +
-    `2 - Trocar categoria\n` +
-    `3 - Cancelar`
+    `${BOT_AVATAR}\n` +
+    `${tipoIcon} *Novo lançamento detectado*\n\n` +
+    `  📌 Tipo        ${tipoLabel}\n` +
+    `  💰 Valor       ${fmtMoney(l.valor)}\n` +
+    `  📝 Descrição   ${l.historico || "—"}\n` +
+    `  🏷️  Categoria   ${catNome}\n` +
+    `${DIV}\n` +
+    `Como deseja prosseguir?\n\n` +
+    `1️⃣  Confirmar\n` +
+    `2️⃣  Trocar categoria\n` +
+    `3️⃣  Cancelar`
   );
 }
 
 export function buildCategoryListMsg(categorias) {
   const lista = categorias
     .slice(0, 20)
-    .map((c, i) => `${i + 1} - ${c.descricao}`)
+    .map((c, i) => `  ${i + 1}. ${c.descricao}`)
     .join("\n");
-  return `Escolha a nova categoria:\n\n${lista}\n\nResponda com o número da categoria.`;
+  return (
+    `📂 *Categorias disponíveis*\n` +
+    `${DIV}\n` +
+    `${lista}\n` +
+    `${DIV}\n` +
+    `Responda com o *número* da categoria desejada.`
+  );
 }
