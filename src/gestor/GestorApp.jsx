@@ -371,6 +371,27 @@ export default function GestorApp() {
           </nav>
           )}
 
+          {/* Copa 2026 — remover após julho/2026 */}
+          <div style={{padding:'0 8px 8px'}}>
+            <button
+              onClick={()=>{ const d=document.getElementById('copa-modal-cf'); if(d) d.style.display='flex'; }}
+              style={{display:'flex',alignItems:'center',gap:'8px',width:'100%',padding:'8px 12px',background:'linear-gradient(135deg,rgba(0,98,51,.25),rgba(255,198,0,.1))',border:'1px solid rgba(255,198,0,.35)',borderRadius:'8px',cursor:'pointer',fontWeight:700,fontSize:'12px',fontFamily:'inherit',margin:'4px 0'}}
+            >
+              <span style={{fontSize:'16px'}}>🏆</span>
+              <span style={{flex:1,textAlign:'left',background:'linear-gradient(90deg,#009c3b,#ffd700)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Copa 2026</span>
+              <span style={{fontSize:'10px',background:'linear-gradient(90deg,#006233,#003d1f)',color:'#fff',padding:'2px 6px',borderRadius:'99px',WebkitTextFillColor:'#fff'}}>AO VIVO</span>
+            </button>
+          </div>
+          <div id="copa-modal-cf" style={{display:'none',position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,.65)',alignItems:'center',justifyContent:'center'}}>
+            <div style={{background:'#f1f5f9',borderRadius:'16px',overflow:'hidden',width:'min(1200px,96vw)',height:'min(860px,90vh)',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(0,0,0,.45)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px',background:'linear-gradient(135deg,#006233,#013d20)',flexShrink:0}}>
+                <span style={{color:'#fff',fontWeight:700,fontSize:'14px'}}>🏆 FIFA World Cup 2026</span>
+                <button onClick={()=>{ const d=document.getElementById('copa-modal-cf'); if(d) d.style.display='none'; }} style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'8px',padding:'4px 12px',cursor:'pointer',fontWeight:700,fontSize:'13px',fontFamily:'inherit'}}>✕ Fechar</button>
+              </div>
+              <iframe src="http://localhost:8000/copa-publica.html" style={{flex:1,border:'none',width:'100%'}} title="Copa 2026" />
+            </div>
+          </div>
+
           {/* Rodapé: só nome do usuário + sair */}
           <div className="sidebar-footer">
             <div className="sidebar-user-card">
