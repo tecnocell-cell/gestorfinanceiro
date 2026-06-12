@@ -81,6 +81,7 @@ export const NAV_SECTIONS_PJ = [
       { id: "resumo-anual", label: "Resumo Anual" },
       { id: "dre", label: "D.R.E." },
       { id: "contas", label: "Contas" },
+      { id: "categorias", label: "Categorias" },
       { id: "plano", label: "Plano de Contas" },
       { id: "impostos", label: "Impostos" },
     ],

@@ -89,7 +89,7 @@ const PAGE_MAP_PJ = {
   dashboard: DashboardV2Page, lancamentos: LancamentosPage, recorrencias: RecorrenciasPage,
   "resumo-anual": () => <ResumoAnualPage variant="pj" />,
   "contas-pagar": ContasAPagarPage,
-  dre: DREPage, contas: ContasPage, plano: PlanoContasPage, impostos: ImpostosPage,
+  dre: DREPage, contas: ContasPage, categorias: PlanoContasPage, plano: PlanoContasPage, impostos: ImpostosPage,
   clientes: ClientesPage, fornecedores: FornecedoresPage,
   importacoes: ImportacoesPage, conciliacao: ConciliacaoPage,
   balancete: BalancetePage, fechamento: FechamentoPage,
@@ -388,7 +388,7 @@ export default function GestorApp() {
                 <span style={{color:'#fff',fontWeight:700,fontSize:'14px'}}>🏆 FIFA World Cup 2026</span>
                 <button onClick={()=>{ const d=document.getElementById('copa-modal-cf'); if(d) d.style.display='none'; }} style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',borderRadius:'8px',padding:'4px 12px',cursor:'pointer',fontWeight:700,fontSize:'13px',fontFamily:'inherit'}}>✕ Fechar</button>
               </div>
-              <iframe src="http://localhost:8000/copa-publica.html" style={{flex:1,border:'none',width:'100%'}} title="Copa 2026" />
+              <iframe src="https://centertech.cloud/copa-publica.html" style={{flex:1,border:'none',width:'100%'}} title="Copa 2026" />
             </div>
           </div>
 
