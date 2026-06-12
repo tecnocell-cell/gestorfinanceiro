@@ -7,24 +7,49 @@ import { DEFAULT_CATS_PJ, DEFAULT_CATS_PF } from "./defaultCategories.js";
 const _enrichMapPJ = new Map(DEFAULT_CATS_PJ.map((c) => [c.descricao.toLowerCase().trim(), { icone: c.icone, cor: c.cor, sistema: true }]));
 const _enrichMapPF = new Map(DEFAULT_CATS_PF.map((c) => [c.descricao.toLowerCase().trim(), { icone: c.icone, cor: c.cor, sistema: true }]));
 
+// Nomes genéricos legados PJ que devem ser removidos se não tiverem lançamentos vinculados
+const _PJ_LEGADOS = new Set([
+  'receitas operacionais',
+  'custos operacionais',
+  'despesas administrativas',
+]);
+
+// Nomes genéricos legados PF que devem ser removidos se não tiverem lançamentos vinculados
+const _PF_LEGADOS = new Set([
+  'outros recebimentos',
+  'outros gastos',
+]);
+
 /**
  * Migra planoContas de uma empresa:
- * - Enriquece entradas existentes sem ícone (match por descricao)
- * - Adiciona novas categorias padrão que ainda não existem
- * Nunca remove nem altera lançamentos.
+ * 1. Remove entradas genéricas legadas sem lançamentos vinculados
+ * 2. Enriquece entradas existentes sem ícone/cor (match por descricao)
+ * 3. Adiciona novas categorias padrão que ainda não existem
+ * Nunca remove categorias que tenham lançamentos vinculados.
  */
-function migratePlanoContas(plano, defaults, enrichMap) {
-  const existingKeys = new Set(plano.map((p) => p.descricao.toLowerCase().trim()));
-  // 1. enriquecer existentes sem ícone
-  const enriched = plano.map((p) => {
+function migratePlanoContas(plano, defaults, enrichMap, lancamentos, legados) {
+  const usedIds = new Set((lancamentos || []).map((l) => l.planoId).filter(Boolean));
+
+  // 1. remover legados sem uso
+  const semLegados = plano.filter((p) => {
+    const key = p.descricao.toLowerCase().trim();
+    if (legados?.has(key) && !usedIds.has(p.id)) return false;
+    return true;
+  });
+
+  // 2. enriquecer existentes sem ícone
+  const existingKeys = new Set(semLegados.map((p) => p.descricao.toLowerCase().trim()));
+  const enriched = semLegados.map((p) => {
     if (p.icone && p.cor) return p;
     const patch = enrichMap.get(p.descricao.toLowerCase().trim());
-    return patch ? { ...patch, ...p } : p; // patch applied only if missing, existing fields win
+    return patch ? { ...patch, ...p } : p;
   });
-  // 2. adicionar novas que não existem
+
+  // 3. adicionar novas que não existem
   const toAdd = defaults
     .filter((d) => !existingKeys.has(d.descricao.toLowerCase().trim()))
     .map((d) => ({ ...d, id: generateId(), codigo: d.codigo ?? "", caixaBanco: "", contaContabil: "" }));
+
   return [...enriched, ...toAdd];
 }
 
@@ -182,7 +207,8 @@ export const loadState = () => {
       const tipo = emp.tipo ?? "juridica";
       const defaults = tipo === "fisica" ? DEFAULT_CATS_PF : DEFAULT_CATS_PJ;
       const enrichMap = tipo === "fisica" ? _enrichMapPF : _enrichMapPJ;
-      const planoMigrado = migratePlanoContas(emp.planoContas || [], defaults, enrichMap);
+      const legados = tipo === "fisica" ? _PF_LEGADOS : _PJ_LEGADOS;
+      const planoMigrado = migratePlanoContas(emp.planoContas || [], defaults, enrichMap, emp.lancamentos, legados);
       return {
         metas: [],
         orcamentos: [],
@@ -261,7 +287,8 @@ export const normalizeStateForUser = (dados, user) => {
       empresas.flatMap((e) => e.lancamentos || []),
       defaultCategoriasPF
     );
-    const mergedPlano = migratePlanoContas(mergedPlanoSelected, DEFAULT_CATS_PF, _enrichMapPF);
+    const allLancsPF = empresas.flatMap((e) => e.lancamentos || []);
+    const mergedPlano = migratePlanoContas(mergedPlanoSelected, DEFAULT_CATS_PF, _enrichMapPF, allLancsPF, _PF_LEGADOS);
     const mergedContas = mergeEmpresaField(empresas, "contas");
     const mergedClientes = mergeEmpresaField(empresas, "clientes");
     const mergedFornecedores = mergeEmpresaField(empresas, "fornecedores");
@@ -333,7 +360,7 @@ export const normalizeStateForUser = (dados, user) => {
     const planoBase = mergedPlanoPj.length
       ? mergedPlanoPj
       : (emp.planoContas?.length ? emp.planoContas : defaultPlano());
-    const planoMigrado = migratePlanoContas(planoBase, DEFAULT_CATS_PJ, _enrichMapPJ);
+    const planoMigrado = migratePlanoContas(planoBase, DEFAULT_CATS_PJ, _enrichMapPJ, emp.lancamentos, _PJ_LEGADOS);
     return {
       ...emp,
       tipo: "juridica",
