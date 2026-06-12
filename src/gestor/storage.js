@@ -255,12 +255,13 @@ export const normalizeStateForUser = (dados, user) => {
     const mergedOrcCentros = mergeEmpresaField(empresas, "orcamentosCentros");
     const mergedOrcProjetos = mergeEmpresaField(empresas, "orcamentosProjetos");
     const mergedPlanoRaw = mergeEmpresaField(empresas, "planoContas");
-    const mergedPlano = selectPlanoContasForPf(
+    const mergedPlanoSelected = selectPlanoContasForPf(
       mergedPlanoRaw,
       empresas,
       empresas.flatMap((e) => e.lancamentos || []),
       defaultCategoriasPF
     );
+    const mergedPlano = migratePlanoContas(mergedPlanoSelected, DEFAULT_CATS_PF, _enrichMapPF);
     const mergedContas = mergeEmpresaField(empresas, "contas");
     const mergedClientes = mergeEmpresaField(empresas, "clientes");
     const mergedFornecedores = mergeEmpresaField(empresas, "fornecedores");
@@ -329,14 +330,16 @@ export const normalizeStateForUser = (dados, user) => {
 
   const empresasOut = empresas.map((emp) => {
     if (emp.id !== activeId) return emp;
+    const planoBase = mergedPlanoPj.length
+      ? mergedPlanoPj
+      : (emp.planoContas?.length ? emp.planoContas : defaultPlano());
+    const planoMigrado = migratePlanoContas(planoBase, DEFAULT_CATS_PJ, _enrichMapPJ);
     return {
       ...emp,
       tipo: "juridica",
       nome: emp.nome || nome,
       company: emp.company || defaultCompany(),
-      planoContas: mergedPlanoPj.length
-        ? mergedPlanoPj
-        : (emp.planoContas?.length ? emp.planoContas : defaultPlano()),
+      planoContas: planoMigrado,
       contas: mergedContasPj.length
         ? mergedContasPj
         : (emp.contas?.length ? emp.contas : defaultContas()),
