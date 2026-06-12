@@ -1,6 +1,32 @@
 import { STORAGE_KEY } from "./constants.js";
 import { generateId } from "./finance.js";
 import { selectPlanoContasForPf } from "./categoriasPfUtils.js";
+import { DEFAULT_CATS_PJ, DEFAULT_CATS_PF } from "./defaultCategories.js";
+
+// Mapa de enriquecimento por descricao (icone + cor) para migration
+const _enrichMapPJ = new Map(DEFAULT_CATS_PJ.map((c) => [c.descricao.toLowerCase().trim(), { icone: c.icone, cor: c.cor, sistema: true }]));
+const _enrichMapPF = new Map(DEFAULT_CATS_PF.map((c) => [c.descricao.toLowerCase().trim(), { icone: c.icone, cor: c.cor, sistema: true }]));
+
+/**
+ * Migra planoContas de uma empresa:
+ * - Enriquece entradas existentes sem ícone (match por descricao)
+ * - Adiciona novas categorias padrão que ainda não existem
+ * Nunca remove nem altera lançamentos.
+ */
+function migratePlanoContas(plano, defaults, enrichMap) {
+  const existingKeys = new Set(plano.map((p) => p.descricao.toLowerCase().trim()));
+  // 1. enriquecer existentes sem ícone
+  const enriched = plano.map((p) => {
+    if (p.icone && p.cor) return p;
+    const patch = enrichMap.get(p.descricao.toLowerCase().trim());
+    return patch ? { ...patch, ...p } : p; // patch applied only if missing, existing fields win
+  });
+  // 2. adicionar novas que não existem
+  const toAdd = defaults
+    .filter((d) => !existingKeys.has(d.descricao.toLowerCase().trim()))
+    .map((d) => ({ ...d, id: generateId(), codigo: d.codigo ?? "", caixaBanco: "", contaContabil: "" }));
+  return [...enriched, ...toAdd];
+}
 
 // ─── Pessoa Jurídica ─────────────────────────────────────────────────────────
 
@@ -152,20 +178,27 @@ export const loadState = () => {
     const parsed = JSON.parse(raw);
     if (!parsed.empresas?.length) return defaultState();
     // migration: add new fields to existing profiles
-    parsed.empresas = parsed.empresas.map((emp) => ({
-      metas: [],
-      orcamentos: [],
-      orcamentosCentros: [],
-      orcamentosProjetos: [],
-      centroCustos: [],
-      projetos: [],
-      pessoa: null,
-      tipo: "juridica",
-      ...emp,
-      fechamentos: emp.fechamentos || [],
-      centroCustos: emp.centroCustos || [],
-      contas: (emp.contas || []).map((c) => ({ apelido: "", ...c })),
-    }));
+    parsed.empresas = parsed.empresas.map((emp) => {
+      const tipo = emp.tipo ?? "juridica";
+      const defaults = tipo === "fisica" ? DEFAULT_CATS_PF : DEFAULT_CATS_PJ;
+      const enrichMap = tipo === "fisica" ? _enrichMapPF : _enrichMapPJ;
+      const planoMigrado = migratePlanoContas(emp.planoContas || [], defaults, enrichMap);
+      return {
+        metas: [],
+        orcamentos: [],
+        orcamentosCentros: [],
+        orcamentosProjetos: [],
+        centroCustos: [],
+        projetos: [],
+        pessoa: null,
+        tipo: "juridica",
+        ...emp,
+        fechamentos: emp.fechamentos || [],
+        centroCustos: emp.centroCustos || [],
+        contas: (emp.contas || []).map((c) => ({ apelido: "", ...c })),
+        planoContas: planoMigrado,
+      };
+    });
     return parsed;
   } catch {
     return defaultState();
