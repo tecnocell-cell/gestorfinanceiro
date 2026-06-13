@@ -117,19 +117,6 @@ function CatPreview({ icone, cor, descricao }) {
   );
 }
 
-const Hdr = ({ onClose, title }) => (
-  <div className="modal-header">
-    <span className="modal-title">{title}</span>
-    <button type="button" className="modal-close" onClick={onClose}>✕</button>
-  </div>
-);
-
-const Ftr = ({ onClose, onSave, saveLabel = "Salvar" }) => (
-  <div className="modal-footer">
-    <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-    <button type="button" className="btn btn-primary" onClick={onSave}>{saveLabel}</button>
-  </div>
-);
 
 function lancamentoModalMeta(formTipo, isPF, isEdit) {
   const tone = modalToneFromTipo(formTipo, isPF);
@@ -749,6 +736,13 @@ export function ModalConta() {
 
 // ─── Modal Plano de Contas ────────────────────────────────────────────────────
 
+const PLANO_TIPO_OPTIONS = [
+  { value: "Receita",  label: "Receita"  },
+  { value: "Custo",    label: "Custo"    },
+  { value: "Despesa",  label: "Despesa"  },
+  { value: "Imposto",  label: "Imposto"  },
+];
+
 export function ModalPlano() {
   const { editingItem, closeModal, planoCrud } = useGestor();
   const item = editingItem;
@@ -763,7 +757,6 @@ export function ModalPlano() {
     contaContabil: item?.contaContabil || "",
     inativo:       item?.inativo       || false,
     usarSaldo:     item?.usarSaldo     !== false,
-    // Phase 5 — optional visual fields (retrocompatível)
     icone:         item?.icone         || "",
     cor:           item?.cor           || "",
   });
@@ -781,114 +774,126 @@ export function ModalPlano() {
     closeModal();
   };
 
+  const tone = form.tipo === "Receita" ? "receita" : form.tipo === "Despesa" || form.tipo === "Custo" ? "despesa" : "neutral";
+
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-      <div className="modal" style={{ maxWidth: 640 }}>
-        <Hdr onClose={closeModal} title={item?.id ? "Editar Plano" : "Novo Plano de Contas"} />
+    <ModalShell
+      onClose={closeModal}
+      title={item?.id ? "Editar conta" : "Nova conta do plano"}
+      subtitle="Classifique receitas, custos, despesas e impostos da empresa."
+      tone={tone}
+      size="lg"
+      footer={
+        <ModalFooter
+          onClose={closeModal}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Criar conta"}
+        />
+      }
+    >
+      <ModalSection label="Identificação">
+        <ModalField label="Tipo" required>
+          <ModalTipoPills
+            value={form.tipo}
+            onChange={handleTipo}
+            options={PLANO_TIPO_OPTIONS}
+            ariaLabel="Tipo da conta"
+          />
+        </ModalField>
+        <ModalField label="Descrição" required>
+          <input
+            className="form-input"
+            value={form.descricao}
+            onChange={(e) => set("descricao", e.target.value)}
+            placeholder="Ex: Vendas de Produtos, Folha de Pagamento…"
+            autoFocus
+          />
+        </ModalField>
+        <ModalGrid cols={2}>
+          <ModalField label="Natureza">
+            <select className="form-select" value={form.natureza} onChange={(e) => set("natureza", e.target.value)}>
+              <option value="Credito">Crédito</option>
+              <option value="Debito">Débito</option>
+            </select>
+          </ModalField>
+          <ModalField label="Código" hint="Opcional — ex.: 4.1.001">
+            <input
+              className="form-input"
+              value={form.codigo}
+              onChange={(e) => set("codigo", e.target.value)}
+              placeholder="Ex: 4.1.001"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-        <div className="modal-body">
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label className="form-label">Descrição *</label>
-            <input className="form-input" value={form.descricao}
-              onChange={(e) => set("descricao", e.target.value)}
-              placeholder="Ex: Venda de Produtos" />
-          </div>
+      <ModalSection label="Contabilidade (opcional)">
+        <ModalGrid cols={2}>
+          <ModalField label="Conta contábil">
+            <input
+              className="form-input"
+              value={form.contaContabil}
+              onChange={(e) => set("contaContabil", e.target.value)}
+              placeholder="Ex: 4.1.01"
+            />
+          </ModalField>
+          <ModalField label="Classificação">
+            <input
+              className="form-input"
+              value={form.classificacao}
+              onChange={(e) => set("classificacao", e.target.value)}
+              placeholder="RECEITA, DESPESA…"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="form-group">
-              <label className="form-label">Tipo *</label>
-              <select className="form-select" value={form.tipo} onChange={(e) => handleTipo(e.target.value)}>
-                <option>Receita</option>
-                <option>Custo</option>
-                <option>Despesa</option>
-                <option>Imposto</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Natureza</label>
-              <select className="form-select" value={form.natureza} onChange={(e) => set("natureza", e.target.value)}>
-                <option>Credito</option>
-                <option>Debito</option>
-              </select>
-            </div>
-          </div>
+      <ModalSection label="Visual (opcional)">
+        <ModalField label="Ícone">
+          {form.icone && (
+            <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18, marginBottom: 8, display: "inline-flex" }}>
+              {form.icone}
+            </span>
+          )}
+          <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
+        </ModalField>
+        <ModalField label="Cor">
+          <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
+        </ModalField>
+      </ModalSection>
 
-          <div className="modal-section">
-            <div className="modal-section-label">Identificação Contábil</div>
-            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-              <div className="form-group">
-                <label className="form-label">Código</label>
-                <input className="form-input" value={form.codigo}
-                  onChange={(e) => set("codigo", e.target.value)} placeholder="Ex: 1.1.001" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Conta Contábil</label>
-                <input className="form-input" value={form.contaContabil}
-                  onChange={(e) => set("contaContabil", e.target.value)} />
-              </div>
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">Classificação</label>
-                <input className="form-input" value={form.classificacao}
-                  onChange={(e) => set("classificacao", e.target.value)} />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Fase 5: Ícone + Cor ─────────────────────────────────────── */}
-          <div className="modal-section">
-            <div className="modal-section-label">Visual (opcional)</div>
-            <div className="form-group" style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <label className="form-label" style={{ margin: 0 }}>Ícone</label>
-                {form.icone && (
-                  <span className="cat-icone" style={{ background: form.cor || "var(--muted)", fontSize: 18 }}>
-                    {form.icone}
-                  </span>
-                )}
-              </div>
-              <IconePicker value={form.icone} onChange={(v) => set("icone", v)} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Cor</label>
-              <CorPicker value={form.cor} onChange={(v) => set("cor", v)} />
-            </div>
-          </div>
-
-          <div className="check-row">
-            <label className="check-item">
-              <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
-              Usar no DRE
-            </label>
-            <label className="check-item">
-              <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
-              Inativo
-            </label>
-          </div>
-        </div>
-
-        <Ftr onClose={closeModal} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Criar"} />
+      <div className="check-row">
+        <label className="check-item">
+          <input type="checkbox" checked={form.usarSaldo} onChange={(e) => set("usarSaldo", e.target.checked)} />
+          Usar no DRE
+        </label>
+        <label className="check-item">
+          <input type="checkbox" checked={form.inativo} onChange={(e) => set("inativo", e.target.checked)} />
+          Inativo
+        </label>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
 // ─── Modal Cliente / Fornecedor ───────────────────────────────────────────────
 
-function CadastroModal({ title, item, onSave, onClose }) {
+function CadastroModal({ title, subtitle, item, onSave, onClose }) {
   const [form, setForm] = useState({
-    codigo:     item?.codigo     ?? "",
-    nome:       item?.nome       || "",
-    apelido:    item?.apelido    || "",
-    tipo:       item?.tipo       || "",
-    documento:  item?.documento  || "",
-    rgInscricao:item?.rgInscricao|| "",
-    contato:    item?.contato    || "",
-    telefone:   item?.telefone   || "",
-    email:      item?.email      || "",
-    endereco:   item?.endereco   || "",
-    bairro:     item?.bairro     || "",
-    cidade:     item?.cidade     || "",
-    estado:     item?.estado     || "",
+    codigo:      item?.codigo      ?? "",
+    nome:        item?.nome        || "",
+    apelido:     item?.apelido     || "",
+    tipo:        item?.tipo        || "",
+    documento:   item?.documento   || "",
+    rgInscricao: item?.rgInscricao || "",
+    contato:     item?.contato     || "",
+    telefone:    item?.telefone    || "",
+    email:       item?.email       || "",
+    cep:         item?.cep         || "",
+    endereco:    item?.endereco    || "",
+    bairro:      item?.bairro      || "",
+    cidade:      item?.cidade      || "",
+    estado:      item?.estado      || "",
   });
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -898,98 +903,148 @@ function CadastroModal({ title, item, onSave, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 780 }}>
-        <Hdr onClose={onClose} title={title} />
+    <ModalShell
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      tone="neutral"
+      size="xl"
+      footer={
+        <ModalFooter
+          onClose={onClose}
+          onSave={handleSave}
+          saveLabel={item?.id ? "Atualizar" : "Salvar"}
+        />
+      }
+    >
+      <ModalSection label="Identificação">
+        <ModalField label="Nome / Razão Social" required>
+          <input
+            className="form-input"
+            value={form.nome}
+            onChange={(e) => set("nome", e.target.value)}
+            placeholder="Nome completo ou razão social"
+            autoFocus
+          />
+        </ModalField>
+        <ModalGrid cols={2}>
+          <ModalField label="Apelido / Nome fantasia">
+            <input
+              className="form-input"
+              value={form.apelido}
+              onChange={(e) => set("apelido", e.target.value)}
+              placeholder="Como é conhecido"
+            />
+          </ModalField>
+          <ModalField label="Tipo">
+            <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
+              <option value="">— Selecione —</option>
+              <option value="PF">Pessoa Física (PF)</option>
+              <option value="PJ">Pessoa Jurídica (PJ)</option>
+            </select>
+          </ModalField>
+          <ModalField label="CPF / CNPJ">
+            <input
+              className="form-input"
+              value={form.documento}
+              onChange={(e) => set("documento", e.target.value)}
+              placeholder="000.000.000-00 ou 00.000.000/0001-00"
+            />
+          </ModalField>
+          <ModalField label="RG / Inscrição Estadual">
+            <input
+              className="form-input"
+              value={form.rgInscricao}
+              onChange={(e) => set("rgInscricao", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Código" hint="Gerado automaticamente se vazio.">
+            <input
+              className="form-input"
+              type="number"
+              value={form.codigo}
+              onChange={(e) => set("codigo", e.target.value)}
+              placeholder="Auto"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-        <div className="modal-body">
-          {/* Identificação */}
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label">Nome / Razão Social *</label>
-              <input className="form-input" value={form.nome}
-                onChange={(e) => set("nome", e.target.value)} placeholder="Nome completo ou razão social" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Apelido</label>
-              <input className="form-input" value={form.apelido}
-                onChange={(e) => set("apelido", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Tipo</label>
-              <input className="form-input" value={form.tipo}
-                onChange={(e) => set("tipo", e.target.value)} placeholder="PF / PJ" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">CPF / CNPJ</label>
-              <input className="form-input" value={form.documento}
-                onChange={(e) => set("documento", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">RG / Inscrição Estadual</label>
-              <input className="form-input" value={form.rgInscricao}
-                onChange={(e) => set("rgInscricao", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Código</label>
-              <input className="form-input" type="number" value={form.codigo}
-                onChange={(e) => set("codigo", e.target.value)} placeholder="Auto" />
-            </div>
-          </div>
+      <ModalSection label="Contato">
+        <ModalGrid cols={3}>
+          <ModalField label="Responsável / Contato">
+            <input
+              className="form-input"
+              value={form.contato}
+              onChange={(e) => set("contato", e.target.value)}
+              placeholder="Nome do responsável"
+            />
+          </ModalField>
+          <ModalField label="Telefone / WhatsApp">
+            <input
+              className="form-input"
+              value={form.telefone}
+              onChange={(e) => set("telefone", e.target.value)}
+              placeholder="(00) 00000-0000"
+            />
+          </ModalField>
+          <ModalField label="E-mail">
+            <input
+              className="form-input"
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="contato@empresa.com"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
 
-          {/* Contato */}
-          <div className="modal-section">
-            <div className="modal-section-label">Contato</div>
-            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-              <div className="form-group">
-                <label className="form-label">Responsável / Contato</label>
-                <input className="form-input" value={form.contato}
-                  onChange={(e) => set("contato", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Telefone</label>
-                <input className="form-input" value={form.telefone}
-                  onChange={(e) => set("telefone", e.target.value)} placeholder="(00) 00000-0000" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">E-mail</label>
-                <input className="form-input" type="email" value={form.email}
-                  onChange={(e) => set("email", e.target.value)} />
-              </div>
-            </div>
-          </div>
-
-          {/* Endereço */}
-          <div className="modal-section">
-            <div className="modal-section-label">Endereço</div>
-            <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">Logradouro</label>
-                <input className="form-input" value={form.endereco}
-                  onChange={(e) => set("endereco", e.target.value)} placeholder="Rua, número, complemento" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Bairro</label>
-                <input className="form-input" value={form.bairro}
-                  onChange={(e) => set("bairro", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Cidade</label>
-                <input className="form-input" value={form.cidade}
-                  onChange={(e) => set("cidade", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Estado (UF)</label>
-                <input className="form-input" value={form.estado}
-                  onChange={(e) => set("estado", e.target.value)} maxLength={2} placeholder="SP" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <Ftr onClose={onClose} onSave={handleSave} saveLabel={item?.id ? "Atualizar" : "Salvar"} />
-      </div>
-    </div>
+      <ModalSection label="Endereço">
+        <ModalGrid cols={2}>
+          <ModalField label="CEP">
+            <input
+              className="form-input"
+              value={form.cep}
+              onChange={(e) => set("cep", e.target.value)}
+              placeholder="00000-000"
+              maxLength={9}
+            />
+          </ModalField>
+          <ModalField label="Logradouro" className="modal-field--full">
+            <input
+              className="form-input"
+              value={form.endereco}
+              onChange={(e) => set("endereco", e.target.value)}
+              placeholder="Rua, número, complemento"
+            />
+          </ModalField>
+          <ModalField label="Bairro">
+            <input
+              className="form-input"
+              value={form.bairro}
+              onChange={(e) => set("bairro", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Cidade">
+            <input
+              className="form-input"
+              value={form.cidade}
+              onChange={(e) => set("cidade", e.target.value)}
+            />
+          </ModalField>
+          <ModalField label="Estado (UF)">
+            <input
+              className="form-input"
+              value={form.estado}
+              onChange={(e) => set("estado", e.target.value)}
+              maxLength={2}
+              placeholder="SP"
+            />
+          </ModalField>
+        </ModalGrid>
+      </ModalSection>
+    </ModalShell>
   );
 }
 
@@ -1001,7 +1056,15 @@ export function ModalCliente() {
     else clienteCrud.add({ ...data, id: generateId(), codigo: data.codigo ?? Date.now() % 100000 });
     closeModal();
   };
-  return <CadastroModal title={item?.id ? "Editar Cliente" : "Novo Cliente"} item={item} onSave={handleSave} onClose={closeModal} />;
+  return (
+    <CadastroModal
+      title={item?.id ? "Editar cliente" : "Novo cliente"}
+      subtitle="Cadastre o cliente para vincular em lançamentos, projetos e relatórios."
+      item={item}
+      onSave={handleSave}
+      onClose={closeModal}
+    />
+  );
 }
 
 export function ModalFornecedor() {
@@ -1012,7 +1075,15 @@ export function ModalFornecedor() {
     else fornecedorCrud.add({ ...data, id: generateId(), codigo: data.codigo ?? Date.now() % 100000 });
     closeModal();
   };
-  return <CadastroModal title={item?.id ? "Editar Fornecedor" : "Novo Fornecedor"} item={item} onSave={handleSave} onClose={closeModal} />;
+  return (
+    <CadastroModal
+      title={item?.id ? "Editar fornecedor" : "Novo fornecedor"}
+      subtitle="Cadastre o fornecedor para vincular em lançamentos e controle de custos."
+      item={item}
+      onSave={handleSave}
+      onClose={closeModal}
+    />
+  );
 }
 
 // ─── Modais Pessoa Física ─────────────────────────────────────────────────────
