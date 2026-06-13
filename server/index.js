@@ -61,6 +61,13 @@ import notificationsRouter from "./routes/notifications.js";
 import betaRouter from "./routes/beta.js";
 import { registerSupportRoutes } from "./routes/support.js";
 import { getPublicPlanCatalog } from "./billing/planCatalogExport.js";
+import { ambientesRouter } from "./routes/ambientes.js";
+import {
+  ensureAmbientePrincipal,
+  listAmbientes,
+  getAmbientePrincipal,
+  setAmbienteAtualNoEstado,
+} from "./ambientes/ambientesService.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -227,6 +234,7 @@ registerSecurityRoutes(app);
 registerBillingRoutes(app);
 registerEmpresaRoutes(app);
 registerSupportRoutes(app);
+app.use("/api/ambientes", ambientesRouter);
 
 // ─── Auth: perfil atual (atualiza tipo_perfil no cliente) ─────────────────────
 app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, async (req, res) => {
@@ -263,6 +271,29 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, 
   }
 });
 
+// ─── Multiambiente: helper para injetar ambientes no state retornado ─────────
+async function injectAmbientesNoState(dados, usuarioId, profile) {
+  try {
+    const ambiente = await ensureAmbientePrincipal(
+      usuarioId,
+      profile?.tipo_perfil || "juridica",
+      profile?.nome_perfil || profile?.nome
+    );
+    const ambientes = await listAmbientes(usuarioId);
+    const principal = ambiente || await getAmbientePrincipal(usuarioId);
+
+    const ambienteAtualId =
+      dados.ambienteAtualId && ambientes.some((a) => a.id === dados.ambienteAtualId)
+        ? dados.ambienteAtualId
+        : principal?.id || null;
+
+    return { ...dados, ambientes, ambienteAtualId };
+  } catch (err) {
+    console.warn("[injectAmbientesNoState]", err.message);
+    return dados;
+  }
+}
+
 // ─── Estado do App (protegido + conta ativa) ──────────────────────────────────
 app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attachEmpresaContext, requirePermission("state.read"), async (req, res) => {
   try {
@@ -296,7 +327,8 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
         "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2)",
         [stateOwnerId, JSON.stringify(initialState)]
       );
-      return res.json({ dados: initialState, profile });
+      const initialWithAmbientes = await injectAmbientesNoState(initialState, stateOwnerId, profile);
+      return res.json({ dados: initialWithAmbientes, profile });
     }
 
     let dados = rows[0].dados;
@@ -309,7 +341,8 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
         [stateOwnerId, JSON.stringify(initialState)]
       );
-      return res.json({ dados: initialState, profile });
+      const initialWithAmbientes = await injectAmbientesNoState(initialState, stateOwnerId, profile);
+      return res.json({ dados: initialWithAmbientes, profile });
     }
 
     const { profile } = await loadProfile();
@@ -334,6 +367,9 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
       normalized = dados;
     }
 
+    // ── Fase 1 Multiambiente: injetar ambientes no estado retornado ─────────────
+    normalized = await injectAmbientesNoState(normalized, stateOwnerId, profile);
+
     res.json({ dados: normalized, profile });
   } catch (err) {
     console.error("get state:", err.message);
@@ -342,8 +378,13 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
 });
 
 app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attachEmpresaContext, requirePermission("state.write"), async (req, res) => {
-  const { dados } = req.body || {};
+  let { dados } = req.body || {};
   if (!dados) return res.status(400).json({ error: "Campo 'dados' obrigatório." });
+  // Strip de campos computados pelo servidor — não persistir no banco
+  if (dados.ambientes !== undefined) {
+    const { ambientes: _a, ...rest } = dados;
+    dados = rest;
+  }
 
   try {
     const stateOwnerId = req.stateOwnerId;

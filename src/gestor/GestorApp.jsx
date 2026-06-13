@@ -71,6 +71,7 @@ import {
 import PfDueAlert from "./components/pf/PfDueAlert.jsx";
 import { BrandLogo } from "./components/BrandLogo.jsx";
 import { NavIcon, AdminNavIcon, Menu, LogOut, Eye, ChevronLeft } from "./components/icons.jsx";
+import AmbienteSelector from "./components/AmbienteSelector.jsx";
 
 const ADMIN_PAGE_MAP = {
   "admin-operacoes": AdminOperacoesPage,
@@ -288,6 +289,7 @@ export default function GestorApp() {
             <div className="sidebar-brand-logo-wrap">
               <BrandLogo variant="fluxiva" theme="dark" markSize={38} />
             </div>
+            {!isAdminPage && <AmbienteSelector />}
           </div>
 
           {/* ── Super Admin: menu completo OU só voltar (modo visualização do cliente) ─ */}

@@ -4,6 +4,7 @@ import { createInitialState } from "./initialState.js";
 import { createAndSendVerification, verifyCode, isAccountVerified } from "./verification.js";
 import { signToken } from "./middleware/auth.js";
 import { ensureAssinaturaPadrao } from "./billing/subscriptions.js";
+import { ensureAmbientePrincipal } from "./ambientes/ambientesService.js";
 
 function normalizePhone(t) {
   const d = String(t || "").replace(/\D/g, "");
@@ -78,6 +79,11 @@ export function registerAuthRoutes(app) {
       // Falha silenciosa: não bloqueia o cadastro se o plano não existir
       await ensureAssinaturaPadrao(user.id, plano_slug || null).catch((e) =>
         console.warn(`[register] ensureAssinatura: ${e.message}`)
+      );
+
+      // Cria ambiente financeiro padrão (Fase 1 Multiambiente)
+      await ensureAmbientePrincipal(user.id, tipo_perfil, perfil).catch((e) =>
+        console.warn(`[register] ensureAmbiente: ${e.message}`)
       );
 
       const send = await createAndSendVerification(user.id, canal, {
