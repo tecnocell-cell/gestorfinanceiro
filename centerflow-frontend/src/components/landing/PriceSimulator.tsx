@@ -9,7 +9,8 @@ const PLAN_META: Record<
   {
     label: string;
     base: number;
-    type: "PF" | "PJ";
+    extraUserRate: number;
+    extraNumberRate: number;
     maxUsers: number;
     maxNumbers: number;
     texto: boolean;
@@ -22,7 +23,8 @@ const PLAN_META: Record<
     {
       label: p.nome,
       base: p.precoCentavos / 100,
-      type: p.segmento === "pf" ? "PF" : "PJ",
+      extraUserRate: p.limiteUsuarios <= 1 ? 8 : 12,
+      extraNumberRate: p.limiteWhatsappNumeros <= 3 ? 5 : 10,
       maxUsers: p.limiteUsuarios,
       maxNumbers: p.limiteWhatsappNumeros,
       texto: p.whatsappTexto,
@@ -33,7 +35,8 @@ const PLAN_META: Record<
 ) as Record<PlanKey, {
   label: string;
   base: number;
-  type: "PF" | "PJ";
+  extraUserRate: number;
+  extraNumberRate: number;
   maxUsers: number;
   maxNumbers: number;
   texto: boolean;
@@ -42,7 +45,7 @@ const PLAN_META: Record<
 }>;
 
 export function PriceSimulator() {
-  const [plan, setPlan] = useState<PlanKey>("pf_plus");
+  const [plan, setPlan] = useState<PlanKey>("pj_pro");
   const meta = PLAN_META[plan];
   const [users, setUsers] = useState(1);
   const [numbers, setNumbers] = useState(1);
@@ -51,8 +54,8 @@ export function PriceSimulator() {
   const safeNumbers = Math.min(numbers, meta.maxNumbers);
 
   const price = useMemo(() => {
-    const extraUsers = Math.max(0, safeUsers - 1) * (meta.type === "PF" ? 8 : 12);
-    const extraNumbers = Math.max(0, safeNumbers - 1) * (meta.type === "PF" ? 5 : 10);
+    const extraUsers = Math.max(0, safeUsers - 1) * meta.extraUserRate;
+    const extraNumbers = Math.max(0, safeNumbers - 1) * meta.extraNumberRate;
     return meta.base + extraUsers + extraNumbers;
   }, [meta, safeUsers, safeNumbers]);
 

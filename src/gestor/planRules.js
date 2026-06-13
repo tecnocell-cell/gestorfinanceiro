@@ -141,7 +141,7 @@ export function mapConfigStatusForUser(status, { isAdmin, isDev }) {
 
 export const FEATURE_LABELS = {
   openFinance: 'Conexão bancária automática',
-  integracaoPfPj: 'Integração PF/PJ',
+  integracaoPfPj: 'Repasses entre ambientes',
   projetos: 'Projetos financeiros',
   centroCusto: 'Centros de custo',
   whatsappTexto: 'WhatsApp (texto)',

@@ -1,6 +1,6 @@
 /**
- * IntegracaoPfPjPage — Vínculo + repasses PJ → PF vinculada (Etapas 5.0B–5.5)
- * Todas as operações financeiras são da PJ para a PF vinculada (não há PF → PJ no MVP).
+ * IntegracaoPfPjPage — Vínculo + repasses Empresa → Pessoal vinculada (Etapas 5.0B–5.5)
+ * Todas as operações financeiras são da Empresa para o Pessoal vinculado (não há Pessoal → Empresa no MVP).
  */
 import { useState, useEffect, useCallback } from "react";
 import { useGestor } from "../GestorContext.jsx";
@@ -22,7 +22,7 @@ const TABS = [
   { id: "prolabore", label: "Pró-labore" },
   { id: "lucros", label: "Distribuição de Lucros" },
   { id: "salario", label: "Salário" },
-  { id: "transferencia", label: "Transferência PJ → PF" },
+  { id: "transferencia", label: "Transferência entre Ambientes" },
   { id: "agendamentos", label: "Agendamentos" },
   { id: "historico", label: "Histórico" },
 ];
@@ -52,11 +52,11 @@ function labelMesRef(mes) {
 const TIPO_OP_LABEL = INTEGRACAO_TIPO_OPERACAO_LABELS;
 
 const AVISO_CONFIRMACAO =
-  "Esta ação criará uma saída na PJ e uma entrada na PF vinculada.";
+  "Esta ação criará uma saída no ambiente Empresa e uma entrada no ambiente Pessoal vinculado.";
 
 function statusBadgeVinculo(status) {
   if (status === "ativo") return { label: "Ativo", cls: "badge-cp-pago", Icon: CheckCircle };
-  if (status === "pendente") return { label: "Aguardando PF", cls: "badge-cp-pendente", Icon: Clock };
+  if (status === "pendente") return { label: "Aguardando aceite", cls: "badge-cp-pendente", Icon: Clock };
   return { label: status, cls: "badge-cp-atrasado", Icon: XCircle };
 }
 
@@ -73,8 +73,8 @@ function TabBar({ tab, setTab, vinculoAtivo, vinculoPendente }) {
         const financeira = TABS_FINANCEIRAS.includes(t.id);
         const disabled = financeira && !vinculoAtivo;
         let title = "";
-        if (disabled && !vinculoPendente) title = "Vincule uma conta PF na aba Vínculo.";
-        if (disabled && vinculoPendente) title = "Aguarde a PF aceitar o vínculo em Perfil.";
+        if (disabled && !vinculoPendente) title = "Vincule um ambiente pessoal na aba Vínculo.";
+        if (disabled && vinculoPendente) title = "Aguarde o aceite do vínculo em Perfil.";
         return (
           <button
             key={t.id}
@@ -98,16 +98,16 @@ function AvisoVinculoInativo({ vinculo }) {
     return (
       <div className="alert alert-info" style={{ marginBottom: 16 }}>
         <strong>Vínculo aguardando aceite.</strong>{" "}
-        A PF precisa aceitar o convite em <strong>Perfil</strong> antes de você lançar pró-labore,
-        distribuição de lucros, salário ou transferência PJ → PF.
+        O usuário do ambiente pessoal precisa aceitar o convite em <strong>Perfil</strong> antes de você lançar pró-labore,
+        distribuição de lucros, salário ou transferência Empresa → Pessoal.
       </div>
     );
   }
   return (
     <div className="alert alert-warn" style={{ marginBottom: 16 }}>
-      <strong>Vincule e aguarde aceite da PF antes de lançar.</strong>{" "}
-      Informe o e-mail da conta PF na aba <strong>Vínculo</strong>. Todas as operações desta tela
-      são repasses da <strong>PJ para a PF vinculada</strong> (saída na PJ + entrada na PF).
+      <strong>Vincule e aguarde aceite antes de lançar.</strong>{" "}
+      Informe o e-mail do ambiente pessoal na aba <strong>Vínculo</strong>. Todas as operações desta tela
+      são repasses da <strong>Empresa para o Pessoal vinculado</strong> (saída no Empresa + entrada no Pessoal).
     </div>
   );
 }
@@ -134,7 +134,7 @@ function OperacaoForm({
   if (!vinculo) {
     return (
       <div className="alert alert-warn" style={{ margin: 0 }}>
-        Vínculo PF <strong>ativo</strong> necessário. Conclua o aceite na aba Vínculo.
+        Vínculo com ambiente pessoal <strong>ativo</strong> necessário. Conclua o aceite na aba Vínculo.
       </div>
     );
   }
@@ -152,7 +152,7 @@ function OperacaoForm({
         border: "1px solid var(--border)",
       }}>
         <ArrowDownRight size={14} strokeWidth={2} style={{ verticalAlign: -2, marginRight: 6 }} aria-hidden />
-        Repasse <strong>PJ → PF</strong>: não há lançamento da PF para a PJ nesta integração.
+        Repasse <strong>Empresa → Pessoal</strong>: não há lançamento do Pessoal para a Empresa nesta versão.
       </p>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <div className="form-group">
@@ -190,11 +190,11 @@ function OperacaoForm({
             Revise os lançamentos antes de confirmar
           </div>
           <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: "0 0 12px", lineHeight: 1.5 }}>
-            Serão criados <strong>dois lançamentos vinculados</strong>: um na PJ e outro na PF.
+            Serão criados <strong>dois lançamentos vinculados</strong>: um no Empresa e outro no Pessoal.
           </p>
           <div style={{ display: "grid", gap: 12 }}>
-            <PreviewLancamento titulo="Saída na PJ" lado="Saída" lanc={preview.lancamentoPj} />
-            <PreviewLancamento titulo="Entrada na PF vinculada" lado="Entrada" lanc={preview.lancamentoPf} />
+            <PreviewLancamento titulo="Saída no Empresa" lado="Saída" lanc={preview.lancamentoPj} />
+            <PreviewLancamento titulo="Entrada no Pessoal vinculado" lado="Entrada" lanc={preview.lancamentoPf} />
           </div>
           <div className="alert alert-info" style={{ marginTop: 16, marginBottom: 12, fontSize: 13 }}>
             {AVISO_CONFIRMACAO}
@@ -287,7 +287,7 @@ function AgendamentosPanel({
     <div>
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
         Cadastre repasses <strong>recorrentes</strong> (dia do mês, valor e tipo). Nada é lançado automaticamente —
-        use <strong>Gerar repasses do mês</strong> quando quiser criar as operações na PJ e na PF (com histórico e auditoria).
+        use <strong>Gerar repasses do mês</strong> quando quiser criar as operações no Empresa e no Pessoal (com histórico e auditoria).
       </p>
 
       {!viewOnly && (
@@ -504,7 +504,7 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, repara
   if (!operacoes.length) {
     return (
       <div style={{ padding: 12, color: "var(--muted-foreground)", fontSize: 13, lineHeight: 1.55 }}>
-        Nenhuma operação registrada. Após confirmar um repasse PJ → PF, ele aparecerá aqui com os dois lançamentos.
+        Nenhuma operação registrada. Após confirmar um repasse Empresa → Pessoal, ele aparecerá aqui com os dois lançamentos vinculados.
       </div>
     );
   }
@@ -555,10 +555,10 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, repara
                 </td>
                 <td className="integracao-hist-lanc" style={{ fontSize: 12, lineHeight: 1.5, verticalAlign: "top" }}>
                   <span className="badge badge-cp-pendente" style={{ marginBottom: 4, display: "inline-block" }}>
-                    PJ + PF
+                    Empresa + Pessoal
                   </span>
                   <div style={{ color: "var(--muted-foreground)" }}>
-                    Saída na PJ · Entrada na PF
+                    Saída no Empresa · Entrada no Pessoal
                   </div>
                   {op.historico && (
                     <div className="integracao-hist-hist" style={{ color: "var(--text)" }} title={op.historico}>
@@ -579,7 +579,7 @@ function HistoricoOperacoes({ operacoes, loading, viewOnly, desfazendoId, repara
                     {!viewOnly && op.status === "ok" && (
                       <button type="button" className="btn btn-secondary btn-sm"
                         disabled={desfazendoId === op.id}
-                        title="Remove o lançamento na PJ e na PF"
+                        title="Remove o lançamento no Empresa e no Pessoal"
                         onClick={() => onRollback(op)}>
                         {desfazendoId === op.id ? "Desfazendo..." : "Desfazer"}
                       </button>
@@ -713,7 +713,7 @@ export default function IntegracaoPfPjPage() {
 
   const handleBuscar = async () => {
     const e = email.trim();
-    if (!e) { setErro("Informe o e-mail da conta PF."); return; }
+    if (!e) { setErro("Informe o e-mail da conta pessoal."); return; }
     setBuscando(true);
     setErro(null);
     setPfPreview(null);
@@ -721,7 +721,7 @@ export default function IntegracaoPfPjPage() {
       const pf = await integracaoPfPjApi.buscarPf(e);
       setPfPreview(pf);
     } catch (err) {
-      setErro(err.message || "Conta PF não encontrada.");
+      setErro(err.message || "Usuário do ambiente pessoal não encontrado.");
     } finally {
       setBuscando(false);
     }
@@ -737,7 +737,7 @@ export default function IntegracaoPfPjPage() {
       const { vinculo: v } = await integracaoPfPjApi.criarVinculo(e);
       setVinculo(v);
       setPfPreview(null);
-      setMsg("Convite enviado. A pessoa física precisa aceitar em Perfil antes dos repasses PJ → PF.");
+      setMsg("Convite enviado. O usuário do ambiente pessoal precisa aceitar em Perfil antes dos repasses.");
     } catch (err) {
       setErro(err.message || "Erro ao vincular.");
     } finally {
@@ -746,7 +746,7 @@ export default function IntegracaoPfPjPage() {
   };
 
   const handleRevogar = async () => {
-    if (!window.confirm("Revogar o vínculo com esta conta PF? Novos repasses PJ → PF ficarão bloqueados.")) return;
+    if (!window.confirm("Revogar o vínculo com este ambiente pessoal? Novos repasses ficarão bloqueados.")) return;
     setSalvando(true);
     setErro(null);
     setMsg(null);
@@ -802,7 +802,7 @@ export default function IntegracaoPfPjPage() {
       setLucrosPreview(null);
       setLucrosValor("");
       setLucrosObs("");
-      setMsg("Distribuição de Lucros registrada na PJ e na PF vinculada.");
+      setMsg("Distribuição de Lucros registrada no ambiente Empresa e no ambiente Pessoal vinculado.");
       if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
@@ -836,7 +836,7 @@ export default function IntegracaoPfPjPage() {
       setSalarioPreview(null);
       setSalarioValor("");
       setSalarioObs("");
-      setMsg("Salário registrado na PJ e na PF vinculada.");
+      setMsg("Salário registrado no ambiente Empresa e no ambiente Pessoal vinculado.");
       if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
@@ -870,12 +870,12 @@ export default function IntegracaoPfPjPage() {
       setTransfPreview(null);
       setTransfValor("");
       setTransfObs("");
-      setMsg("Transferência PJ → PF registrada na PJ e na PF vinculada.");
+      setMsg("Transferência Empresa → Pessoal registrada no ambiente Empresa e no ambiente Pessoal vinculado.");
       if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
     } catch (err) {
-      setErro(err.message || "Erro ao confirmar Transferência PJ → PF.");
+      setErro(err.message || "Erro ao confirmar Transferência Empresa → Pessoal.");
     } finally {
       setTransfConfirmando(false);
     }
@@ -890,7 +890,7 @@ export default function IntegracaoPfPjPage() {
       setPreview(null);
       setValor("");
       setObservacao("");
-      setMsg("Pró-labore registrado na PJ e na PF vinculada.");
+      setMsg("Pró-labore registrado no ambiente Empresa e no ambiente Pessoal vinculado.");
       if (reloadAppState) reloadAppState({ skipFlush: true });
       setTab("historico");
       loadOperacoes();
@@ -905,7 +905,7 @@ export default function IntegracaoPfPjPage() {
     const tipoOp = TIPO_OP_LABEL[op.tipoOperacao] || "operação";
     const valorFmt = fmtBRL(op.valor ?? reaisFromCentavos(op.valorCentavos));
     if (!window.confirm(
-      `Desfazer ${tipoOp} de ${valorFmt}? Os lançamentos de saída na PJ e entrada na PF serão removidos.`
+      `Desfazer ${tipoOp} de ${valorFmt}? Os lançamentos de saída no Empresa e entrada no Pessoal serão removidos.`
     )) return;
     setDesfazendoId(op.id);
     setErro(null);
@@ -914,7 +914,7 @@ export default function IntegracaoPfPjPage() {
       const res = await integracaoPfPjApi.rollbackOperacao(op.id);
       const remPj = res?.removidosPj ?? 0;
       const remPf = res?.removidosPf ?? 0;
-      setMsg(`Operação desfeita: ${remPj} lançamento(s) na PJ e ${remPf} na PF vinculada.`);
+      setMsg(`Operação desfeita: ${remPj} lançamento(s) no Empresa e ${remPf} no Pessoal vinculado.`);
       if (reloadAppState) reloadAppState({ skipFlush: true });
       loadOperacoes();
     } catch (err) {
@@ -933,10 +933,10 @@ export default function IntegracaoPfPjPage() {
     try {
       const res = await integracaoPfPjApi.repairOperacao(op.id);
       const parts = [];
-      if (res.recreatedPj) parts.push("PJ recriada");
-      if (res.recreatedPf) parts.push("PF recriada");
-      if (res.fixedPj) parts.push(`${res.fixedPj} valor(es) PJ`);
-      if (res.fixedPf) parts.push(`${res.fixedPf} valor(es) PF`);
+      if (res.recreatedPj) parts.push("Empresa recriado");
+      if (res.recreatedPf) parts.push("Pessoal recriado");
+      if (res.fixedPj) parts.push(`${res.fixedPj} valor(es) Empresa`);
+      if (res.fixedPf) parts.push(`${res.fixedPf} valor(es) Pessoal`);
       setMsg(parts.length ? `Reparo concluído: ${parts.join(", ")}.` : "Operação já estava consistente.");
       if (reloadAppState) reloadAppState({ skipFlush: true });
       loadOperacoes();
@@ -1042,7 +1042,7 @@ export default function IntegracaoPfPjPage() {
       const ign = res.totalIgnorados ?? res.ignorados?.length ?? 0;
       setMsg(
         `Repasses de ${labelMesRef(mesGeracao)}: ${n} gerado(s), ${ign} ignorado(s). ` +
-          "Confira o histórico e os lançamentos na PJ e na PF."
+          "Confira o histórico e os lançamentos no Empresa e no Pessoal."
       );
       if (reloadAppState) reloadAppState({ skipFlush: true });
       loadAgendamentos();
@@ -1055,26 +1055,26 @@ export default function IntegracaoPfPjPage() {
   };
 
   const badge = vinculo ? statusBadgeVinculo(vinculo.status) : null;
-  const pfNome = vinculo?.nomePf || vinculo?.emailPf || "PF vinculada";
+  const pfNome = vinculo?.nomePf || vinculo?.emailPf || "Pessoal vinculado";
 
   const descProLabore = (
     <>
-      Pró-labore da PJ para <strong>{pfNome}</strong>: saída na empresa e entrada na conta PF vinculada.
+      Pró-labore do ambiente Empresa para <strong>{pfNome}</strong>: saída na empresa e entrada no ambiente pessoal vinculado.
     </>
   );
   const descLucros = (
     <>
-      Distribuição de Lucros da PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+      Distribuição de Lucros do ambiente Empresa para <strong>{pfNome}</strong> (saída Empresa + entrada Pessoal).
     </>
   );
   const descSalario = (
     <>
-      Salário pago pela PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+      Salário pago pelo ambiente Empresa para <strong>{pfNome}</strong> (saída Empresa + entrada Pessoal).
     </>
   );
   const descTransf = (
     <>
-      Transferência de recursos da PJ para <strong>{pfNome}</strong> (saída PJ + entrada PF).
+      Transferência de recursos do ambiente Empresa para <strong>{pfNome}</strong> (saída Empresa + entrada Pessoal).
     </>
   );
 
@@ -1084,13 +1084,13 @@ export default function IntegracaoPfPjPage() {
         <div className="of-hero-inner">
           <div className="of-hero-badge">
             <Link2 size={13} strokeWidth={2} aria-hidden />
-            Integração PF/PJ
+            Repasses entre Ambientes
           </div>
-          <h2 className="of-hero-title">Repasses da PJ para a PF vinculada</h2>
+          <h2 className="of-hero-title">Repasses do Ambiente Empresa para o Ambiente Pessoal</h2>
           <p className="of-hero-sub">
-            Vincule uma conta Pessoa Física e registre pró-labore, distribuição de lucros, salário
-            ou transferência <strong>PJ → PF</strong>. Cada confirmação gera saída na PJ e entrada na PF
-            automaticamente. Não há repasse da PF para a PJ nesta versão.
+            Vincule um ambiente pessoal e registre pró-labore, distribuição de lucros, salário
+            ou transferência. Cada confirmação gera saída na Empresa e entrada no Pessoal
+            automaticamente. Repasse inverso (Pessoal → Empresa) não está disponível nesta versão.
           </p>
         </div>
       </div>
@@ -1099,7 +1099,7 @@ export default function IntegracaoPfPjPage() {
         {contaPJ && <PlanLimitNotice feature="integracaoPfPj" />}
         {!contaPJ && (
           <div className="alert alert-warn" style={{ marginBottom: 16 }}>
-            Esta área é exclusiva para contas Pessoa Jurídica.
+            Esta área é exclusiva para ambientes do tipo Empresa.
           </div>
         )}
 
@@ -1117,11 +1117,11 @@ export default function IntegracaoPfPjPage() {
               <div className="card" style={{ marginBottom: 16 }}>
                 <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <User size={18} strokeWidth={2} aria-hidden />
-                  Vínculo com conta PF
+                  Vínculo com ambiente pessoal
                 </div>
                 <div style={{ display: "grid", gap: 12, fontSize: 13 }}>
                   <div>
-                    <span style={{ color: "var(--muted-foreground)", fontSize: 11 }}>Destino dos repasses (PF)</span>
+                    <span style={{ color: "var(--muted-foreground)", fontSize: 11 }}>Destino dos repasses (Pessoal)</span>
                     <div style={{ fontWeight: 600 }}>{vinculo.nomePf || vinculo.emailPf}</div>
                     <div style={{ color: "var(--muted-foreground)", fontSize: 12 }}>{vinculo.emailPf}</div>
                   </div>
@@ -1137,12 +1137,12 @@ export default function IntegracaoPfPjPage() {
                     </div>
                     {vinculo.status === "pendente" && (
                       <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-                        Aguardando aceite da PF em <strong>Perfil</strong>. Repasses PJ → PF ficam bloqueados até a confirmação.
+                        Aguardando aceite em <strong>Perfil</strong>. Repasses ficam bloqueados até a confirmação.
                       </p>
                     )}
                     {vinculo.status === "ativo" && (
                       <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-                        Vínculo ativo. Use as abas de operação para lançar repasses da PJ para esta PF.
+                        Vínculo ativo. Use as abas de operação para lançar repasses do ambiente Empresa para este ambiente.
                       </p>
                     )}
                   </div>
@@ -1158,19 +1158,19 @@ export default function IntegracaoPfPjPage() {
 
             {!loading && !temVinculo && (
               <div className="card">
-                <div className="card-title">Vincular conta PF (destino dos repasses)</div>
+                <div className="card-title">Vincular ambiente pessoal (destino dos repasses)</div>
                 <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
-                  Informe o e-mail da conta Pessoa Física no Fluxiva. Após o aceite, você poderá lançar
-                  operações <strong>da PJ para essa PF</strong> — sempre saída na empresa e entrada na pessoa física.
+                  Informe o e-mail do usuário do ambiente pessoal no Fluxiva. Após o aceite, você poderá lançar
+                  operações <strong>da Empresa para esse Pessoal</strong> — sempre saída na empresa e entrada no pessoal.
                 </p>
                 {viewOnly ? (
                   <div className="alert alert-info" style={{ margin: 0 }}>Modo visualização.</div>
                 ) : (
                   <>
                     <div className="form-group">
-                      <label className="form-label">E-mail da conta PF</label>
+                      <label className="form-label">E-mail do ambiente pessoal</label>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <input className="form-input" type="email" placeholder="pf@email.com"
+                        <input className="form-input" type="email" placeholder="pessoal@email.com"
                           value={email} onChange={(e) => { setEmail(e.target.value); setPfPreview(null); }}
                           style={{ flex: "1 1 220px" }} />
                         <button type="button" className="btn btn-secondary" disabled={buscando || !email.trim()}
@@ -1202,7 +1202,7 @@ export default function IntegracaoPfPjPage() {
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Banknote size={18} strokeWidth={2} aria-hidden />
-              Pró-labore (PJ → PF)
+              Pró-labore (Empresa → Pessoal)
             </div>
             <OperacaoForm
               vinculo={vinculo}
@@ -1230,7 +1230,7 @@ export default function IntegracaoPfPjPage() {
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <TrendingUp size={18} strokeWidth={2} aria-hidden />
-              Distribuição de Lucros (PJ → PF)
+              Distribuição de Lucros (Empresa → Pessoal)
             </div>
             <OperacaoForm
               vinculo={vinculo}
@@ -1258,7 +1258,7 @@ export default function IntegracaoPfPjPage() {
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <CircleDollarSign size={18} strokeWidth={2} aria-hidden />
-              Salário (PJ → PF)
+              Salário (Empresa → Pessoal)
             </div>
             <OperacaoForm
               vinculo={vinculo}
@@ -1286,7 +1286,7 @@ export default function IntegracaoPfPjPage() {
           <div className="card">
             <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ArrowRight size={18} strokeWidth={2} aria-hidden />
-              Transferência PJ → PF
+              Transferência Empresa → Pessoal
             </div>
             <OperacaoForm
               vinculo={vinculo}
@@ -1304,7 +1304,7 @@ export default function IntegracaoPfPjPage() {
               onPreview={handlePreviewTransferencia}
               onConfirm={handleConfirmarTransferencia}
               previewBtnLabel="Ver preview"
-              confirmBtnLabel="Confirmar Transferência PJ → PF"
+              confirmBtnLabel="Confirmar Transferência Empresa → Pessoal"
               description={descTransf}
             />
           </div>
@@ -1341,10 +1341,10 @@ export default function IntegracaoPfPjPage() {
 
         {vinculoAtivo && tab === "historico" && (
           <div className="card">
-            <div className="card-title">Histórico de repasses PJ → PF</div>
+            <div className="card-title">Histórico de repasses Empresa → Pessoal</div>
             <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 16px" }}>
               Cada linha é uma operação confirmada com lançamentos nos <strong>dois lados</strong>.
-              Use <strong>Desfazer</strong> para remover saída na PJ e entrada na PF (rollback).
+              Use <strong>Desfazer</strong> para remover saída no Empresa e entrada no Pessoal (rollback).
             </p>
             <HistoricoOperacoes
               operacoes={operacoes}

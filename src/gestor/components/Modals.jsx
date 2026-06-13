@@ -689,13 +689,13 @@ export function ModalConta() {
             className="modal-advanced-toggle"
             onClick={() => setShowContabilPJ((v) => !v)}
           >
-            {showContabilPJ ? "▾ Ocultar campos contábeis" : "▸ Código contábil (opcional, só PJ)"}
+            {showContabilPJ ? "▾ Ocultar campos contábeis" : "▸ Código contábil (opcional)"}
           </button>
           {showContabilPJ && (
             <>
               <p className="modal-field-hint" style={{ marginBottom: 12 }}>
                 <strong>Contábil</strong> é o código da conta no plano contábil da empresa (ex.: 1.1.01),
-                usado em exportações e relatórios PJ — não é o número da agência/conta bancária.
+                usado em exportações e relatórios empresariais — não é o número da agência/conta bancária.
               </p>
               <ModalGrid cols={2}>
                 <ModalField label="Conta contábil">
@@ -939,8 +939,8 @@ function CadastroModal({ title, subtitle, item, onSave, onClose }) {
           <ModalField label="Tipo">
             <select className="form-select" value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
               <option value="">— Selecione —</option>
-              <option value="PF">Pessoa Física (PF)</option>
-              <option value="PJ">Pessoa Jurídica (PJ)</option>
+              <option value="PF">Pessoa (CPF)</option>
+              <option value="PJ">Empresa (CNPJ)</option>
             </select>
           </ModalField>
           <ModalField label="CPF / CNPJ">

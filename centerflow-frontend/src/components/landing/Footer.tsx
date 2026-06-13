@@ -39,7 +39,7 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-              Seu financeiro inteligente direto no WhatsApp. PF, PJ e IA — tudo na mesma conversa.
+              Seu financeiro inteligente direto no WhatsApp. Pessoal, empresa e IA — tudo na mesma conversa.
             </p>
             <div className="mt-5 flex gap-2">
               {[

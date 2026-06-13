@@ -103,7 +103,7 @@ export function buildLimiteAvisos({ recursos, totalLancamentos = 0 }) {
   }
 
   if (!hasRecurso(recursos, 'integracaoPfPj')) {
-    avisos.push('Integração PF/PJ disponível nos planos PJ.');
+    avisos.push('Repasses entre ambientes disponíveis nos planos Fluxiva Pro e Business.');
   }
 
   return avisos;

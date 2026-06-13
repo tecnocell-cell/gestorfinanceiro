@@ -146,7 +146,7 @@ function DashboardMock() {
     <div className="p-4 text-xs">
       <div className="mb-3 flex items-center justify-between">
         <span className="font-semibold">Outubro</span>
-        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">PF</span>
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">Pessoal</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-secondary p-3">

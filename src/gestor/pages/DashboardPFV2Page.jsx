@@ -291,7 +291,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       label: "Receitas",
       value: fmtBRL(pfTotais.receitas),
       sub: pfTotais.transfRecebidas > 0
-        ? `Inclui ${fmtBRL(pfTotais.transfRecebidas)} de repasses PJ`
+        ? `Inclui ${fmtBRL(pfTotais.transfRecebidas)} de repasses da Empresa`
         : "Rendimentos do período",
       valueClass: "success",
       sparkline: sparkReceitas,
@@ -339,7 +339,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: ArrowRight,
       label: "Transf. recebidas",
       value: fmtBRL(pfTotais.transfRecebidas),
-      sub: "Repasses PJ → PF no período",
+      sub: "Repasses recebidos da Empresa no período",
       valueClass: pfTotais.transfRecebidas > 0 ? "info" : "",
       tone: "default",
       compact: true,
@@ -348,7 +348,7 @@ export default function DashboardPFV2Page({ onNavigate }) {
       icon: ArrowDownRight,
       label: "Transf. enviadas",
       value: fmtBRL(pfTotais.transfEnviadas),
-      sub: "Repasses PF → PJ no período",
+      sub: "Repasses enviados para a Empresa no período",
       valueClass: "",
       tone: "default",
       compact: true,

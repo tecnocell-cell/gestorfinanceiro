@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 
 const features = [
-  { icon: Wallet, title: "Financeiro PF", desc: "Suas finanças pessoais organizadas com categorias inteligentes.", color: "var(--primary)", bg: "color-mix(in oklab, var(--primary) 12%, white)" },
-  { icon: Building2, title: "Financeiro PJ", desc: "Separe contas da empresa e tenha visão clara do caixa.", color: "var(--accent-sky)", bg: "var(--surface-sky)" },
+  { icon: Wallet, title: "Finanças Pessoais", desc: "Suas finanças pessoais organizadas com categorias inteligentes.", color: "var(--primary)", bg: "color-mix(in oklab, var(--primary) 12%, white)" },
+  { icon: Building2, title: "Financeiro Empresarial", desc: "Separe contas da empresa e tenha visão clara do caixa.", color: "var(--accent-sky)", bg: "var(--surface-sky)" },
   { icon: ListPlus, title: "Lançamentos rápidos", desc: "Registre entradas e saídas em segundos.", color: "var(--accent-amber)", bg: "var(--surface-warm)" },
   { icon: BarChart3, title: "Relatórios", desc: "Gráficos e relatórios mensais para decisões melhores.", color: "var(--accent-violet)", bg: "color-mix(in oklab, var(--accent-violet) 14%, white)" },
   { icon: Target, title: "Metas", desc: "Defina objetivos e acompanhe o progresso.", color: "var(--accent-coral)", bg: "color-mix(in oklab, var(--accent-coral) 14%, white)" },

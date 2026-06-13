@@ -6,7 +6,7 @@ export const INTEGRACAO_TIPO_OPERACAO_LABELS = {
   pro_labore: "Pró-labore",
   distribuicao_lucros: "Distribuição de lucros",
   salario: "Salário",
-  transferencia_pj_pf: "Transferência PJ → PF",
+  transferencia_pj_pf: "Transferência Empresa → Pessoal",
 };
 
 /** Rótulo curto para badges em tabelas estreitas. */
@@ -14,7 +14,7 @@ export const INTEGRACAO_TIPO_OPERACAO_LABELS_SHORT = {
   pro_labore: "Pró-labore",
   distribuicao_lucros: "Lucros",
   salario: "Salário",
-  transferencia_pj_pf: "Transf. PJ→PF",
+  transferencia_pj_pf: "Transf. Empresa→Pessoal",
 };
 
 export function getIntegracaoOperacaoLabel(lanc, { short = false } = {}) {
@@ -30,7 +30,7 @@ export function getIntegracaoOperacaoLabel(lanc, { short = false } = {}) {
   if (/lucro|distribui/.test(h)) return labels.distribuicao_lucros;
   if (/transfer/.test(h)) return labels.transferencia_pj_pf;
 
-  return short ? "Integração" : "Integração PJ → PF";
+  return short ? "Repasse" : "Repasse Empresa → Pessoal";
 }
 
 export function isLancamentoIntegracaoPfPj(lanc) {

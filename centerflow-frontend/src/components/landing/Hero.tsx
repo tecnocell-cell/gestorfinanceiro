@@ -26,7 +26,7 @@ export function Hero() {
           </h1>
           <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
             Lance gastos por texto, áudio ou foto do comprovante — a IA do Fluxiva organiza tudo para você,
-            PF ou PJ, direto no WhatsApp.
+            Para você e sua empresa, direto no WhatsApp.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -61,7 +61,7 @@ export function Hero() {
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-primary" />
-              <span>PF & PJ</span>
+              <span>Pessoal & Empresa</span>
             </div>
           </div>
         </div>
@@ -104,7 +104,7 @@ export function Hero() {
                 Áudio: "almoço cliente 78 reais"
               </Bubble>
               <Bubble side="left" time="12:42">
-                <span className="font-semibold">Alimentação PJ · R$ 78,00</span>
+                <span className="font-semibold">Alimentação Empresa · R$ 78,00</span>
                 <br /> Lançado em Despesas Comerciais.
               </Bubble>
               <Bubble side="right" time="15:08" icon={<Receipt className="h-3.5 w-3.5" />}>

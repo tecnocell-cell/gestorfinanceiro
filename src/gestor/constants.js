@@ -107,7 +107,7 @@ export const NAV_SECTIONS_PJ = [
     section: "Sistema",
     items: [
       { id: "whatsapp", label: "WhatsApp" },
-      { id: "integracao-pf-pj", label: "Integração PF/PJ" },
+      { id: "integracao-pf-pj", label: "Repasses entre Ambientes" },
       { id: "open-finance", label: "Conexões" },
       { id: "tutoriais", label: "Tutoriais" },
       { id: "ajuda", label: "Ajuda" },

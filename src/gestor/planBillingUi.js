@@ -62,7 +62,7 @@ export function buildPlanFeatureItems(recursos, planSlug) {
   else if (recursos.segmento === "pj" && recursos.centroCusto) items.push("DRE simplificado");
   if (recursos.projetos) items.push("Projetos financeiros");
   if (recursos.integracaoPfPj && recursos.segmento === "pj") {
-    items.push("Integração PF/PJ");
+    items.push("Repasses entre ambientes");
   }
   if (recursos.apiAccess) items.push("Acesso API");
   if (recursos.suportePrioritario) items.push("Suporte prioritário");

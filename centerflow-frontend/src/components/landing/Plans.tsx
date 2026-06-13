@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Check, Sparkles, Users, Smartphone, Bot } from "lucide-react";
-import { PF_COMMERCIAL_PLANS, PJ_COMMERCIAL_PLANS } from "@/lib/commercialPlans";
+import { FLUXIVA_PLANS } from "@/lib/commercialPlans";
 
 export function Plans() {
-  const [tab, setTab] = useState<"PF" | "PJ">("PF");
-  const plans = tab === "PF" ? PF_COMMERCIAL_PLANS : PJ_COMMERCIAL_PLANS;
+  const plans = FLUXIVA_PLANS;
 
   return (
     <section id="planos" className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-24">
@@ -14,33 +12,11 @@ export function Plans() {
           Planos Fluxiva
         </span>
         <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-          Escolha o plano ideal para você
+          Controle sua vida financeira e sua empresa no mesmo lugar
         </h2>
         <p className="mt-4 text-muted-foreground">
-          Pessoa Física ou Pessoa Jurídica — com limites claros e sem surpresas.
+          Um único plano para finanças pessoais, MEI e empresas — sem surpresas.
         </p>
-      </div>
-
-      <div className="mb-12 flex justify-center">
-        <div
-          className="inline-flex rounded-full border border-border bg-card p-1"
-          style={{ boxShadow: "var(--shadow-card)" }}
-        >
-          {(["PF", "PJ"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition-all sm:px-6 ${
-                tab === t
-                  ? "text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              style={tab === t ? { background: "var(--gradient-primary)" } : undefined}
-            >
-              {t === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3 md:gap-5 lg:gap-6">

@@ -167,7 +167,18 @@ export async function confirmPendingLancamento(usuarioId, pending) {
   const state = await getEmpresaDados(usuarioId);
   if (!state) throw new Error("Estado não encontrado");
 
-  const { dados, empresa, empresaIdx, empresas } = state;
+  let { dados, empresa, empresaIdx, empresas } = state;
+
+  // Se o usuário escolheu um ambiente específico no fluxo multiambiente,
+  // usar aquele em vez do ambienteAtualId do servidor (que pode ser diferente).
+  const ambienteIdEscolhido = pending.payload?.ambienteId;
+  if (ambienteIdEscolhido) {
+    const idx = empresas.findIndex((e) => e.id === ambienteIdEscolhido);
+    if (idx >= 0) {
+      empresaIdx = idx;
+      empresa = empresas[idx];
+    }
+  }
   const lancamentos = Array.isArray(empresa.lancamentos) ? empresa.lancamentos : [];
   const contas = Array.isArray(empresa.contas) ? empresa.contas : [];
 
@@ -219,11 +230,13 @@ export async function confirmPendingLancamento(usuarioId, pending) {
     i === empresaIdx ? updatedEmpresa : e
   );
 
-  // Fase 2: sincroniza porAmbiente para manter isolamento de dados
-  const ambienteAtualId = dados.ambienteAtualId;
+  // Fase 2: sincroniza porAmbiente para manter isolamento de dados.
+  // Usa o ambiente escolhido pelo usuário no fluxo (ambienteIdEscolhido) como chave,
+  // ou cai para o ambienteAtualId do servidor como fallback.
+  const chaveAmbiente = ambienteIdEscolhido || dados.ambienteAtualId;
   const updatedPorAmbiente =
-    dados.porAmbiente && ambienteAtualId
-      ? { ...dados.porAmbiente, [ambienteAtualId]: updatedEmpresa }
+    dados.porAmbiente && chaveAmbiente
+      ? { ...dados.porAmbiente, [chaveAmbiente]: updatedEmpresa }
       : dados.porAmbiente;
 
   await query(

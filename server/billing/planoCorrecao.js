@@ -12,11 +12,9 @@ const PJ_TARGET_BY_ORIG = {
   empresarial: 'pj_business',
 };
 
-const PF_TARGET_BY_ORIG = {
-  pj_start: 'pf_basico',
-  pj_pro: 'pf_plus',
-  pj_business: 'pf_premium',
-};
+// Modelo Fluxiva unificado: usuários 'fisica' podem manter planos pj_* (cross-ambiente).
+// Não há mais correção automática de segmento para PF — qualquer plano ativo é válido.
+const PF_TARGET_BY_ORIG = {};
 
 export async function corrigirAssinaturaSegmento(usuarioId) {
   const { rows } = await query(

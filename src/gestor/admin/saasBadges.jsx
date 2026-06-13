@@ -1,10 +1,10 @@
 const PLAN_STYLES = {
-  pf_basico: { label: "PF Básico", className: "saas-badge-plan saas-badge-plan--gray" },
-  pf_plus: { label: "PF Plus", className: "saas-badge-plan saas-badge-plan--blue" },
-  pf_premium: { label: "PF Premium", className: "saas-badge-plan saas-badge-plan--purple" },
-  pj_start: { label: "PJ Start", className: "saas-badge-plan saas-badge-plan--green" },
-  pj_pro: { label: "PJ Pro", className: "saas-badge-plan saas-badge-plan--orange" },
-  pj_business: { label: "PJ Business", className: "saas-badge-plan saas-badge-plan--gold" },
+  pf_basico: { label: "Fluxiva Start", className: "saas-badge-plan saas-badge-plan--gray" },
+  pf_plus: { label: "Fluxiva Pro", className: "saas-badge-plan saas-badge-plan--blue" },
+  pf_premium: { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--purple" },
+  pj_start: { label: "Fluxiva Start", className: "saas-badge-plan saas-badge-plan--green" },
+  pj_pro: { label: "Fluxiva Pro", className: "saas-badge-plan saas-badge-plan--orange" },
+  pj_business: { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--gold" },
 };
 
 const STATUS_STYLES = {
@@ -27,13 +27,13 @@ export function SubscriptionStatusBadge({ status }) {
 }
 
 export const PF_PLAN_OPTIONS = [
-  { slug: "pf_basico", label: "PF Básico" },
-  { slug: "pf_plus", label: "PF Plus" },
-  { slug: "pf_premium", label: "PF Premium" },
+  { slug: "pf_basico", label: "Fluxiva Start" },
+  { slug: "pf_plus", label: "Fluxiva Pro" },
+  { slug: "pf_premium", label: "Fluxiva Business" },
 ];
 
 export const PJ_PLAN_OPTIONS = [
-  { slug: "pj_start", label: "PJ Start" },
-  { slug: "pj_pro", label: "PJ Pro" },
-  { slug: "pj_business", label: "PJ Business" },
+  { slug: "pj_start", label: "Fluxiva Start" },
+  { slug: "pj_pro", label: "Fluxiva Pro" },
+  { slug: "pj_business", label: "Fluxiva Business" },
 ];

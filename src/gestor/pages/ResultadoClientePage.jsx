@@ -28,7 +28,7 @@ function Conteudo({ pfMode }) {
     <div>
       <PeriodoHint
         filterPeriodo={filterPeriodo}
-        hint="Cliente no lançamento é opcional. Cadastre clientes em Clientes (PJ) ou use os já existentes."
+        hint="Cliente no lançamento é opcional. Cadastre clientes na seção Clientes ou use os já existentes."
       />
       <div className="card">
         <div className="card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>

@@ -225,15 +225,15 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
   if (payload.step === "escolher_ambiente") {
     const opcoes = payload.ambientes_opcoes || [];
 
-    // Cancelar
-    if (["cancelar", "cancel", "nao", "n", "não", "3"].includes(t)) {
+    // Número válido tem prioridade sobre palavras-chave para não conflitar com índices
+    const num = parseInt(t, 10);
+    if (Number.isFinite(num) && num >= 1 && num <= opcoes.length) {
+      // número válido — tratado abaixo
+    } else if (["cancelar", "cancel", "nao", "n", "não"].includes(t)) {
       await deletePending(usuarioId);
       sendReply(instanceName, fromNumber, MSG_CANCELADO);
       return;
-    }
-
-    const num = parseInt(t, 10);
-    if (!Number.isFinite(num) || num < 1 || num > opcoes.length) {
+    } else if (!Number.isFinite(num) || num < 1 || num > opcoes.length) {
       sendReply(instanceName, fromNumber, buildAmbienteSelectorMsg(opcoes));
       return;
     }

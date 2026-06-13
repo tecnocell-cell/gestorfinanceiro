@@ -19,8 +19,8 @@ const faqs = [
     a: "Sim. Sem fidelidade. Cancele direto pelo painel a qualquer momento.",
   },
   {
-    q: "PF e PJ no mesmo plano?",
-    a: "Os planos são separados, mas você pode ter ambos na mesma conta Fluxiva.",
+    q: "Posso gerenciar finanças pessoais e da empresa no mesmo lugar?",
+    a: "Sim! Com o Fluxiva você controla sua vida financeira pessoal e sua empresa na mesma conta, com ambientes completamente isolados.",
   },
 ];
 

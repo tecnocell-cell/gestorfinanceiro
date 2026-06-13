@@ -929,7 +929,7 @@ export function RelatoriosPFPage() {
     const csv = rows.map((r) => r.join(";")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `relatorio_pf_${filterPeriodo.ano}.csv`; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `relatorio_pessoal_${filterPeriodo.ano}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -943,7 +943,7 @@ export function RelatoriosPFPage() {
           betaChecklistKey="pdf_export"
           className="btn btn-secondary btn-sm"
           getExportData={() => ({
-            title: "Relatório PF",
+            title: "Relatório Pessoal",
             periodo: String(filterPeriodo.ano || ""),
             usuario: user?.email || "",
             columns: [
@@ -958,7 +958,7 @@ export function RelatoriosPFPage() {
               despesas: fmtBRL(m.Despesas),
               saldo: fmtBRL(m.Saldo),
             })),
-            filename: `relatorio_pf_${filterPeriodo.ano}.pdf`,
+            filename: `relatorio_pessoal_${filterPeriodo.ano}.pdf`,
           })}
         />
       </div>
@@ -1089,7 +1089,7 @@ function PfPjVinculoCard() {
   if (loading) {
     return (
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Integração com PJ</div>
+        <div className="card-title">Repasses recebidos</div>
         <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Carregando...</div>
       </div>
     );
@@ -1099,14 +1099,14 @@ function PfPjVinculoCard() {
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-title">Integração com PJ</div>
+      <div className="card-title">Repasses recebidos</div>
       <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 14px" }}>
-        Empresas PJ podem vincular sua conta PF para repasses futuros. Aceite apenas convites de empresas que você reconhece.
+        Ambientes do tipo Empresa podem vincular sua conta para enviar repasses. Aceite apenas convites de empresas que você reconhece.
       </p>
 
       {ativos.map((v) => (
         <div key={v.id} className="alert alert-info" style={{ marginBottom: 10 }}>
-          <strong>Vinculada a {v.nomePj || "Empresa PJ"}</strong>
+          <strong>Vinculada a {v.nomePj || "Ambiente Empresa"}</strong>
           <span className="badge badge-cp-pago" style={{ marginLeft: 8, fontSize: 10 }}>Ativo</span>
         </div>
       ))}
@@ -1116,9 +1116,9 @@ function PfPjVinculoCard() {
           border: "1px solid var(--border)", borderRadius: "var(--radius-lg)",
           padding: "12px 14px", marginBottom: 10,
         }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{v.nomePj || "Empresa PJ"}</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{v.nomePj || "Ambiente Empresa"}</div>
           <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>
-            Convite para vincular sua conta PF
+            Convite para receber repasses deste ambiente
           </div>
           {!viewOnly && (
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

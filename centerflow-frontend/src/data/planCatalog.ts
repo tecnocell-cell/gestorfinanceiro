@@ -24,7 +24,7 @@ export type PlanCatalogEntry = {
 export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   {
     slug: "pf_basico",
-    nome: "PF Básico",
+    nome: "Fluxiva Start",
     precoCentavos: 1990,
     segmento: "pf",
     limiteUsuarios: 1,
@@ -35,7 +35,7 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   },
   {
     slug: "pf_plus",
-    nome: "PF Plus",
+    nome: "Fluxiva Pro",
     precoCentavos: 2990,
     segmento: "pf",
     limiteUsuarios: 1,
@@ -46,7 +46,7 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   },
   {
     slug: "pf_premium",
-    nome: "PF Premium",
+    nome: "Fluxiva Business",
     precoCentavos: 4990,
     segmento: "pf",
     limiteUsuarios: 1,
@@ -57,7 +57,7 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   },
   {
     slug: "pj_start",
-    nome: "PJ Start",
+    nome: "Fluxiva Start Empresa",
     precoCentavos: 5990,
     segmento: "pj",
     limiteUsuarios: 3,
@@ -68,7 +68,7 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   },
   {
     slug: "pj_pro",
-    nome: "PJ Pro",
+    nome: "Fluxiva Pro Empresa",
     precoCentavos: 9990,
     segmento: "pj",
     limiteUsuarios: 8,
@@ -79,7 +79,7 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   },
   {
     slug: "pj_business",
-    nome: "PJ Business",
+    nome: "Fluxiva Business Empresa",
     precoCentavos: 19990,
     segmento: "pj",
     limiteUsuarios: 20,

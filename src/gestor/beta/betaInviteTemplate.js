@@ -6,7 +6,7 @@ export function buildBetaInviteText({ nome, appUrl } = {}) {
   const who = nome ? `${nome}, ` : "";
   return `${who}Você foi convidado para testar o Fluxiva Beta.
 
-O Fluxiva é o gestor financeiro da sua operação (PF ou PJ). Nesta fase beta, sua opinião ajuda a melhorar o produto antes do lançamento oficial.
+O Fluxiva é o gestor financeiro pessoal e empresarial, tudo em uma conta só. Nesta fase beta, sua opinião ajuda a melhorar o produto antes do lançamento oficial.
 
 Como participar:
 1. Acesse: ${url}

@@ -199,14 +199,8 @@ export async function simularUpgrade(usuarioId, planoSlug) {
   const plano = await getPlanoBySlug(planoSlug);
   if (!plano) return { ok: false, error: 'Plano não encontrado.' };
 
-  const tipoPerfil = await getUsuarioTipoPerfil(usuarioId);
-  if (!planoMatchesTipoPerfil(plano.slug, tipoPerfil)) {
-    return {
-      ok: false,
-      error: 'Este plano não está disponível para o seu tipo de perfil (PF/PJ).',
-    };
-  }
-
+  // Modelo Fluxiva unificado: qualquer usuário pode assinar qualquer plano.
+  // A validação por tipo_perfil (PF/PJ) foi removida — todos os planos são cross-ambiente.
   await ensureAssinaturaPadrao(usuarioId);
   const fim = periodEndFromInterval(plano.intervalo);
   const proxima = new Date(fim);
