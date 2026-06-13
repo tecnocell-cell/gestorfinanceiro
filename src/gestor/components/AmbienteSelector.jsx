@@ -145,8 +145,12 @@ export default function AmbienteSelector() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
       });
+      // skipFlush: true — servidor já atualizou ambienteAtualId via POST /selecionar.
+      // Flush aqui seria perigoso: local state ainda tem empresas[] do ambiente anterior
+      // mas ambienteAtualId já aponta pro novo, causando mergeAmbienteIntoStored salvar
+      // dados errados sob o novo ambiente.
       setState((prev) => ({ ...prev, ambienteAtualId: id }));
-      await reloadAppState({ skipFlush: false });
+      await reloadAppState({ skipFlush: true });
     } finally {
       setSwitching(false);
     }
@@ -160,7 +164,7 @@ export default function AmbienteSelector() {
       headers: { "Content-Type": "application/json", ...authHeader },
     });
     setState((prev) => ({ ...prev, ambienteAtualId: novoId }));
-    await reloadAppState({ skipFlush: false });
+    await reloadAppState({ skipFlush: true }); // mesma razão: evitar flush com dados do ambiente anterior
   }, [setState, reloadAppState, authHeader]);
 
   if (!ambientes.length) return null;

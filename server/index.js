@@ -418,10 +418,13 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     // ── Fase 2: sincronizar empresas[0] → porAmbiente após normalização ──────
     normalized = syncPortAmbienteFromView(normalized);
 
-    const rawDados = rows[0].dados;
-    const planoAntes = countPlanoContas(rawDados);
+    // Comparação de segurança: usa dados APÓS prepareMultiambienteState (view do ambiente atual),
+    // não rawDados do banco (que contém todos os ambientes acumulados em porAmbiente).
+    // Isso evita falso positivo "48→26 categorias" que bloqueava saves.
+    const planoAntes = countPlanoContas(dados); // dados = prepared (ambiente atual)
     const planoDepois = countPlanoContas(normalized);
     const normalizeSeguro = planoDepois >= planoAntes;
+    const rawDados = rows[0].dados;
     const dadosChanged = JSON.stringify(normalized) !== JSON.stringify(rawDados);
 
     if (normalizeSeguro && (dadosChanged || needsMigrationSave)) {
@@ -429,12 +432,19 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
         [stateOwnerId, JSON.stringify(normalized)]
       );
-    } else if (!normalizeSeguro && planoDepois < planoAntes) {
+    } else if (!normalizeSeguro) {
       console.warn(
         `GET /state usuario ${stateOwnerId}: normalização ignorada (planoContas ${planoAntes} → ${planoDepois})`
       );
+      // Mantém dados preparados (ambiente atual isolado), sem sobrescrever no banco
       normalized = dados;
       normalized = syncPortAmbienteFromView(normalized);
+    } else if (needsMigrationSave) {
+      // dadosChanged é false mas migração precisa ser salva
+      await query(
+        `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
+        [stateOwnerId, JSON.stringify(normalized)]
+      );
     }
 
     res.json({ dados: finalizeStateResponse(normalized, ambientes, ambienteAtualId), profile });
