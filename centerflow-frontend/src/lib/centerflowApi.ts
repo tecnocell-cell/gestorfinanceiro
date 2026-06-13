@@ -217,15 +217,18 @@ export async function resendLoginOtp(otp_id: string): Promise<OtpRequiredData> {
 /**
  * POST /api/auth/register
  * Cria conta. NÃO retorna token — exige verificação por e-mail.
- * Backend não aceita plan_type ainda: salvar como pendingPlan no localStorage.
+ * plano_slug: slug do plano escolhido (ex: "pf_plus", "pj_pro"). Backend persiste na assinatura.
  */
 export async function register(data: {
-  nome:        string;
-  email:       string;
-  senha:       string;
-  tipo_perfil: "fisica" | "juridica";
-  nome_perfil: string;
-  telefone?:   string;
+  nome:              string;
+  email:             string;
+  senha:             string;
+  tipo_perfil:       "fisica" | "juridica";
+  nome_perfil:       string;
+  telefone?:         string;
+  plano_slug?:       string;
+  whatsapp_phone?:   string;
+  whatsapp_source?:  string;
 }): Promise<RegisterResponse> {
   return post<RegisterResponse>("/auth/register", data);
 }

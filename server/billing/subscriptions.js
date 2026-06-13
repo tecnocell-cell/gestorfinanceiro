@@ -106,7 +106,7 @@ function formatAssinatura(row, extras = {}) {
   };
 }
 
-export async function ensureAssinaturaPadrao(usuarioId) {
+export async function ensureAssinaturaPadrao(usuarioId, planoSlugOverride = null) {
   // Fast-path: já existe
   const existing = await query(
     `SELECT id FROM assinaturas WHERE usuario_id = $1`,
@@ -115,11 +115,18 @@ export async function ensureAssinaturaPadrao(usuarioId) {
   if (existing.rows.length) return existing.rows[0].id;
 
   const tipoPerfil = await getUsuarioTipoPerfil(usuarioId);
-  const slugPadrao = defaultPlanoSlugForTipo(tipoPerfil);
-  const plano = await getPlanoBySlug(slugPadrao);
+
+  // Usa o plano escolhido se válido para o tipo de perfil; caso contrário usa o padrão
+  let slugFinal = defaultPlanoSlugForTipo(tipoPerfil);
+  if (planoSlugOverride && planoMatchesTipoPerfil(planoSlugOverride, tipoPerfil)) {
+    const candidato = await getPlanoBySlug(planoSlugOverride);
+    if (candidato) slugFinal = planoSlugOverride;
+  }
+
+  const plano = await getPlanoBySlug(slugFinal);
   if (!plano) {
     throw new Error(
-      `Plano padrão ${slugPadrao} não encontrado. Execute migrations 023 e 024.`
+      `Plano ${slugFinal} não encontrado. Execute migrations 023 e 024.`
     );
   }
 

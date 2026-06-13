@@ -3,6 +3,7 @@ import { query } from "./db.js";
 import { createInitialState } from "./initialState.js";
 import { createAndSendVerification, verifyCode, isAccountVerified } from "./verification.js";
 import { signToken } from "./middleware/auth.js";
+import { ensureAssinaturaPadrao } from "./billing/subscriptions.js";
 
 function normalizePhone(t) {
   const d = String(t || "").replace(/\D/g, "");
@@ -22,6 +23,7 @@ export function registerAuthRoutes(app) {
       canal_verificacao = "email",
       whatsapp_phone,
       whatsapp_source,
+      plano_slug,
     } = req.body || {};
 
     if (!nome?.trim() || !email?.trim() || !senha) {
@@ -70,6 +72,12 @@ export function registerAuthRoutes(app) {
       await query(
         "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2)",
         [user.id, JSON.stringify(initialState)]
+      );
+
+      // Cria assinatura inicial com o plano escolhido (trial)
+      // Falha silenciosa: não bloqueia o cadastro se o plano não existir
+      await ensureAssinaturaPadrao(user.id, plano_slug || null).catch((e) =>
+        console.warn(`[register] ensureAssinatura: ${e.message}`)
       );
 
       const send = await createAndSendVerification(user.id, canal, {

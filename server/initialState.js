@@ -32,10 +32,34 @@ function defaultContasPJ() {
 
 function defaultPlanoPJ() {
   return [
-    { id: id(), codigo: "1.1.001", classificacao: "RECEITA",  descricao: "Receitas Operacionais",   tipo: "Receita",  natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.1.001", classificacao: "CUSTO",    descricao: "Custos Operacionais",      tipo: "Custo",    natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "3.1.001", classificacao: "DESPESA",  descricao: "Despesas Administrativas", tipo: "Despesa",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "4.1.001", classificacao: "IMPOSTO",  descricao: "Simples Nacional",         tipo: "Imposto",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
+    // ── Receitas ──────────────────────────────────────────────────────────
+    { id: id(), codigo: "1.1.001", classificacao: "RECEITA",  descricao: "Vendas de Produtos",       tipo: "Receita",  icone: "📦", cor: "oklch(0.55 0.14 150)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.1.002", classificacao: "RECEITA",  descricao: "Serviços Prestados",       tipo: "Receita",  icone: "🤝", cor: "oklch(0.55 0.18 163)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.1.003", classificacao: "RECEITA",  descricao: "Comissões Recebidas",      tipo: "Receita",  icone: "💰", cor: "oklch(0.60 0.16 145)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.1.004", classificacao: "RECEITA",  descricao: "Receitas Financeiras",     tipo: "Receita",  icone: "📈", cor: "oklch(0.52 0.17 240)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.1.005", classificacao: "RECEITA",  descricao: "Outras Receitas",          tipo: "Receita",  icone: "💳", cor: "oklch(0.55 0.14 150)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    // ── Custos ────────────────────────────────────────────────────────────
+    { id: id(), codigo: "2.1.001", classificacao: "CUSTO",    descricao: "Custo de Mercadoria",      tipo: "Custo",    icone: "🛒", cor: "oklch(0.65 0.18 50)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.1.002", classificacao: "CUSTO",    descricao: "Custo de Serviços",        tipo: "Custo",    icone: "🔧", cor: "oklch(0.62 0.18 40)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.1.003", classificacao: "CUSTO",    descricao: "Matéria-Prima",            tipo: "Custo",    icone: "🏭", cor: "oklch(0.58 0.16 50)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.1.004", classificacao: "CUSTO",    descricao: "Frete / Logística",        tipo: "Custo",    icone: "🚚", cor: "oklch(0.50 0.03 220)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    // ── Despesas ──────────────────────────────────────────────────────────
+    { id: id(), codigo: "3.1.001", classificacao: "DESPESA",  descricao: "Folha de Pagamento",       tipo: "Despesa",  icone: "👥", cor: "oklch(0.58 0.22 27)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.002", classificacao: "DESPESA",  descricao: "Pró-Labore",               tipo: "Despesa",  icone: "👤", cor: "oklch(0.55 0.20 27)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.003", classificacao: "DESPESA",  descricao: "Aluguel",                  tipo: "Despesa",  icone: "🏠", cor: "oklch(0.50 0.03 220)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.004", classificacao: "DESPESA",  descricao: "Energia / Água / Telecom", tipo: "Despesa",  icone: "💡", cor: "oklch(0.70 0.15 75)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.005", classificacao: "DESPESA",  descricao: "Marketing / Publicidade",  tipo: "Despesa",  icone: "📊", cor: "oklch(0.52 0.17 240)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.006", classificacao: "DESPESA",  descricao: "TI / Software",            tipo: "Despesa",  icone: "💻", cor: "oklch(0.52 0.17 260)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.007", classificacao: "DESPESA",  descricao: "Contabilidade / Jurídico", tipo: "Despesa",  icone: "⚖️", cor: "oklch(0.55 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.008", classificacao: "DESPESA",  descricao: "Manutenção / Reparos",     tipo: "Despesa",  icone: "🛠️", cor: "oklch(0.50 0.03 220)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.009", classificacao: "DESPESA",  descricao: "Viagens / Deslocamento",   tipo: "Despesa",  icone: "✈️", cor: "oklch(0.50 0.10 230)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.010", classificacao: "DESPESA",  descricao: "Despesas Bancárias",       tipo: "Despesa",  icone: "🏦", cor: "oklch(0.55 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "3.1.011", classificacao: "DESPESA",  descricao: "Outras Despesas",          tipo: "Despesa",  icone: "📎", cor: "oklch(0.50 0.03 220)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    // ── Impostos ──────────────────────────────────────────────────────────
+    { id: id(), codigo: "4.1.001", classificacao: "IMPOSTO",  descricao: "Simples Nacional",         tipo: "Imposto",  icone: "📋", cor: "oklch(0.55 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "4.1.002", classificacao: "IMPOSTO",  descricao: "IRPJ / CSLL",              tipo: "Imposto",  icone: "🏦", cor: "oklch(0.52 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "4.1.003", classificacao: "IMPOSTO",  descricao: "PIS / COFINS",             tipo: "Imposto",  icone: "📄", cor: "oklch(0.50 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "4.1.004", classificacao: "IMPOSTO",  descricao: "ISS / ICMS / IPI",         tipo: "Imposto",  icone: "🧾", cor: "oklch(0.48 0.01 0)",   natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
   ];
 }
 
@@ -72,18 +96,26 @@ function defaultContasPF() {
 
 function defaultCategoriasPF() {
   return [
-    { id: id(), codigo: "1.1", classificacao: "RECEITA", descricao: "Salário",             tipo: "Receita", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "1.2", classificacao: "RECEITA", descricao: "Freelance",           tipo: "Receita", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "1.3", classificacao: "RECEITA", descricao: "Investimentos",       tipo: "Receita", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "1.4", classificacao: "RECEITA", descricao: "Outros Recebimentos", tipo: "Receita", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.1", classificacao: "DESPESA", descricao: "Moradia",             tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.2", classificacao: "DESPESA", descricao: "Alimentação",         tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.3", classificacao: "DESPESA", descricao: "Transporte",          tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.4", classificacao: "DESPESA", descricao: "Saúde",               tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.5", classificacao: "DESPESA", descricao: "Educação",            tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.6", classificacao: "DESPESA", descricao: "Lazer",               tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.7", classificacao: "DESPESA", descricao: "Vestuário",           tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
-    { id: id(), codigo: "2.8", classificacao: "DESPESA", descricao: "Outros Gastos",       tipo: "Despesa", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true },
+    // ── Receitas ──────────────────────────────────────────────────────────
+    { id: id(), codigo: "1.1",  classificacao: "RECEITA", descricao: "Salário",               tipo: "Receita", icone: "💰", cor: "oklch(0.55 0.14 150)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.2",  classificacao: "RECEITA", descricao: "Freelance",             tipo: "Receita", icone: "🤝", cor: "oklch(0.55 0.18 163)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.3",  classificacao: "RECEITA", descricao: "Investimentos",         tipo: "Receita", icone: "📈", cor: "oklch(0.52 0.17 240)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.4",  classificacao: "RECEITA", descricao: "Aluguel Recebido",      tipo: "Receita", icone: "🏘️", cor: "oklch(0.55 0.16 155)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "1.5",  classificacao: "RECEITA", descricao: "Outros Recebimentos",   tipo: "Receita", icone: "💳", cor: "oklch(0.55 0.14 150)", natureza: "Credito", caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    // ── Despesas ──────────────────────────────────────────────────────────
+    { id: id(), codigo: "2.1",  classificacao: "DESPESA", descricao: "Moradia",               tipo: "Despesa", icone: "🏠", cor: "oklch(0.55 0.17 240)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.2",  classificacao: "DESPESA", descricao: "Alimentação",           tipo: "Despesa", icone: "🍔", cor: "oklch(0.65 0.18 50)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.3",  classificacao: "DESPESA", descricao: "Transporte",            tipo: "Despesa", icone: "🚗", cor: "oklch(0.50 0.13 230)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.4",  classificacao: "DESPESA", descricao: "Saúde",                 tipo: "Despesa", icone: "💊", cor: "oklch(0.55 0.14 150)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.5",  classificacao: "DESPESA", descricao: "Educação",              tipo: "Despesa", icone: "📚", cor: "oklch(0.52 0.18 280)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.6",  classificacao: "DESPESA", descricao: "Lazer / Entretenimento",tipo: "Despesa", icone: "🎭", cor: "oklch(0.58 0.20 330)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.7",  classificacao: "DESPESA", descricao: "Vestuário",             tipo: "Despesa", icone: "👗", cor: "oklch(0.60 0.16 310)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.8",  classificacao: "DESPESA", descricao: "Assinaturas",           tipo: "Despesa", icone: "💻", cor: "oklch(0.55 0.17 240)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.9",  classificacao: "DESPESA", descricao: "Academia / Esporte",    tipo: "Despesa", icone: "💪", cor: "oklch(0.65 0.18 50)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.10", classificacao: "DESPESA", descricao: "Pets",                  tipo: "Despesa", icone: "🐾", cor: "oklch(0.62 0.16 50)",  natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.11", classificacao: "DESPESA", descricao: "Viagens",               tipo: "Despesa", icone: "✈️", cor: "oklch(0.50 0.10 230)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.12", classificacao: "DESPESA", descricao: "Presentes / Doações",   tipo: "Despesa", icone: "🎁", cor: "oklch(0.58 0.20 330)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
+    { id: id(), codigo: "2.13", classificacao: "DESPESA", descricao: "Outros Gastos",         tipo: "Despesa", icone: "📎", cor: "oklch(0.50 0.03 220)", natureza: "Debito",  caixaBanco: "", contaContabil: "", inativo: false, usarSaldo: true, sistema: true },
   ];
 }
 
@@ -123,6 +155,18 @@ function defaultPessoa(nome) {
 const isValidAppState = (dados) =>
   dados && Array.isArray(dados.empresas) && dados.empresas.length > 0;
 
+/**
+ * Adiciona categorias padrão que ainda não existem no plano do usuário.
+ * Espelha migratePlanoContas() do frontend (storage.js).
+ */
+function migratePlanoContas(plano, defaults) {
+  const existingKeys = new Set((plano || []).map((p) => p.descricao.toLowerCase().trim()));
+  const toAdd = defaults.filter(
+    (d) => !existingKeys.has(d.descricao.toLowerCase().trim())
+  ).map((d) => ({ ...d, id: randomUUID() }));
+  return [...(plano || []), ...toAdd];
+}
+
 /** Une listas de todas as empresas (evita perder categorias/contas em slots legados). */
 function mergeEmpresaField(empresas, field) {
   const merged = [];
@@ -161,12 +205,13 @@ export function normalizeStateForUser(dados, user) {
     const mergedOrcCentros = mergeEmpresaField(empresas, 'orcamentosCentros');
     const mergedOrcProjetos = mergeEmpresaField(empresas, 'orcamentosProjetos');
     const mergedPlanoRaw = mergeEmpresaField(empresas, 'planoContas');
-    const mergedPlano = selectPlanoContasForPf(
+    const mergedPlanoSelecionado = selectPlanoContasForPf(
       mergedPlanoRaw,
       empresas,
       empresas.flatMap((e) => e.lancamentos || []),
       defaultCategoriasPF
     );
+    const mergedPlano = migratePlanoContas(mergedPlanoSelecionado, defaultCategoriasPF());
     const mergedContas = mergeEmpresaField(empresas, 'contas');
     const mergedClientes = mergeEmpresaField(empresas, 'clientes');
     const mergedFornecedores = mergeEmpresaField(empresas, 'fornecedores');
@@ -229,7 +274,11 @@ export function normalizeStateForUser(dados, user) {
     return { ...dados, empresas: [converted], empresaAtivaId: converted.id };
   }
 
-  const mergedPlanoPj = mergeEmpresaField(empresas, 'planoContas');
+  const mergedPlanoPjRaw = mergeEmpresaField(empresas, 'planoContas');
+  const mergedPlanoPj = migratePlanoContas(
+    mergedPlanoPjRaw.length ? mergedPlanoPjRaw : null,
+    defaultPlanoPJ()
+  );
   const mergedContasPj = mergeEmpresaField(empresas, 'contas');
   const mergedClientesPj = mergeEmpresaField(empresas, 'clientes');
   const mergedFornecedoresPj = mergeEmpresaField(empresas, 'fornecedores');
@@ -244,9 +293,7 @@ export function normalizeStateForUser(dados, user) {
       contas: mergedContasPj.length
         ? mergedContasPj
         : (emp.contas?.length ? emp.contas : defaultContasPJ()),
-      planoContas: mergedPlanoPj.length
-        ? mergedPlanoPj
-        : (emp.planoContas?.length ? emp.planoContas : defaultPlanoPJ()),
+      planoContas: mergedPlanoPj.length ? mergedPlanoPj : defaultPlanoPJ(),
       lancamentos: emp.lancamentos || [],
       clientes: mergedClientesPj.length ? mergedClientesPj : (emp.clientes || []),
       fornecedores: mergedFornecedoresPj.length

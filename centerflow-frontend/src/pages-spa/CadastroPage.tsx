@@ -79,11 +79,19 @@ function planTypeFromKey(key: PlanKey): "PF" | "PJ" {
   return PLANS[key].type;
 }
 
-/** Detecta plano vindo de ?plan=PF_PLUS na query string. */
+/** Detecta plano vindo de ?plan=PF_PLUS (ou pf_plus) na query string. */
 function detectInitialPlan(): PlanKey {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get("plan")?.toUpperCase() as PlanKey | undefined;
   return raw && PLAN_KEYS.includes(raw) ? raw : "PF_PLUS";
+}
+
+function detectInitialPhone(): string {
+  return new URLSearchParams(window.location.search).get("phone") ?? "";
+}
+
+function detectWhatsappSource(): string {
+  return new URLSearchParams(window.location.search).get("source") ?? "";
 }
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
@@ -155,7 +163,8 @@ export default function CadastroPage() {
 
   // Formulário step 0
   const [nome,     setNome]     = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [whatsapp, setWhatsapp] = useState(detectInitialPhone);
+  const [whatsappSource]        = useState(detectWhatsappSource);
   const [email,    setEmail]    = useState("");
   const [emailCon, setEmailCon] = useState("");
   const [senha,    setSenha]    = useState("");
@@ -204,20 +213,25 @@ export default function CadastroPage() {
     setError(null);
     setLoading(true);
     try {
+      const phoneDigits = whatsapp.replace(/\D/g, "");
+      const isWhatsappLead = whatsappSource === "whatsapp" && phoneDigits.length >= 10;
+
       const res = await register({
         nome:        nome.trim(),
         email:       email.trim().toLowerCase(),
         senha,
         tipo_perfil: tipo === "PF" ? "fisica" : "juridica",
-        nome_perfil: nome.trim(),          // backend requer; pode ser atualizado depois
-        telefone:    whatsapp.replace(/\D/g, ""),
+        nome_perfil: nome.trim(),
+        telefone:    phoneDigits,
+        plano_slug:  plan.toLowerCase(),
+        ...(isWhatsappLead
+          ? { whatsapp_phone: phoneDigits, whatsapp_source: "whatsapp" }
+          : {}),
       });
 
-      // Salvar plano localmente (backend não persiste plan_type ainda)
       savePendingPlan(plan);
-
       setRegEmail(res.email);
-      setStep(3); // ir para etapa de verificação
+      setStep(3);
     } catch (err) {
       setError((err as ApiError).message || "Erro ao criar conta. Tente novamente.");
     } finally {
