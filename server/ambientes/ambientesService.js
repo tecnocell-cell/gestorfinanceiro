@@ -1,4 +1,5 @@
 import { query } from '../db.js';
+import { createInitialState } from '../initialState.js';
 
 /**
  * Garante que o usuário tem ao menos um ambiente financeiro.
@@ -24,7 +25,6 @@ export async function ensureAmbientePrincipal(usuarioId, tipoPerfil, nomePerfil)
 
   if (created.length) return created[0];
 
-  // Caso de corrida — busca o que foi criado pela outra request
   const { rows: existing } = await query(
     `SELECT id FROM ambientes_financeiros WHERE usuario_id = $1 AND ativo = true LIMIT 1`,
     [usuarioId]
@@ -83,9 +83,144 @@ export async function createAmbiente(usuarioId, { nome, tipo = 'outro', icone, c
 }
 
 /**
- * Injeta ambienteAtualId válido nos dados do estado, sem modificar dados financeiros.
- * Retorna os dados com ambienteAtualId garantidamente preenchido.
+ * Injeta ambienteAtualId válido nos dados do estado.
  */
 export function setAmbienteAtualNoEstado(dados, ambienteId) {
   return { ...dados, ambienteAtualId: ambienteId };
+}
+
+// ─── Fase 2: Isolamento real dos ambientes ────────────────────────────────────
+
+/**
+ * Mapeia tipo de ambiente para tipo_perfil do initialState.
+ */
+function tipoAmbienteToTipoPerfil(tipoAmbiente) {
+  if (tipoAmbiente === 'pessoal') return 'fisica';
+  return 'juridica'; // empresa | outro → PJ
+}
+
+/**
+ * Cria estrutura de dados vazia para um novo ambiente.
+ * Retorna o objeto empresas[0] (sem o wrapper { empresas, empresaAtivaId }).
+ */
+export function buildEmptyAmbienteData(tipoAmbiente, nome) {
+  const tipoPerfil = tipoAmbienteToTipoPerfil(tipoAmbiente);
+  const state = createInitialState(tipoPerfil, nome || 'Novo Ambiente');
+  return state.empresas[0];
+}
+
+/**
+ * Migra dados planos (estrutura antiga) para porAmbiente.
+ * Idempotente: retorna o mesmo dados se porAmbiente já existir.
+ */
+export function migrateToMultiambiente(dados, ambienteAtualId) {
+  if (dados.porAmbiente) return dados;
+  const empresa = (dados.empresas || [])[0];
+  if (!empresa || !ambienteAtualId) return dados;
+
+  return {
+    ...dados,
+    porAmbiente: { [ambienteAtualId]: empresa },
+  };
+}
+
+/**
+ * Reconstrói dados.empresas como view do ambiente atual.
+ * Deve ser chamado após migrateToMultiambiente.
+ */
+export function rebuildEmpresasView(dados) {
+  if (!dados.porAmbiente || !dados.ambienteAtualId) return dados;
+
+  let ambienteAtualId = dados.ambienteAtualId;
+  let ambData = dados.porAmbiente[ambienteAtualId];
+
+  if (!ambData) {
+    // Fallback para primeiro disponível
+    const firstId = Object.keys(dados.porAmbiente)[0];
+    if (!firstId) return dados;
+    ambienteAtualId = firstId;
+    ambData = dados.porAmbiente[firstId];
+  }
+
+  return {
+    ...dados,
+    ambienteAtualId,
+    empresas: [ambData],
+    empresaAtivaId: ambData.id,
+  };
+}
+
+/**
+ * Sincroniza empresas[0] (após normalização) de volta para porAmbiente[ambienteAtualId].
+ * Mantém porAmbiente e empresas[] sempre em sincronia.
+ */
+export function syncPortAmbienteFromView(dados) {
+  if (!dados.porAmbiente || !dados.ambienteAtualId) return dados;
+  const emp = (dados.empresas || [])[0];
+  if (!emp) return dados;
+  return {
+    ...dados,
+    porAmbiente: {
+      ...dados.porAmbiente,
+      [dados.ambienteAtualId]: emp,
+    },
+  };
+}
+
+/**
+ * Aplica dados do ambiente atual (incoming PUT) ao estado armazenado,
+ * preservando dados de outros ambientes.
+ */
+export function mergeAmbienteIntoStored(storedDados, incomingEmpresa, ambienteAtualId, filterPeriodo) {
+  if (!incomingEmpresa || !ambienteAtualId) return storedDados;
+
+  const basePorAmbiente = storedDados.porAmbiente || {};
+
+  return {
+    ...storedDados,
+    porAmbiente: {
+      ...basePorAmbiente,
+      [ambienteAtualId]: incomingEmpresa,
+    },
+    empresas: [incomingEmpresa],
+    empresaAtivaId: incomingEmpresa.id,
+    ambienteAtualId,
+    filterPeriodo: filterPeriodo || storedDados.filterPeriodo,
+  };
+}
+
+/**
+ * Inicializa porAmbiente[ambienteId] no estado do usuário com dados vazios.
+ * Chamado ao criar novo ambiente.
+ */
+export async function initializeAmbienteInState(usuarioId, ambienteId, tipoAmbiente, nome) {
+  const { rows } = await query(
+    'SELECT dados FROM estados WHERE usuario_id = $1',
+    [usuarioId]
+  );
+  if (!rows.length) return;
+
+  const dados = rows[0].dados;
+  const emptyData = buildEmptyAmbienteData(tipoAmbiente, nome);
+
+  // Garante que porAmbiente existe (migra se necessário)
+  const ambienteAtualId = dados.ambienteAtualId;
+  let base = dados;
+  if (!base.porAmbiente && ambienteAtualId && base.empresas?.[0]) {
+    base = migrateToMultiambiente(base, ambienteAtualId);
+    base = syncPortAmbienteFromView(base);
+  }
+
+  const updated = {
+    ...base,
+    porAmbiente: {
+      ...(base.porAmbiente || {}),
+      [ambienteId]: emptyData,
+    },
+  };
+
+  await query(
+    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+    [JSON.stringify(updated), usuarioId]
+  );
 }

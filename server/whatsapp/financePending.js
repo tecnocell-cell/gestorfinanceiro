@@ -202,13 +202,21 @@ export async function confirmPendingLancamento(usuarioId, pending) {
     source: "whatsapp",
   };
 
+  const updatedEmpresa = { ...empresa, lancamentos: [...lancamentos, lancamento] };
   const novasEmpresas = empresas.map((e, i) =>
-    i === empresaIdx ? { ...e, lancamentos: [...lancamentos, lancamento] } : e
+    i === empresaIdx ? updatedEmpresa : e
   );
+
+  // Fase 2: sincroniza porAmbiente para manter isolamento de dados
+  const ambienteAtualId = dados.ambienteAtualId;
+  const updatedPorAmbiente =
+    dados.porAmbiente && ambienteAtualId
+      ? { ...dados.porAmbiente, [ambienteAtualId]: updatedEmpresa }
+      : dados.porAmbiente;
 
   await query(
     "UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2",
-    [JSON.stringify({ ...dados, empresas: novasEmpresas }), usuarioId]
+    [JSON.stringify({ ...dados, empresas: novasEmpresas, porAmbiente: updatedPorAmbiente }), usuarioId]
   );
 
   await deletePending(usuarioId);

@@ -67,6 +67,10 @@ import {
   listAmbientes,
   getAmbientePrincipal,
   setAmbienteAtualNoEstado,
+  migrateToMultiambiente,
+  rebuildEmpresasView,
+  syncPortAmbienteFromView,
+  mergeAmbienteIntoStored,
 } from "./ambientes/ambientesService.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -271,27 +275,70 @@ app.get("/api/auth/me", authMiddleware, activeMiddleware, attachEmpresaContext, 
   }
 });
 
-// ─── Multiambiente: helper para injetar ambientes no state retornado ─────────
-async function injectAmbientesNoState(dados, usuarioId, profile) {
-  try {
-    const ambiente = await ensureAmbientePrincipal(
-      usuarioId,
-      profile?.tipo_perfil || "juridica",
-      profile?.nome_perfil || profile?.nome
-    );
-    const ambientes = await listAmbientes(usuarioId);
-    const principal = ambiente || await getAmbientePrincipal(usuarioId);
+// ─── Multiambiente: helpers de estado ────────────────────────────────────────
 
-    const ambienteAtualId =
-      dados.ambienteAtualId && ambientes.some((a) => a.id === dados.ambienteAtualId)
-        ? dados.ambienteAtualId
-        : principal?.id || null;
+/**
+ * Mapeia tipo de ambiente para tipo_perfil de normalização.
+ * pessoal → fisica (PF), empresa/outro → juridica (PJ).
+ */
+function tipoAmbienteParaTipoPerfil(tipoAmbiente) {
+  return tipoAmbiente === "pessoal" ? "fisica" : "juridica";
+}
 
-    return { ...dados, ambientes, ambienteAtualId };
-  } catch (err) {
-    console.warn("[injectAmbientesNoState]", err.message);
-    return dados;
+/**
+ * Retorna um profile de normalização cujo tipo_perfil reflete o tipo do ambiente,
+ * não o tipo_perfil original do usuário.
+ */
+function profileParaAmbiente(profile, tipoAmbiente) {
+  return { ...profile, tipo_perfil: tipoAmbienteParaTipoPerfil(tipoAmbiente) };
+}
+
+/**
+ * Prepara o estado para multi-ambiente ANTES das normalizações:
+ * - garante ambiente principal
+ * - migra estrutura plana → porAmbiente (se necessário)
+ * - reconstrói empresas[] como view do ambiente atual
+ * Retorna { dados, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual }
+ */
+async function prepareMultiambienteState(dados, usuarioId, profile) {
+  const ambiente = await ensureAmbientePrincipal(
+    usuarioId,
+    profile?.tipo_perfil || "juridica",
+    profile?.nome_perfil || profile?.nome
+  );
+  const ambientes = await listAmbientes(usuarioId);
+  const principal = ambiente || await getAmbientePrincipal(usuarioId);
+
+  let ambienteAtualId =
+    dados.ambienteAtualId && ambientes.some((a) => a.id === dados.ambienteAtualId)
+      ? dados.ambienteAtualId
+      : principal?.id || null;
+
+  const ambienteAtual = ambientes.find((a) => a.id === ambienteAtualId);
+  const tipoAmbienteAtual = ambienteAtual?.tipo || "pessoal";
+
+  // Fase 2: migração de estrutura plana → porAmbiente
+  let needsMigrationSave = false;
+  let prepared = dados;
+  if (!dados.porAmbiente && ambienteAtualId) {
+    prepared = migrateToMultiambiente(dados, ambienteAtualId);
+    needsMigrationSave = true;
   }
+  prepared = { ...prepared, ambienteAtualId };
+
+  // Reconstrói empresas[] a partir do ambiente atual
+  prepared = rebuildEmpresasView(prepared);
+
+  return { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual };
+}
+
+/**
+ * Injeta lista de ambientes no estado retornado ao cliente.
+ * Remove porAmbiente do payload (cliente não precisa).
+ */
+function finalizeStateResponse(dados, ambientes, ambienteAtualId) {
+  const { porAmbiente: _p, ...rest } = dados;
+  return { ...rest, ambientes, ambienteAtualId };
 }
 
 // ─── Estado do App (protegido + conta ativa) ──────────────────────────────────
@@ -319,43 +366,65 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
       };
     };
 
-    const isValid = (dados) => dados && Array.isArray(dados.empresas) && dados.empresas.length > 0;
+    const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
 
     if (!rows.length) {
       const { profile, state: initialState } = await loadProfile();
+      const { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave } =
+        await prepareMultiambienteState(initialState, stateOwnerId, profile);
+      let toStore = needsMigrationSave ? syncPortAmbienteFromView(prepared) : prepared;
       await query(
         "INSERT INTO estados (usuario_id, dados) VALUES ($1, $2)",
-        [stateOwnerId, JSON.stringify(initialState)]
+        [stateOwnerId, JSON.stringify(toStore)]
       );
-      const initialWithAmbientes = await injectAmbientesNoState(initialState, stateOwnerId, profile);
-      return res.json({ dados: initialWithAmbientes, profile });
+      return res.json({ dados: finalizeStateResponse(prepared, ambientes, ambienteAtualId), profile });
     }
 
     let dados = rows[0].dados;
+    const { profile } = await loadProfile();
+
+    // ── Fase 2: preparar multi-ambiente ANTES de normalizar ──────────────────
+    const { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual } =
+      await prepareMultiambienteState(dados, stateOwnerId, profile);
+    dados = prepared;
+
+    // Profile de normalização: tipo_perfil derivado do tipo do ambiente (não do usuário)
+    const profileNorm = profileParaAmbiente(profile, tipoAmbienteAtual);
+
     if (isValid(dados)) {
       dados = normalizeMoneyInState(dados);
     }
     if (!isValid(dados)) {
-      const { profile, state: initialState } = await loadProfile();
+      const tipoPerfil = tipoAmbienteParaTipoPerfil(tipoAmbienteAtual);
+      const nomeAmbiente = profile?.nome_perfil || profile?.nome || "Perfil";
+      const initialState = createInitialState(tipoPerfil, nomeAmbiente);
+      const reset = syncPortAmbienteFromView(
+        rebuildEmpresasView(migrateToMultiambiente(initialState, ambienteAtualId))
+      );
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
-        [stateOwnerId, JSON.stringify(initialState)]
+        [stateOwnerId, JSON.stringify(reset)]
       );
-      const initialWithAmbientes = await injectAmbientesNoState(initialState, stateOwnerId, profile);
-      return res.json({ dados: initialWithAmbientes, profile });
+      return res.json({ dados: finalizeStateResponse(reset, ambientes, ambienteAtualId), profile });
     }
 
-    const { profile } = await loadProfile();
-    let normalized = normalizeStateForUser(dados, profile);
+    let normalized = normalizeStateForUser(dados, profileNorm);
     const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, stateOwnerId);
     const stripped = stripLancamentosIntegracaoRollback(normalized, rollbackIds);
     if (stripped !== normalized) {
-      normalized = normalizeStateForUser(stripped, profile);
+      normalized = normalizeStateForUser(stripped, profileNorm);
     }
-    const planoAntes = countPlanoContas(dados);
+
+    // ── Fase 2: sincronizar empresas[0] → porAmbiente após normalização ──────
+    normalized = syncPortAmbienteFromView(normalized);
+
+    const rawDados = rows[0].dados;
+    const planoAntes = countPlanoContas(rawDados);
     const planoDepois = countPlanoContas(normalized);
     const normalizeSeguro = planoDepois >= planoAntes;
-    if (normalizeSeguro && JSON.stringify(normalized) !== JSON.stringify(dados)) {
+    const dadosChanged = JSON.stringify(normalized) !== JSON.stringify(rawDados);
+
+    if (normalizeSeguro && (dadosChanged || needsMigrationSave)) {
       await query(
         `UPDATE estados SET dados = $2, updated_at = NOW() WHERE usuario_id = $1`,
         [stateOwnerId, JSON.stringify(normalized)]
@@ -365,12 +434,10 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
         `GET /state usuario ${stateOwnerId}: normalização ignorada (planoContas ${planoAntes} → ${planoDepois})`
       );
       normalized = dados;
+      normalized = syncPortAmbienteFromView(normalized);
     }
 
-    // ── Fase 1 Multiambiente: injetar ambientes no estado retornado ─────────────
-    normalized = await injectAmbientesNoState(normalized, stateOwnerId, profile);
-
-    res.json({ dados: normalized, profile });
+    res.json({ dados: finalizeStateResponse(normalized, ambientes, ambienteAtualId), profile });
   } catch (err) {
     console.error("get state:", err.message);
     res.status(500).json({ error: "Erro ao carregar estado." });
@@ -398,13 +465,26 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
       nome_perfil: u?.nome_perfil || u?.nome,
       nome: u?.nome,
     };
+
+    // Determina tipo do ambiente atual para normalização correta
+    const ambienteAtualIdPut = dados.ambienteAtualId;
+    let tipoAmbientePut = "pessoal";
+    if (ambienteAtualIdPut) {
+      const { rows: ambRows } = await query(
+        "SELECT tipo FROM ambientes_financeiros WHERE id = $1 AND usuario_id = $2",
+        [ambienteAtualIdPut, stateOwnerId]
+      );
+      tipoAmbientePut = ambRows[0]?.tipo || "pessoal";
+    }
+    const profileNorm = profileParaAmbiente(profile, tipoAmbientePut);
+
     const isValid = (d) => d && Array.isArray(d.empresas) && d.empresas.length > 0;
     let toSave = isValid(dados) ? normalizeMoneyInState(dados) : dados;
-    toSave = isValid(toSave) ? normalizeStateForUser(toSave, profile) : toSave;
+    toSave = isValid(toSave) ? normalizeStateForUser(toSave, profileNorm) : toSave;
     const rollbackIds = await fetchRollbackIntegracaoLancamentoIds(query, stateOwnerId);
     toSave = stripLancamentosIntegracaoRollback(toSave, rollbackIds);
     if (isValid(toSave)) {
-      toSave = normalizeStateForUser(toSave, profile);
+      toSave = normalizeStateForUser(toSave, profileNorm);
     }
 
     const { rows: oldStateRows } = await query(
@@ -415,7 +495,7 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     if (serverDados && isValid(toSave)) {
       toSave = preserveIntegracaoLancamentosFromServer(serverDados, toSave);
       if (isValid(toSave)) {
-        toSave = normalizeStateForUser(toSave, profile);
+        toSave = normalizeStateForUser(toSave, profileNorm);
       }
     }
     const validation = await validateStateSave(
@@ -432,12 +512,33 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
       });
     }
 
+    // ── Fase 2: salvar somente no ambiente atual, preservando outros ambientes ─
+    const ambienteAtualId = ambienteAtualIdPut || serverDados?.ambienteAtualId;
+    const empresaAtual = (toSave.empresas || [])[0];
+    let finalToStore = toSave;
+    if (ambienteAtualId && empresaAtual && serverDados) {
+      // Migra serverDados se ainda não tiver porAmbiente
+      const migratedServer = serverDados.porAmbiente
+        ? serverDados
+        : migrateToMultiambiente(serverDados, ambienteAtualId);
+
+      finalToStore = mergeAmbienteIntoStored(
+        migratedServer,
+        empresaAtual,
+        ambienteAtualId,
+        toSave.filterPeriodo
+      );
+    } else {
+      // Fallback: sync porAmbiente a partir da view (usuário sem ambienteAtualId)
+      finalToStore = syncPortAmbienteFromView(toSave);
+    }
+
     await query(
       `INSERT INTO estados (usuario_id, dados)
        VALUES ($1, $2)
        ON CONFLICT (usuario_id)
        DO UPDATE SET dados = $2, updated_at = NOW()`,
-      [stateOwnerId, JSON.stringify(toSave)]
+      [stateOwnerId, JSON.stringify(finalToStore)]
     );
     res.json({ ok: true });
   } catch (err) {
