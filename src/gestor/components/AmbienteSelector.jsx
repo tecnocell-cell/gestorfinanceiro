@@ -1,67 +1,82 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useAuth } from "../AuthContext.jsx";
 
-const TIPOS = [
-  { value: "pessoal", label: "Pessoal" },
-  { value: "empresa", label: "Empresa" },
-];
+const ICONE = { pessoal: "🏠", empresa: "🏢" };
 
-/**
- * Seletor de ambiente financeiro + botão de criação.
- * O seletor só aparece quando o usuário tem mais de 1 ambiente.
- * O botão "Novo ambiente" aparece sempre (para criar o segundo).
- */
+function iconeAmbiente(tipo) {
+  return ICONE[tipo] || "🏢";
+}
+
 export default function AmbienteSelector() {
   const { state, setState, reloadAppState } = useGestor();
   const { token } = useAuth();
-  const [creating, setCreating] = useState(false);
-  const [switching, setSwitching] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [novoNome, setNovoNome] = useState("");
-  const [novoTipo, setNovoTipo] = useState("empresa");
-  const [erro, setErro] = useState("");
 
-  const ambientes = state?.ambientes;
+  const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [nome, setNome] = useState("");
+  const [segmento, setSegmento] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [erro, setErro] = useState("");
+  const dropdownRef = useRef(null);
+
+  const ambientes = state?.ambientes ?? [];
   const ambienteAtualId = state?.ambienteAtualId;
+  const ambienteAtual = ambientes.find((a) => a.id === ambienteAtualId);
 
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
-  const handleChangeAmbiente = useCallback(async (e) => {
-    const novoId = e.target.value;
-    if (novoId === ambienteAtualId || switching) return;
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+        setShowForm(false);
+      }
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  const selecionar = useCallback(async (id) => {
+    if (id === ambienteAtualId || switching) return;
     setSwitching(true);
+    setOpen(false);
     try {
-      await fetch(`/api/ambientes/${novoId}/selecionar`, {
+      await fetch(`/api/ambientes/${id}/selecionar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
       });
-      // Atualiza ambienteAtualId localmente e recarrega estado completo
-      setState((prev) => ({ ...prev, ambienteAtualId: novoId }));
+      setState((prev) => ({ ...prev, ambienteAtualId: id }));
       await reloadAppState({ skipFlush: false });
-    } catch {
-      // silencioso
     } finally {
       setSwitching(false);
     }
   }, [ambienteAtualId, switching, setState, reloadAppState, authHeader]);
 
-  const handleCriarAmbiente = useCallback(async () => {
-    if (!novoNome.trim()) { setErro("Informe o nome do ambiente."); return; }
+  const criarEmpresa = useCallback(async () => {
+    if (!nome.trim()) { setErro("Informe o nome da empresa."); return; }
     setErro("");
     setCreating(true);
     try {
       const res = await fetch("/api/ambientes", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ nome: novoNome.trim(), tipo: novoTipo }),
+        body: JSON.stringify({
+          nome: nome.trim(),
+          tipo: "empresa",
+          ...(cnpj.trim() ? { cnpj: cnpj.trim() } : {}),
+          ...(segmento.trim() ? { segmento: segmento.trim() } : {}),
+        }),
       });
       const data = await res.json();
-      if (!res.ok) { setErro(data.error || "Erro ao criar ambiente."); return; }
+      if (!res.ok) { setErro(data.error || "Erro ao criar empresa."); return; }
 
       const novoId = data.ambiente?.id;
       if (novoId) {
-        // Seleciona o novo ambiente e recarrega
         await fetch(`/api/ambientes/${novoId}/selecionar`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeader },
@@ -69,90 +84,119 @@ export default function AmbienteSelector() {
         setState((prev) => ({ ...prev, ambienteAtualId: novoId }));
         await reloadAppState({ skipFlush: false });
       }
-      setShowModal(false);
-      setNovoNome("");
-      setNovoTipo("empresa");
+      setShowForm(false);
+      setOpen(false);
+      setNome("");
+      setSegmento("");
+      setCnpj("");
     } catch {
-      setErro("Erro ao criar ambiente. Tente novamente.");
+      setErro("Erro ao criar empresa. Tente novamente.");
     } finally {
       setCreating(false);
     }
-  }, [novoNome, novoTipo, setState, reloadAppState, authHeader]);
+  }, [nome, segmento, cnpj, setState, reloadAppState, authHeader]);
 
-  const temMultiplos = Array.isArray(ambientes) && ambientes.length > 1;
+  if (!ambientes.length) return null;
+
+  const labelAtual = ambienteAtual
+    ? `${iconeAmbiente(ambienteAtual.tipo)} ${ambienteAtual.nome}`
+    : "Minhas Finanças";
 
   return (
-    <>
-      <div className="ambiente-selector">
-        {temMultiplos && (
-          <select
-            value={ambienteAtualId || ""}
-            onChange={handleChangeAmbiente}
-            disabled={switching}
-            aria-label="Selecionar ambiente financeiro"
-            className="ambiente-selector__select"
-          >
-            {ambientes.map((a) => (
-              <option key={a.id} value={a.id}>{a.nome}</option>
-            ))}
-          </select>
-        )}
-        <button
-          type="button"
-          className="ambiente-selector__novo"
-          onClick={() => { setShowModal(true); setErro(""); }}
-          title="Novo ambiente financeiro"
-          aria-label="Criar novo ambiente"
-        >
-          + Ambiente
-        </button>
-      </div>
+    <div className="amb-selector" ref={dropdownRef}>
+      {/* Botão principal — mostra seleção atual */}
+      <button
+        type="button"
+        className={`amb-selector__trigger${switching ? " amb-selector__trigger--loading" : ""}`}
+        onClick={() => { setOpen((v) => !v); setShowForm(false); }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={switching}
+      >
+        <span className="amb-selector__label">{labelAtual}</span>
+        <span className="amb-selector__caret">{open ? "▲" : "▼"}</span>
+      </button>
 
-      {showModal && (
-        <div className="ambiente-modal-overlay" role="dialog" aria-modal="true">
-          <div className="ambiente-modal">
-            <h3 className="ambiente-modal__title">Novo ambiente</h3>
-            <div className="ambiente-modal__field">
-              <label>Nome</label>
+      {/* Dropdown */}
+      {open && (
+        <div className="amb-dropdown" role="listbox">
+          {/* Lista de ambientes */}
+          <ul className="amb-dropdown__list">
+            {ambientes.map((a) => (
+              <li
+                key={a.id}
+                role="option"
+                aria-selected={a.id === ambienteAtualId}
+                className={`amb-dropdown__item${a.id === ambienteAtualId ? " amb-dropdown__item--active" : ""}`}
+                onClick={() => selecionar(a.id)}
+              >
+                <span className="amb-dropdown__icon">{iconeAmbiente(a.tipo)}</span>
+                <span className="amb-dropdown__nome">{a.nome}</span>
+                {a.id === ambienteAtualId && <span className="amb-dropdown__check">✓</span>}
+              </li>
+            ))}
+          </ul>
+
+          <div className="amb-dropdown__divider" />
+
+          {/* Formulário inline de nova empresa */}
+          {showForm ? (
+            <div className="amb-dropdown__form">
+              <p className="amb-dropdown__form-title">Nova Empresa</p>
               <input
+                className="amb-dropdown__input"
                 type="text"
-                value={novoNome}
-                onChange={(e) => setNovoNome(e.target.value)}
-                placeholder="Ex.: Empresa Principal"
+                placeholder="Nome da empresa *"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
                 autoFocus
-                onKeyDown={(e) => e.key === "Enter" && handleCriarAmbiente()}
+                onKeyDown={(e) => e.key === "Enter" && criarEmpresa()}
               />
+              <input
+                className="amb-dropdown__input"
+                type="text"
+                placeholder="Segmento (opcional)"
+                value={segmento}
+                onChange={(e) => setSegmento(e.target.value)}
+              />
+              <input
+                className="amb-dropdown__input"
+                type="text"
+                placeholder="CNPJ (opcional)"
+                value={cnpj}
+                onChange={(e) => setCnpj(e.target.value)}
+              />
+              {erro && <p className="amb-dropdown__erro">{erro}</p>}
+              <div className="amb-dropdown__form-actions">
+                <button
+                  type="button"
+                  className="amb-dropdown__btn amb-dropdown__btn--cancel"
+                  onClick={() => { setShowForm(false); setErro(""); }}
+                  disabled={creating}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="amb-dropdown__btn amb-dropdown__btn--confirm"
+                  onClick={criarEmpresa}
+                  disabled={creating}
+                >
+                  {creating ? "Criando…" : "Criar"}
+                </button>
+              </div>
             </div>
-            <div className="ambiente-modal__field">
-              <label>Tipo</label>
-              <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)}>
-                {TIPOS.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-            {erro && <p className="ambiente-modal__erro">{erro}</p>}
-            <div className="ambiente-modal__actions">
-              <button
-                type="button"
-                onClick={() => { setShowModal(false); setErro(""); }}
-                disabled={creating}
-                className="ambiente-modal__btn ambiente-modal__btn--cancel"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleCriarAmbiente}
-                disabled={creating}
-                className="ambiente-modal__btn ambiente-modal__btn--confirm"
-              >
-                {creating ? "Criando…" : "Criar"}
-              </button>
-            </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="amb-dropdown__add"
+              onClick={() => { setShowForm(true); setNome(""); setSegmento(""); setCnpj(""); setErro(""); }}
+            >
+              ➕ Nova Empresa
+            </button>
+          )}
         </div>
       )}
-    </>
+    </div>
   );
 }

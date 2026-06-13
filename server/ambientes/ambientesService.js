@@ -102,11 +102,24 @@ function tipoAmbienteToTipoPerfil(tipoAmbiente) {
 /**
  * Cria estrutura de dados vazia para um novo ambiente.
  * Retorna o objeto empresas[0] (sem o wrapper { empresas, empresaAtivaId }).
+ * extras: { cnpj, segmento } — opcionais, pré-populam company (PJ)
  */
-export function buildEmptyAmbienteData(tipoAmbiente, nome) {
+export function buildEmptyAmbienteData(tipoAmbiente, nome, extras = {}) {
   const tipoPerfil = tipoAmbienteToTipoPerfil(tipoAmbiente);
-  const state = createInitialState(tipoPerfil, nome || 'Novo Ambiente');
-  return state.empresas[0];
+  const state = createInitialState(tipoPerfil, nome || 'Nova Empresa');
+  const empresa = state.empresas[0];
+  if (tipoPerfil === 'juridica' && empresa.company) {
+    const { cnpj, segmento } = extras;
+    return {
+      ...empresa,
+      company: {
+        ...empresa.company,
+        ...(cnpj ? { cnpj } : {}),
+        ...(segmento ? { segmento } : {}),
+      },
+    };
+  }
+  return empresa;
 }
 
 /**
@@ -193,7 +206,7 @@ export function mergeAmbienteIntoStored(storedDados, incomingEmpresa, ambienteAt
  * Inicializa porAmbiente[ambienteId] no estado do usuário com dados vazios.
  * Chamado ao criar novo ambiente.
  */
-export async function initializeAmbienteInState(usuarioId, ambienteId, tipoAmbiente, nome) {
+export async function initializeAmbienteInState(usuarioId, ambienteId, tipoAmbiente, nome, extras = {}) {
   const { rows } = await query(
     'SELECT dados FROM estados WHERE usuario_id = $1',
     [usuarioId]
@@ -201,7 +214,7 @@ export async function initializeAmbienteInState(usuarioId, ambienteId, tipoAmbie
   if (!rows.length) return;
 
   const dados = rows[0].dados;
-  const emptyData = buildEmptyAmbienteData(tipoAmbiente, nome);
+  const emptyData = buildEmptyAmbienteData(tipoAmbiente, nome, extras);
 
   // Garante que porAmbiente existe (migra se necessário)
   const ambienteAtualId = dados.ambienteAtualId;

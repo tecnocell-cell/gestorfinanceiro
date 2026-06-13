@@ -286,9 +286,10 @@ export const css = `
   .sidebar-logo {
     flex-shrink: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem 0.875rem 0.95rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+    padding: 1rem 0.875rem 0.875rem;
     border-bottom: 1px solid var(--sidebar-border);
   }
 
@@ -597,6 +598,195 @@ export const css = `
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  /* ── AmbienteSelector ─────────────────────────────────────── */
+  .amb-selector {
+    position: relative;
+    width: 100%;
+  }
+
+  .amb-selector__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    background: var(--sidebar-accent);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    color: var(--sidebar-foreground);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+  }
+
+  .amb-selector__trigger:hover {
+    background: var(--sidebar-hover);
+  }
+
+  .amb-selector__trigger--loading {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .amb-selector__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .amb-selector__caret {
+    font-size: 0.6rem;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .amb-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--rn-card, #1e2124);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 200;
+    overflow: hidden;
+  }
+
+  .amb-dropdown__list {
+    list-style: none;
+    margin: 0;
+    padding: 0.375rem 0;
+  }
+
+  .amb-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--sidebar-foreground);
+    transition: background 0.1s;
+  }
+
+  .amb-dropdown__item:hover {
+    background: var(--sidebar-hover);
+  }
+
+  .amb-dropdown__item--active {
+    background: var(--sidebar-active-bg);
+    font-weight: 600;
+  }
+
+  .amb-dropdown__icon { font-size: 1rem; }
+  .amb-dropdown__nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .amb-dropdown__check { font-size: 0.75rem; opacity: 0.8; }
+
+  .amb-dropdown__divider {
+    height: 1px;
+    background: var(--sidebar-border);
+    margin: 0.125rem 0;
+  }
+
+  .amb-dropdown__add {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    background: none;
+    border: none;
+    color: var(--sidebar-primary, var(--rn-indicator));
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+  }
+
+  .amb-dropdown__add:hover {
+    background: var(--sidebar-hover);
+  }
+
+  .amb-dropdown__form {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .amb-dropdown__form-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--sidebar-foreground);
+    margin: 0 0 0.125rem;
+    opacity: 0.75;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .amb-dropdown__input {
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    background: color-mix(in oklab, white 5%, transparent);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 5px;
+    color: var(--sidebar-foreground);
+    font-size: 0.8rem;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .amb-dropdown__input:focus {
+    border-color: var(--sidebar-primary, var(--rn-indicator));
+  }
+
+  .amb-dropdown__input::placeholder {
+    opacity: 0.45;
+  }
+
+  .amb-dropdown__erro {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--rn-danger, #f44);
+  }
+
+  .amb-dropdown__form-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .amb-dropdown__btn {
+    padding: 0.3rem 0.75rem;
+    border-radius: 5px;
+    border: none;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .amb-dropdown__btn:disabled { opacity: 0.5; cursor: wait; }
+
+  .amb-dropdown__btn--cancel {
+    background: color-mix(in oklab, white 8%, transparent);
+    color: var(--sidebar-foreground);
+  }
+
+  .amb-dropdown__btn--confirm {
+    background: var(--sidebar-primary, var(--rn-indicator));
+    color: var(--sidebar-primary-foreground, #fff);
+  }
+
+  .amb-dropdown__btn--confirm:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+  /* ── /AmbienteSelector ──────────────────────────────────── */
 
   .sidebar-footer {
     flex-shrink: 0;

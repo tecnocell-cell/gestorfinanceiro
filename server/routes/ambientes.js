@@ -26,11 +26,10 @@ router.get('/', guard, async (req, res) => {
 
 // POST /api/ambientes — cria novo ambiente e inicializa dados vazios
 router.post('/', guard, async (req, res) => {
-  const { nome, tipo = 'empresa', icone, cor } = req.body || {};
+  const { nome, tipo = 'empresa', icone, cor, cnpj, segmento } = req.body || {};
   try {
     const ambiente = await createAmbiente(req.stateOwnerId, { nome, tipo, icone, cor });
-    // Inicializa estrutura de dados vazia para o novo ambiente no estado
-    await initializeAmbienteInState(req.stateOwnerId, ambiente.id, tipo, nome);
+    await initializeAmbienteInState(req.stateOwnerId, ambiente.id, tipo, nome, { cnpj, segmento });
     res.status(201).json({ ambiente });
   } catch (err) {
     if (err.code === '23505') {
