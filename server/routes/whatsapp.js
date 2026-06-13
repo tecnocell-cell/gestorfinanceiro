@@ -20,9 +20,12 @@ import {
   updatePending,
   deletePending,
   getCategories,
+  getAmbientesDoUsuario,
   confirmPendingLancamento,
   buildConfirmacaoMsg,
   buildCategoryListMsg,
+  buildAmbienteSelectorMsg,
+  buildAmbienteConfirmadoMsg,
   todayIso,
   MSG_CONFIRMADO,
   MSG_CANCELADO,
@@ -218,15 +221,92 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
   const payload = pending.payload;
   const t = normStr(body);
 
+  // ── Seleção de ambiente (multiambiente) ───────────────────────────────────
+  if (payload.step === "escolher_ambiente") {
+    const opcoes = payload.ambientes_opcoes || [];
+
+    // Cancelar
+    if (["cancelar", "cancel", "nao", "n", "não", "3"].includes(t)) {
+      await deletePending(usuarioId);
+      sendReply(instanceName, fromNumber, MSG_CANCELADO);
+      return;
+    }
+
+    const num = parseInt(t, 10);
+    if (!Number.isFinite(num) || num < 1 || num > opcoes.length) {
+      sendReply(instanceName, fromNumber, buildAmbienteSelectorMsg(opcoes));
+      return;
+    }
+
+    const ambienteEscolhido = opcoes[num - 1];
+    const parsed = payload.parsed;
+    const tipo = parsed.tipo === "Receita" ? "Entrada" : "Saida";
+    const categorias = await getCategories(usuarioId, tipo);
+
+    let catSugerida = null;
+    let confidence = "baixa";
+    if (parsed.categoria && categorias.length) {
+      const hint = normStr(parsed.categoria);
+      const match = categorias.find((c) => {
+        const n = normStr(c.descricao);
+        return n.includes(hint) || hint.includes(n);
+      });
+      if (match) { catSugerida = match; confidence = "media"; }
+    }
+    if (!catSugerida && categorias.length) {
+      catSugerida = categorias[0];
+      confidence = "baixa";
+    }
+
+    const newPayload = {
+      action: "create_lancamento",
+      step: "confirmacao",
+      ambienteId: ambienteEscolhido.id,
+      ambienteNome: ambienteEscolhido.nome,
+      ambienteTipo: ambienteEscolhido.tipo,
+      lancamento: {
+        data: todayIso(),
+        tipo,
+        valor: parsed.valor,
+        contaEntradaId: null,
+        contaSaidaId: null,
+        planoId: catSugerida?.id || null,
+        categoriaNome: catSugerida?.descricao || "",
+        historico: parsed.descricao,
+        observacao: "Criado via WhatsApp",
+        status: "pago",
+        pago: true,
+        exportado: false,
+        consiliado: false,
+      },
+      categoria_confidence: confidence,
+      categoria_sugerida: catSugerida
+        ? { id: catSugerida.id, descricao: catSugerida.descricao }
+        : { id: "", descricao: "" },
+      categoria_opcoes: [],
+    };
+    await updatePending(pending.id, newPayload);
+    sendReply(instanceName, fromNumber, buildConfirmacaoMsg(newPayload));
+    console.log(
+      `[whatsapp/pending] ambiente escolhido: usuario=${usuarioId}` +
+      ` ambiente=${ambienteEscolhido.nome} tipo=${tipo} valor=${parsed.valor}`
+    );
+    return;
+  }
+
   if (payload.step === "confirmacao") {
     // Confirmar
     if (["1", "confirmar", "sim", "s", "ok", "pode"].includes(t)) {
       try {
         const lancamento = await confirmPendingLancamento(usuarioId, pending);
-        sendReply(instanceName, fromNumber, MSG_CONFIRMADO);
+        const msgConfirmado = payload.ambienteNome
+          ? buildAmbienteConfirmadoMsg(payload.ambienteNome, payload.ambienteTipo)
+          : MSG_CONFIRMADO;
+        sendReply(instanceName, fromNumber, msgConfirmado);
         console.log(
           `[whatsapp/pending] confirmado: usuario=${usuarioId}` +
-          ` valor=${lancamento.valor} tipo=${lancamento.tipo}`
+          ` valor=${lancamento.valor} tipo=${lancamento.tipo}` +
+          (payload.ambienteNome ? ` ambiente=${payload.ambienteNome}` : "")
         );
       } catch (err) {
         console.error("[whatsapp/pending] erro ao confirmar:", err.message);
@@ -314,6 +394,24 @@ async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, b
  * Busca a melhor categoria no planoContas real do tenant.
  */
 async function handleNewLancamento(usuarioId, fromNumber, instanceName, parsed) {
+  // Multiambiente: se o usuário tem mais de 1 ambiente, perguntar em qual registrar
+  const ambientes = await getAmbientesDoUsuario(usuarioId);
+  if (ambientes.length > 1) {
+    const payload = {
+      action: "create_lancamento",
+      step: "escolher_ambiente",
+      ambientes_opcoes: ambientes,
+      parsed,
+    };
+    await createPending(usuarioId, fromNumber, payload);
+    sendReply(instanceName, fromNumber, buildAmbienteSelectorMsg(ambientes));
+    console.log(
+      `[whatsapp/pending] aguardando seleção de ambiente: usuario=${usuarioId}` +
+      ` ambientes=${ambientes.length}`
+    );
+    return;
+  }
+
   const tipo = parsed.tipo === "Receita" ? "Entrada" : "Saida";
   const categorias = await getCategories(usuarioId, tipo);
 
@@ -338,9 +436,13 @@ async function handleNewLancamento(usuarioId, fromNumber, instanceName, parsed) 
     confidence = "baixa";
   }
 
+  const ambienteUnico = ambientes[0] ?? null;
   const payload = {
     action: "create_lancamento",
     step: "confirmacao",
+    ...(ambienteUnico
+      ? { ambienteId: ambienteUnico.id, ambienteNome: ambienteUnico.nome, ambienteTipo: ambienteUnico.tipo }
+      : {}),
     lancamento: {
       data: todayIso(),
       tipo,

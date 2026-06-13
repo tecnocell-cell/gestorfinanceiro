@@ -80,7 +80,7 @@ function msgSaibaMais() {
     `  ✅ Controle de receitas e despesas\n` +
     `  ✅ Lançamentos via WhatsApp (texto ou áudio)\n` +
     `  ✅ Relatórios e extratos em tempo real\n` +
-    `  ✅ Planos para Pessoa Física e Jurídica\n` +
+    `  ✅ Planos para finanças pessoais, MEI e empresas\n` +
     `  ✅ Trial gratuito\n\n` +
     `🌐 Acesse: *${LANDING_URL}*\n` +
     `${DIV}\n` +

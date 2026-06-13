@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { css } from "../styles.js";
 import { authApi, tokenStorage } from "../api.js";
-import { User, Building2, Mail, Smartphone, AlertTriangle } from "../components/icons.jsx";
+import { Mail, Smartphone, AlertTriangle } from "../components/icons.jsx";
 import { BrandLogo } from "../components/BrandLogo.jsx";
 
 const STEPS = { dados: "dados", verificacao: "verificacao" };
@@ -170,7 +170,6 @@ export default function RegisterPage({ onLogin, onVerified, initialPhone = "", w
   };
 
   const stepIndex = step === STEPS.dados ? 0 : 1;
-  const isPJ = form.tipo_perfil === "juridica";
   const meta = STEP_META[step];
   const destinoCodigo =
     verify.canal === "sms" ? form.telefone || "seu celular" : form.email;
@@ -202,24 +201,6 @@ export default function RegisterPage({ onLogin, onVerified, initialPhone = "", w
               {step === STEPS.dados && (
                 <form className="register-form-fill" onSubmit={goToVerificacao}>
                   <div className="register-form-fields">
-                    <label className="form-label">Tipo de conta</label>
-                    <div className="register-type-row">
-                      {[
-                        ["fisica", User, "Pessoa Física"],
-                        ["juridica", Building2, "Pessoa Jurídica"],
-                      ].map(([v, Icon, label]) => (
-                        <button
-                          key={v}
-                          type="button"
-                          className={`profile-item ${form.tipo_perfil === v ? "active" : ""}`}
-                          onClick={() => set("tipo_perfil", v)}
-                        >
-                          <span className="register-type-icon" aria-hidden><Icon size={16} strokeWidth={1.75} /></span>
-                          <span>{label}</span>
-                        </button>
-                      ))}
-                    </div>
-
                     <div className="form-group">
                       <label className="form-label">Nome completo</label>
                       <input
@@ -231,9 +212,7 @@ export default function RegisterPage({ onLogin, onVerified, initialPhone = "", w
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">
-                        {isPJ ? "Empresa / razão social" : "Nome do perfil"}
-                      </label>
+                      <label className="form-label">Nome do perfil</label>
                       <input
                         className="form-input"
                         value={form.nome_perfil}

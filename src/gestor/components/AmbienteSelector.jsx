@@ -108,7 +108,7 @@ function NovaEmpresaModal({ onClose, onCreated }) {
 
 // ── Seletor principal ────────────────────────────────────────────────────────
 export default function AmbienteSelector() {
-  const { state, setState, reloadAppState } = useGestor();
+  const { state, setState, reloadAppState, flushStateSave } = useGestor();
   const { token } = useAuth();
 
   const [open, setOpen] = useState(false);
@@ -141,31 +141,37 @@ export default function AmbienteSelector() {
     setSwitching(true);
     setOpen(false);
     try {
+      // 1. Flush pendente ANTES de qualquer mudança local — garante que dados do ambiente
+      //    atual são salvos com o ambienteAtualId correto, e cancela o debounce timer.
+      await flushStateSave().catch(() => {});
+      // 2. Servidor atualiza ambienteAtualId
       await fetch(`/api/ambientes/${id}/selecionar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
       });
-      // skipFlush: true — servidor já atualizou ambienteAtualId via POST /selecionar.
-      // Flush aqui seria perigoso: local state ainda tem empresas[] do ambiente anterior
-      // mas ambienteAtualId já aponta pro novo, causando mergeAmbienteIntoStored salvar
-      // dados errados sob o novo ambiente.
-      setState((prev) => ({ ...prev, ambienteAtualId: id }));
+      // 3. NÃO fazer setState intermediário aqui: evita o timer race.
+      //    setState({ ambienteAtualId }) criaria estado sujo e o debounce (800ms) poderia
+      //    disparar PUT com empresas[] do ambiente anterior sob o novo ambienteAtualId,
+      //    corrompendo porAmbiente no banco.
+      // 4. Reload completo — GET /api/state retorna novo ambienteAtualId + empresas[] corretos.
+      //    justReloaded=true dentro de reloadAppState suprime o auto-save após setState(next).
       await reloadAppState({ skipFlush: true });
     } finally {
       setSwitching(false);
     }
-  }, [ambienteAtualId, switching, setState, reloadAppState, authHeader]);
+  }, [ambienteAtualId, switching, reloadAppState, flushStateSave, authHeader]);
 
   const handleCreated = useCallback(async (novoId) => {
     setShowModal(false);
     if (!novoId) return;
+    // Mesmo padrão: flush primeiro, sem setState intermediário
+    await flushStateSave().catch(() => {});
     await fetch(`/api/ambientes/${novoId}/selecionar`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeader },
     });
-    setState((prev) => ({ ...prev, ambienteAtualId: novoId }));
-    await reloadAppState({ skipFlush: true }); // mesma razão: evitar flush com dados do ambiente anterior
-  }, [setState, reloadAppState, authHeader]);
+    await reloadAppState({ skipFlush: true });
+  }, [reloadAppState, flushStateSave, authHeader]);
 
   if (!ambientes.length) return null;
 

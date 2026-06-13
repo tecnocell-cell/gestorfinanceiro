@@ -46,11 +46,23 @@ export async function getEmpresaDados(usuarioId) {
   const empresas = Array.isArray(dados?.empresas) ? dados.empresas : [];
   if (!empresas.length) return null;
 
-  const activeId = dados.empresaAtivaId;
+  // Use ambienteAtualId (multiambiente) como primário, empresaAtivaId como fallback legado
+  const activeId = dados.ambienteAtualId || dados.empresaAtivaId;
   let idx = activeId ? empresas.findIndex((e) => e.id === activeId) : -1;
   if (idx < 0) idx = 0;
 
   return { dados, empresa: empresas[idx], empresaIdx: idx, empresas };
+}
+
+export async function getAmbientesDoUsuario(usuarioId) {
+  const { rows } = await query(
+    `SELECT id, nome, tipo, icone, ordem
+     FROM ambientes_financeiros
+     WHERE usuario_id = $1 AND ativo = true
+     ORDER BY ordem ASC, created_at ASC`,
+    [usuarioId]
+  );
+  return rows;
 }
 
 // ── Categorias ───────────────────────────────────────────────────────────────
@@ -283,5 +295,28 @@ export function buildCategoryListMsg(categorias) {
     `${lista}\n` +
     `${DIV}\n` +
     `Responda com o *número* da categoria desejada.`
+  );
+}
+
+const AMB_ICONE = { pessoal: "🏠", empresa: "🏢" };
+
+export function buildAmbienteSelectorMsg(ambientes) {
+  const lista = ambientes
+    .map((a, i) => `  ${i + 1}. ${AMB_ICONE[a.tipo] || "🏢"} ${a.nome}`)
+    .join("\n");
+  return (
+    `${BOT_AVATAR}\n` +
+    `🏦 *Em qual financeiro deseja registrar?*\n\n` +
+    `${lista}\n` +
+    `${DIV}\n` +
+    `_Responda com o número correspondente._`
+  );
+}
+
+export function buildAmbienteConfirmadoMsg(ambienteNome, ambienteTipo) {
+  const icone = AMB_ICONE[ambienteTipo] || "🏢";
+  return (
+    `✅ *Lançamento salvo!*\n\n` +
+    `Lançado em: ${icone} *${ambienteNome}*`
   );
 }

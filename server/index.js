@@ -71,6 +71,7 @@ import {
   rebuildEmpresasView,
   syncPortAmbienteFromView,
   mergeAmbienteIntoStored,
+  buildEmptyAmbienteData,
 } from "./ambientes/ambientesService.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -384,8 +385,30 @@ app.get("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     const { profile } = await loadProfile();
 
     // ── Fase 2: preparar multi-ambiente ANTES de normalizar ──────────────────
-    const { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual } =
+    let { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual } =
       await prepareMultiambienteState(dados, stateOwnerId, profile);
+
+    // ── Logging de diagnóstico multiambiente ─────────────────────────────────
+    const empAtual = prepared.empresas?.[0];
+    console.log(`[GET /state] user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId?.slice(0,8)} tipo=${tipoAmbienteAtual} lancs=${empAtual?.lancamentos?.length ?? 0} empresaTipo=${empAtual?.tipo}`);
+
+    // ── Detecção e reparo de dados corrompidos por timer race ────────────────
+    // Sintoma: ambiente 'empresa' mas porAmbiente contém dados PF (tipo='fisica' ou tem 'pessoa')
+    if (tipoAmbienteAtual === 'empresa' && empAtual &&
+        (empAtual.tipo === 'fisica' || (empAtual.pessoa && !empAtual.company))) {
+      console.warn(`[GET /state] CORRUPÇÃO DETECTADA user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId?.slice(0,8)}: empresa tem dados PF (tipo=${empAtual.tipo}). Restaurando vazio PJ.`);
+      const emptyPJ = buildEmptyAmbienteData('empresa', empAtual.nome || 'Empresa');
+      prepared = {
+        ...prepared,
+        empresas: [emptyPJ],
+        porAmbiente: {
+          ...(prepared.porAmbiente || {}),
+          [ambienteAtualId]: emptyPJ,
+        },
+      };
+      needsMigrationSave = true;
+    }
+
     dados = prepared;
 
     // Profile de normalização: tipo_perfil derivado do tipo do ambiente (não do usuário)
@@ -527,6 +550,16 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     const empresaAtual = (toSave.empresas || [])[0];
     let finalToStore = toSave;
     if (ambienteAtualId && empresaAtual && serverDados) {
+      // Guard: bloquear PUT que salvaria dados PF em ambiente empresa (timer race ou bug frontend)
+      if (tipoAmbientePut === 'empresa' &&
+          (empresaAtual.tipo === 'fisica' || (empresaAtual.pessoa && !empresaAtual.company))) {
+        console.warn(`[PUT /state] BLOQUEADO user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId.slice(0,8)}: tentativa de salvar dados PF (tipo=${empresaAtual.tipo}) em ambiente empresa. Timer race detectado.`);
+        return res.status(409).json({
+          error: 'Conflito de ambiente: dados PF não podem ser salvos em ambiente empresa.',
+          code: 'AMBIENTE_TIPO_CONFLITO',
+        });
+      }
+
       // Migra serverDados se ainda não tiver porAmbiente
       const migratedServer = serverDados.porAmbiente
         ? serverDados

@@ -1,10 +1,31 @@
 /** Metadados visuais e features para cards de plano (gestor). */
 
+/** Mapeamento visual de slugs legados para nomes Fluxiva unificados. */
+export const PLAN_DISPLAY_NAMES = {
+  pf_basico:     "Fluxiva Start",
+  pf_plus:       "Fluxiva Pro",
+  pf_premium:    "Fluxiva Business",
+  pj_start:      "Fluxiva Start",
+  pj_pro:        "Fluxiva Pro",
+  pj_business:   "Fluxiva Business",
+  fluxiva_start: "Fluxiva Start",
+  fluxiva_pro:   "Fluxiva Pro",
+  fluxiva_business: "Fluxiva Business",
+};
+
+/** Retorna nome de exibição Fluxiva para qualquer slug (legado ou novo). */
+export function planDisplayName(slug) {
+  return PLAN_DISPLAY_NAMES[slug] ?? null;
+}
+
 export const PLAN_BADGES = {
   pf_plus: { label: "Mais popular", tone: "popular" },
   pf_premium: { label: "Completo", tone: "premium" },
   pj_pro: { label: "Recomendado", tone: "popular" },
   pj_business: { label: "Empresarial", tone: "business" },
+  fluxiva_start: { label: "Gratuito", tone: "neutral" },
+  fluxiva_pro: { label: "Mais popular", tone: "popular" },
+  fluxiva_business: { label: "Completo", tone: "business" },
 };
 
 export function planIconSlug(slug) {

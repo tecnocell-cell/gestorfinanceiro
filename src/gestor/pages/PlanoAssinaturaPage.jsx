@@ -15,6 +15,7 @@ import { markBetaChecklistItem } from "../beta/markBetaChecklist.js";
 import {
   PLAN_BADGES,
   planIconSlug,
+  planDisplayName,
   buildPlanFeatureItems,
   usageMetric,
 } from "../planBillingUi.js";
@@ -428,7 +429,7 @@ function PlanCard({
           <img src={planIconSlug(plano.slug)} alt="" aria-hidden />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="plan-card-title">{plano.nome}</h3>
+          <h3 className="plan-card-title">{planDisplayName(plano.slug) || plano.nome}</h3>
           <p className="plan-card-tagline">{plano.descricao || "Plano Fluxiva"}</p>
         </div>
         <PlanBadge slug={plano.slug} highlight={highlight} />
@@ -504,7 +505,7 @@ function PortalStatusHero({ assinatura }) {
         <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
           Plano atual
         </div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>{assinatura.plano?.nome || "—"}</div>
+        <div style={{ fontSize: 20, fontWeight: 800 }}>{planDisplayName(assinatura.plano?.slug) || assinatura.plano?.nome || "—"}</div>
       </div>
       <SubscriptionStatusPill status={assinatura.status} />
       <div>
@@ -528,7 +529,7 @@ function PlanSummaryBar({ assinatura, usage, segmentoLabel }) {
   const waLim = usage?.limites?.whatsappNumeros ?? whatsapp.limite;
 
   const items = [
-    { label: "Plano atual", value: assinatura.plano?.nome || "—" },
+    { label: "Plano atual", value: planDisplayName(assinatura.plano?.slug) || assinatura.plano?.nome || "—" },
     { label: "Valor mensal", value: formatCentavos(assinatura.plano?.preco_centavos) },
     { label: "Status", value: STATUS_LABEL[assinatura.status] || assinatura.status },
     { label: "Trial até", value: formatDate(assinatura.trial_ate) },
@@ -608,8 +609,7 @@ export default function PlanoAssinaturaPage() {
     configStatus?.billing?.allowSimulate ??
     import.meta.env.DEV;
 
-  const segmentoLabel =
-    user?.tipo_perfil === "fisica" ? "Pessoa Física (PF)" : "Pessoa Jurídica (PJ)";
+  const segmentoLabel = tipo === "empresa" ? "Empresa" : "Pessoal";
 
   const load = useCallback(async () => {
     setError("");

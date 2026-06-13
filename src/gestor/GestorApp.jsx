@@ -409,10 +409,10 @@ export default function GestorApp() {
                 <div className="sidebar-user-name">{user?.nome || user?.email || "Usuário"}</div>
                 <div className="sidebar-user-role">
                   {impersonatingUser
-                    ? `${impersonatingUser.email} · ${isPF ? "PF" : "PJ"}`
+                    ? `${impersonatingUser.email} · ${ambienteAtivo?.nome || "Financeiro"}`
                     : isSuperAdmin
                       ? `${user?.email} · Super admin`
-                      : `${user?.email || ""} · ${isPF ? "Pessoa Física" : "Pessoa Jurídica"}`}
+                      : `${user?.email || ""} · ${ambienteAtivo?.nome || "Financeiro"}`}
                 </div>
               </div>
               <button type="button" className="btn-logout" onClick={logout} title="Sair da conta" aria-label="Sair">
@@ -457,12 +457,7 @@ export default function GestorApp() {
                 </span>
               )}
               {!isAdminPage && !impersonatingUser && (
-                <>
-                  <span className="company-badge">{displayName}</span>
-                  <span className={`badge ${isPF ? "badge-pf" : "badge-pj"}`} style={{ fontSize: 10 }}>
-                    {isPF ? "Pessoa Física" : "Pessoa Jurídica"}
-                  </span>
-                </>
+                <span className="company-badge">{displayName}</span>
               )}
             </div>
           </div>
