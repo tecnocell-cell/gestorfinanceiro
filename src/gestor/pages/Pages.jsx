@@ -964,12 +964,11 @@ export function ContasPage({ pfMode = false } = {}) {
 
 export function PlanoContasPage() {
   const { planoContas, openModal, planoCrud } = useGestor();
-  const badgeColor = (tipo) => {
-    if (tipo === "Receita") return "pp-badge-green";
-    if (tipo === "Custo") return "pp-badge-red";
-    if (tipo === "Imposto") return "pp-badge-blue";
-    return "pp-badge-amber";
-  };
+
+  const receitas  = planoContas.filter((p) => !p.inativo && p.tipo === "Receita");
+  const custos    = planoContas.filter((p) => !p.inativo && p.tipo === "Custo");
+  const despesas  = planoContas.filter((p) => !p.inativo && p.tipo === "Despesa");
+  const impostos  = planoContas.filter((p) => !p.inativo && p.tipo === "Imposto");
 
   const importarSugestoes = () => {
     const existentes = new Set(planoContas.map((p) => p.descricao.toLowerCase().trim()));
@@ -978,6 +977,68 @@ export function PlanoContasPage() {
     if (!window.confirm(`Adicionar ${novas.length} categoria(s) sugerida(s)?`)) return;
     novas.forEach((c) => planoCrud.add({ ...c, id: generateId(), codigo: "", caixaBanco: "", contaContabil: "" }));
   };
+
+  const Section = ({ title, items, badgeCls }) => (
+    <div className="pp-card" style={{ marginBottom: 14 }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontWeight: 700, fontSize: 14 }}>
+        {title}
+      </div>
+      {items.length === 0 ? (
+        <div className="pp-empty" style={{ padding: "24px" }}>
+          <div className="pp-empty-text">Nenhuma categoria.</div>
+        </div>
+      ) : (
+        <div className="pp-table-wrap">
+          <table className="pp-table">
+            <thead>
+              <tr>
+                <th style={{ width: 48 }}>Ícone</th>
+                <th>Descrição</th>
+                <th>Tipo</th>
+                <th>Natureza</th>
+                <th style={{ textAlign: "right" }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((pc) => (
+                <tr key={pc.id}>
+                  <td style={{ textAlign: "center" }}>
+                    {pc.icone ? (
+                      <span className="cat-icone" style={{ background: pc.cor || "var(--muted)", fontSize: 14 }}>
+                        {pc.icone}
+                      </span>
+                    ) : (
+                      <span className="cat-icone cat-icone-empty">◼</span>
+                    )}
+                  </td>
+                  <td style={{ fontWeight: 500 }}>
+                    {pc.descricao}
+                    {pc.codigo && (
+                      <span className="td-mono" style={{ marginLeft: 8, fontSize: 11, color: "var(--muted-foreground)" }}>
+                        {pc.codigo}
+                      </span>
+                    )}
+                  </td>
+                  <td><span className={`pp-badge ${badgeCls}`}>{pc.tipo}</span></td>
+                  <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "—"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <div className="pp-row-actions">
+                      <button type="button" className="pp-icon-btn" title="Editar categoria" onClick={() => openModal("plano", pc)}>
+                        <PenLine size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                      <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir categoria" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>
+                        <Trash2 size={14} strokeWidth={2} aria-hidden />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -996,8 +1057,8 @@ export function PlanoContasPage() {
         </div>
       </div>
 
-      <div className="pp-card">
-        {planoContas.length === 0 ? (
+      {planoContas.length === 0 ? (
+        <div className="pp-card">
           <div className="pp-empty">
             <EmptyIcon icon={FolderTree} />
             <div className="pp-empty-title">Plano de contas vazio</div>
@@ -1006,52 +1067,15 @@ export function PlanoContasPage() {
               <span aria-hidden>＋</span> Nova conta
             </button>
           </div>
-        ) : (
-          <div className="pp-table-wrap">
-            <table className="pp-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 48 }}>Ícone</th>
-                  <th>Código</th>
-                  <th>Descrição</th>
-                  <th>Tipo</th>
-                  <th>Natureza</th>
-                  <th style={{ textAlign: "right" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {planoContas.map((pc) => (
-                  <tr key={pc.id}>
-                    <td style={{ textAlign: "center" }}>
-                      {pc.icone ? (
-                        <span className="cat-icone" style={{ background: pc.cor || "var(--muted)", fontSize: 14 }}>
-                          {pc.icone}
-                        </span>
-                      ) : (
-                        <span className="cat-icone cat-icone-empty">◼</span>
-                      )}
-                    </td>
-                    <td className="td-mono">{pc.codigo}</td>
-                    <td>{pc.descricao}</td>
-                    <td><span className={`pp-badge ${badgeColor(pc.tipo)}`}>{pc.tipo}</span></td>
-                    <td className="td-mono" style={{ fontSize: 12 }}>{pc.natureza || "—"}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <div className="pp-row-actions">
-                        <button type="button" className="pp-icon-btn" title="Editar categoria" onClick={() => openModal("plano", pc)}>
-                          <PenLine size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                        <button type="button" className="pp-icon-btn pp-icon-btn-danger" title="Excluir categoria" onClick={() => { if (confirm("Excluir?")) planoCrud.remove(pc.id); }}>
-                          <Trash2 size={14} strokeWidth={2} aria-hidden />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <Section title="Receitas"  items={receitas} badgeCls="pp-badge-green" />
+          <Section title="Custos"    items={custos}   badgeCls="pp-badge-red" />
+          <Section title="Despesas"  items={despesas} badgeCls="pp-badge-amber" />
+          <Section title="Impostos"  items={impostos} badgeCls="pp-badge-blue" />
+        </>
+      )}
     </div>
   );
 }
