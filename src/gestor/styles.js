@@ -199,9 +199,11 @@ export const css = `
     --input: oklch(1 0 0 / 14%);
     --ring: var(--indicator);
     --success-soft: oklch(0.30 0.06 150);
+    --success-fg: oklch(0.80 0.14 150);
     --warning-soft: oklch(0.32 0.08 75);
     --danger-soft: oklch(0.32 0.10 27);
     --info-soft: oklch(0.30 0.08 230);
+    --info-fg: oklch(0.78 0.12 240);
     --shadow-card: 0 1px 2px rgba(0,0,0,0.35);
     --shadow-elevated: 0 4px 14px rgba(0,0,0,0.45);
     --shadow-pop: 0 12px 36px rgba(0,0,0,0.55);

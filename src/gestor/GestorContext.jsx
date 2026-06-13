@@ -34,6 +34,23 @@ const GestorContext = createContext(null);
 
 const SAVE_DEBOUNCE_MS = 800;
 
+/**
+ * Ajusta o tipo_perfil do profile com base no tipo do ambiente ativo.
+ * 'pessoal' → 'fisica', 'empresa' → 'juridica'.
+ * Garante que normalizeStateForUser use a estrutura correta (PF/PJ)
+ * independente do tipo_perfil cadastrado no usuário.
+ */
+function profileComTipoAmbiente(profile, dados) {
+  const ambientes = dados?.ambientes ?? [];
+  const ambienteAtualId = dados?.ambienteAtualId;
+  const ambienteAtivo = ambientes.find((a) => a.id === ambienteAtualId);
+  const tipoAmb = ambienteAtivo?.tipo;
+  if (!tipoAmb) return profile;
+  const tipoPerfil = tipoAmb === "pessoal" ? "fisica" : "juridica";
+  if (profile?.tipo_perfil === tipoPerfil) return profile;
+  return { ...profile, tipo_perfil: tipoPerfil };
+}
+
 export function GestorProvider({ children }) {
   const { token, user, profileReady, empresa: authEmpresa } = useAuth();
 
@@ -125,9 +142,10 @@ export function GestorProvider({ children }) {
         const p = serverProfile?.tipo_perfil
           ? { ...profile, ...serverProfile }
           : profile;
+        const pAjustado = profileComTipoAmbiente(p, dados);
         const next = isValidAppState(dados)
-          ? normalizeStateForUser(dados, p)
-          : createInitialStateForUser(p.tipo_perfil, p.nome_perfil || p.nome);
+          ? normalizeStateForUser(dados, pAjustado)
+          : createInitialStateForUser(pAjustado.tipo_perfil, pAjustado.nome_perfil || pAjustado.nome);
         setState(next);
         stateRef.current = next;
         // Marca carga bem-sucedida — libera saves futuros
@@ -190,7 +208,7 @@ export function GestorProvider({ children }) {
         ? { ...profileBase, ...serverProfile }
         : profileBase;
       if (isValidAppState(dados)) {
-        const next = normalizeStateForUser(dados, profile);
+        const next = normalizeStateForUser(dados, profileComTipoAmbiente(profile, dados));
         justReloaded.current = true;
         setState(next);
         stateRef.current = next;
