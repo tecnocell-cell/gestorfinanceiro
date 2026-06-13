@@ -270,8 +270,22 @@ export function GestorProvider({ children }) {
   const orcamentosProjetos = empresa.orcamentosProjetos || [];
   const centroCustos = empresa.centroCustos || [];
   const projetos = empresa.projetos || [];
+  // Tipo do ambiente ativo tem prioridade sobre o tipo_perfil do usuário
+  const ambienteAtivo = (state.ambientes ?? []).find(
+    (a) => a.id === state.ambienteAtualId
+  );
+  const tipoAmbienteAtivo = ambienteAtivo?.tipo; // 'pessoal' | 'empresa' | undefined
+  const tipoAmbienteParaPerfil =
+    tipoAmbienteAtivo === "pessoal"
+      ? "fisica"
+      : tipoAmbienteAtivo === "empresa"
+      ? "juridica"
+      : undefined;
+
   const profileTipo = resolveProfileTipo({
-    user,
+    user: tipoAmbienteParaPerfil
+      ? { ...user, tipo_perfil: tipoAmbienteParaPerfil }
+      : user,
     impersonatingUser,
     empresaTipo: empresa.tipo,
   });
