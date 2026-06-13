@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useGestor } from "../GestorContext.jsx";
 import { useAuth } from "../AuthContext.jsx";
+import { usePlanMenu } from "../hooks/usePlanMenu.js";
 import {
   ModalShell,
   ModalSection,
@@ -119,6 +120,9 @@ export default function AmbienteSelector() {
   const ambienteAtualId = state?.ambienteAtualId;
   const ambienteAtual = ambientes.find((a) => a.id === ambienteAtualId);
 
+  const { maxAmbientes } = usePlanMenu(ambienteAtual?.tipo ?? "pessoal");
+  const atingiuLimite = ambientes.length >= maxAmbientes;
+
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => {
@@ -200,13 +204,29 @@ export default function AmbienteSelector() {
 
             <div className="amb-dropdown__divider" />
 
-            <button
-              type="button"
-              className="amb-dropdown__add"
-              onClick={() => { setOpen(false); setShowModal(true); }}
-            >
-              ➕ Nova Empresa
-            </button>
+            {atingiuLimite ? (
+              <div className="amb-dropdown__upgrade">
+                <span>Limite de {maxAmbientes} ambiente{maxAmbientes === 1 ? "" : "s"} atingido.</span>
+                <a
+                  href="#plano-assinatura"
+                  className="amb-dropdown__upgrade-link"
+                  onClick={() => {
+                    setOpen(false);
+                    window.dispatchEvent(new CustomEvent("gestor-navigate", { detail: { page: "plano-assinatura" } }));
+                  }}
+                >
+                  Fazer upgrade
+                </a>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="amb-dropdown__add"
+                onClick={() => { setOpen(false); setShowModal(true); }}
+              >
+                ➕ Nova Empresa
+              </button>
+            )}
           </div>
         )}
       </div>

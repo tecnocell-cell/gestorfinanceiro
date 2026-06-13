@@ -54,37 +54,38 @@ export function sanitizePublicMessage(msg) {
   return msg;
 }
 
+/**
+ * Visibilidade de item de menu.
+ * ctx.tipoAmbiente: 'pessoal' | 'empresa'  — define qual menu mostrar
+ * ctx.segmento: 'pf'|'pj'                  — legado (ignorado se tipoAmbiente presente)
+ * recursos: capabilities do plano            — define se recurso está liberado
+ */
 export function getMenuAccess(menuId, recursos = {}, ctx = {}) {
-  const seg = ctx.segmento || recursos.segmento || 'pf';
   const r = recursos || {};
+
+  // Modelo unificado: tipoAmbiente define menu; plano define se está liberado
+  const tipoAmbiente = ctx.tipoAmbiente;
+  const isEmpresa = tipoAmbiente === 'empresa';
+  const isPessoal = tipoAmbiente === 'pessoal' || (!tipoAmbiente && (ctx.segmento || r.segmento || 'pf') === 'pf');
 
   const hide = (id) => (menuId === id ? 'hide' : null);
   const block = (id) => (menuId === id ? 'blocked' : null);
 
-  if (seg === 'pf') {
-    if (!r.integracaoPfPj) {
-      const h = hide('integracao-pf-pj');
-      if (h) return h;
-    }
-    if (!r.projetos) {
-      const b = block('projetos');
-      if (b) return b;
-      const h2 = hide('resultado-projeto');
-      if (h2) return h2;
-      const h3 = hide('resultado-cliente');
-      if (h3) return h3;
-    }
-    if (!r.centroCusto) {
-      const h = hide('resultado-centro-custo');
-      if (h) return h;
-    }
+  // Integração PF/PJ — sempre oculta (conceito ultrapassado no novo modelo)
+  { const h = hide('integracao-pf-pj'); if (h) return h; }
+
+  if (isPessoal) {
+    // Ambiente pessoal: ocultar menus exclusivamente empresariais
+    const empresariais = ['dre', 'clientes', 'fornecedores', 'plano', 'impostos',
+      'projetos', 'resultado-projeto', 'resultado-cliente', 'resultado-centro-custo',
+      'importacoes', 'conciliacao', 'balancete', 'fechamento', 'equipe'];
+    const h = hide(...empresariais.filter((id) => id === menuId));
+    if (h) return h;
+    if (empresariais.includes(menuId)) return 'hide';
     return 'show';
   }
 
-  if (!r.integracaoPfPj) {
-    const h = hide('integracao-pf-pj');
-    if (h) return h;
-  }
+  // Ambiente empresa — aplica regras de plano
   if (!r.projetos && !r.projetosAvancados) {
     const b = block('projetos');
     if (b) return b;
@@ -99,9 +100,10 @@ export function getMenuAccess(menuId, recursos = {}, ctx = {}) {
     const h = hide('resultado-centro-custo');
     if (h) return h;
   }
-  if (!r.dreCompleto && !r.dreSimplificado) {
-    const h = hide('dre');
-    if (h) return h;
+  // DRE: aparece no ambiente empresa; bloqueado se plano não permitir
+  if (!r.dre && !r.dreCompleto && !r.dreSimplificado) {
+    const b = block('dre');
+    if (b) return b;
   }
 
   return 'show';

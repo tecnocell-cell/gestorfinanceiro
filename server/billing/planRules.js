@@ -217,7 +217,132 @@ DEFAULT_RESOURCES_BY_SLUG.empresarial = {
 export const COMMERCIAL_PLAN_SLUGS = {
   pf: ['pf_basico', 'pf_plus', 'pf_premium'],
   pj: ['pj_start', 'pj_pro', 'pj_business'],
+  fluxiva: ['fluxiva_start', 'fluxiva_pro', 'fluxiva_business'],
 };
+
+// ── Planos unificados Fluxiva (multiambiente) ─────────────────────────────────
+PLAN_CATALOG.fluxiva_start = {
+  nome: 'Fluxiva Start',
+  precoCentavos: 1990,
+  segmento: 'fluxiva',
+  recursos: {
+    maxAmbientes: 1,
+    limiteUsuarios: 1,
+    limiteWhatsappNumeros: 1,
+    limiteLancamentos: null,
+    whatsappTexto: true,
+    whatsappAudio: false,
+    whatsappComprovante: false,
+    iaComprovante: false,
+    categoriasAvancadas: false,
+    relatoriosCompletos: false,
+    dre: false,
+    dreCompleto: false,
+    dreSimplificado: false,
+    centroCusto: false,
+    projetos: false,
+    resultadoClienteProjeto: false,
+    apiAccess: false,
+    suportePrioritario: false,
+    openFinance: false,
+    integracaoPfPj: false,
+    openFinanceAddon: addon(2990),
+  },
+};
+
+PLAN_CATALOG.fluxiva_pro = {
+  nome: 'Fluxiva Pro',
+  precoCentavos: 4990,
+  segmento: 'fluxiva',
+  recursos: {
+    maxAmbientes: 3,
+    limiteUsuarios: 3,
+    limiteWhatsappNumeros: 2,
+    limiteLancamentos: null,
+    whatsappTexto: true,
+    whatsappAudio: true,
+    whatsappComprovante: true,
+    iaComprovante: true,
+    categoriasAvancadas: true,
+    relatoriosCompletos: true,
+    dre: true,
+    dreCompleto: false,
+    dreSimplificado: true,
+    centroCusto: true,
+    projetos: true,
+    resultadoClienteProjeto: true,
+    apiAccess: false,
+    suportePrioritario: true,
+    openFinance: false,
+    integracaoPfPj: true,
+    openFinanceAddon: addon(2990),
+  },
+};
+
+PLAN_CATALOG.fluxiva_business = {
+  nome: 'Fluxiva Business',
+  precoCentavos: 9990,
+  segmento: 'fluxiva',
+  recursos: {
+    maxAmbientes: 10,
+    limiteUsuarios: 20,
+    limiteWhatsappNumeros: 5,
+    limiteLancamentos: null,
+    whatsappTexto: true,
+    whatsappAudio: true,
+    whatsappComprovante: true,
+    iaComprovante: true,
+    categoriasAvancadas: true,
+    relatoriosCompletos: true,
+    dre: true,
+    dreCompleto: true,
+    dreSimplificado: true,
+    centroCusto: true,
+    projetos: true,
+    projetosAvancados: true,
+    resultadoClienteProjeto: true,
+    apiAccess: true,
+    suportePrioritario: true,
+    openFinance: false,
+    integracaoPfPj: true,
+    openFinanceAddon: addon(4990),
+  },
+};
+
+/**
+ * Mapeia plano antigo (PF/PJ) para equivalente Fluxiva.
+ * Usado para calcular recursos de usuários em planos legados.
+ */
+export const LEGACY_PLAN_MAP = {
+  pf_basico:    'fluxiva_start',
+  pf_plus:      'fluxiva_pro',
+  pf_premium:   'fluxiva_pro',
+  pj_start:     'fluxiva_pro',
+  pj_pro:       'fluxiva_business',
+  pj_business:  'fluxiva_business',
+  free:         'fluxiva_start',
+  pro:          'fluxiva_pro',
+  empresarial:  'fluxiva_business',
+};
+
+/**
+ * Retorna recursos unificados para qualquer slug (legado ou novo).
+ * Planos legados herdam recursos do equivalente Fluxiva +
+ * mantêm recursos originais para não quebrar nada existente.
+ */
+export function getUnifiedRecursos(slug, recursosBase = {}) {
+  const mapped = LEGACY_PLAN_MAP[slug];
+  if (!mapped) return recursosBase;
+  const fluxivaRecursos = PLAN_CATALOG[mapped]?.recursos || {};
+  // Merge: legado complementa com campos novos (maxAmbientes, dre)
+  return {
+    ...fluxivaRecursos,
+    ...recursosBase,
+    // Campos novos que legado não tem — vêm do equivalente Fluxiva
+    maxAmbientes: recursosBase.maxAmbientes ?? fluxivaRecursos.maxAmbientes ?? 1,
+    dre: recursosBase.dre ?? fluxivaRecursos.dre ?? false,
+  };
+}
 
 export const PUBLIC_MESSAGES = {
   billing:
@@ -274,41 +399,33 @@ export function sanitizePublicMessage(msg) {
  * @param {object} recursos
  * @param {{ segmento?: 'pf'|'pj' }} ctx
  */
+/**
+ * Visibilidade de item de menu.
+ * ctx.tipoAmbiente: 'pessoal' | 'empresa'  — define qual menu mostrar
+ * ctx.segmento: legado, usado se tipoAmbiente ausente
+ */
 export function getMenuAccess(menuId, recursos = {}, ctx = {}) {
-  const seg = ctx.segmento || recursos.segmento || 'pf';
   const r = recursos || {};
+  const tipoAmbiente = ctx.tipoAmbiente;
+  const isEmpresa = tipoAmbiente === 'empresa';
+  const isPessoal = tipoAmbiente === 'pessoal' ||
+    (!tipoAmbiente && (ctx.segmento || r.segmento || 'pf') === 'pf');
 
   const hide = (id) => (menuId === id ? 'hide' : null);
   const block = (id) => (menuId === id ? 'blocked' : null);
 
-  if (seg === 'pf') {
-    if (!r.integracaoPfPj) {
-      const h = hide('integracao-pf-pj');
-      if (h) return h;
-    }
-    if (!r.openFinance && r.openFinanceAddon?.ativo !== true) {
-      // Conexões permanece visível (import OFX); Open Finance real bloqueado na página
-    }
-    if (!r.projetos) {
-      const b = block('projetos');
-      if (b) return b;
-      const h2 = hide('resultado-projeto');
-      if (h2) return h2;
-      const h3 = hide('resultado-cliente');
-      if (h3) return h3;
-    }
-    if (!r.centroCusto) {
-      const h = hide('resultado-centro-custo');
-      if (h) return h;
-    }
+  // Integração PF/PJ obsoleta no modelo unificado
+  { const h = hide('integracao-pf-pj'); if (h) return h; }
+
+  if (isPessoal) {
+    const empresariais = ['dre', 'clientes', 'fornecedores', 'plano', 'impostos',
+      'projetos', 'resultado-projeto', 'resultado-cliente', 'resultado-centro-custo',
+      'importacoes', 'conciliacao', 'balancete', 'fechamento', 'equipe'];
+    if (empresariais.includes(menuId)) return 'hide';
     return 'show';
   }
 
-  // PJ
-  if (!r.integracaoPfPj) {
-    const h = hide('integracao-pf-pj');
-    if (h) return h;
-  }
+  // Ambiente empresa — controle por plano
   if (!r.projetos && !r.projetosAvancados) {
     const b = block('projetos');
     if (b) return b;
@@ -323,9 +440,9 @@ export function getMenuAccess(menuId, recursos = {}, ctx = {}) {
     const h = hide('resultado-centro-custo');
     if (h) return h;
   }
-  if (!r.dreCompleto && !r.dreSimplificado) {
-    const h = hide('dre');
-    if (h) return h;
+  if (!r.dre && !r.dreCompleto && !r.dreSimplificado) {
+    const b = block('dre');
+    if (b) return b;
   }
 
   return 'show';

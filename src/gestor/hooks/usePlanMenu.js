@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { billingApi } from "../api.js";
 import { getMenuAccess } from "../planRules.js";
-import { isPessoaFisica } from "../profileLabels.js";
 
-export function usePlanMenu(tipoPerfil) {
+export function usePlanMenu(tipoAmbiente) {
   const [usage, setUsage] = useState(null);
 
   const load = useCallback(() => {
@@ -17,12 +16,11 @@ export function usePlanMenu(tipoPerfil) {
     load();
   }, [load]);
 
-  const segmento = isPessoaFisica(tipoPerfil) ? "pf" : "pj";
   const recursos = usage?.recursos || {};
 
   const menuAccess = useCallback(
-    (menuId) => getMenuAccess(menuId, recursos, { segmento }),
-    [recursos, segmento]
+    (menuId) => getMenuAccess(menuId, recursos, { tipoAmbiente }),
+    [recursos, tipoAmbiente]
   );
 
   const filterNavSections = useCallback(
@@ -42,6 +40,9 @@ export function usePlanMenu(tipoPerfil) {
     [menuAccess]
   );
 
+  const maxAmbientes = recursos.maxAmbientes ?? 1;
+  const ambientesUsados = usage?.uso?.ambientes?.usados ?? null;
+
   return useMemo(
     () => ({
       usage,
@@ -50,8 +51,10 @@ export function usePlanMenu(tipoPerfil) {
       menuAccess,
       filterNavSections,
       reload: load,
+      maxAmbientes,
+      ambientesUsados,
     }),
-    [usage, recursos, menuAccess, filterNavSections, load]
+    [usage, recursos, menuAccess, filterNavSections, load, maxAmbientes, ambientesUsados]
   );
 }
 

@@ -12,6 +12,7 @@ import {
   buildLimiteAvisos,
   PUBLIC_MESSAGES,
   sanitizePublicMessage,
+  getUnifiedRecursos,
 } from './planResources.js';
 import { countEmpresaUsuariosAtivos } from '../empresa/empresaService.js';
 import { getStateOwnerId } from '../auth/permissions.js';
@@ -90,6 +91,8 @@ export async function getUserSubscriptionResources(usuarioId) {
   }
   const status = effectiveStatus(row);
   let recursos = mergeRecursos(row.plano_slug, row.plano_recursos);
+  // Enriquece planos legados com campos do modelo unificado (maxAmbientes, dre)
+  recursos = getUnifiedRecursos(row.plano_slug, recursos);
   recursos = applyRecursosByStatus(recursos, status, row.plano_slug);
   return {
     status,
@@ -311,6 +314,15 @@ export async function getBillingUsage(usuarioId) {
   const usuariosLimite = numericLimit(recursos, 'limiteUsuarios');
   uso.usuarios = { usados: usuariosUsados, limite: usuariosLimite };
 
+  // Contagem de ambientes ativos
+  const { rows: ambRows } = await query(
+    `SELECT COUNT(*)::int AS n FROM ambientes_financeiros WHERE usuario_id = $1 AND ativo = true`,
+    [ownerId]
+  );
+  const ambientesUsados = ambRows[0]?.n ?? 1;
+  const maxAmbientes = recursos.maxAmbientes ?? 1;
+  uso.ambientes = { usados: ambientesUsados, limite: maxAmbientes };
+
   const limites = {
     lancamentos: numericLimit(recursos, 'limiteLancamentos'),
     clientes: numericLimit(recursos, 'limiteClientes'),
@@ -318,6 +330,7 @@ export async function getBillingUsage(usuarioId) {
     centrosCusto: numericLimit(recursos, 'limiteCentrosCusto'),
     usuarios: usuariosLimite,
     whatsappNumeros: numericLimit(recursos, 'limiteWhatsappNumeros'),
+    ambientes: maxAmbientes,
   };
 
   const row = await fetchAssinaturaRow(usuarioId);

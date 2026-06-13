@@ -5,10 +5,12 @@ export {
   DEFAULT_RESOURCES_BY_SLUG,
   COMMERCIAL_PLAN_SLUGS,
   PLAN_CATALOG,
+  LEGACY_PLAN_MAP,
   PUBLIC_MESSAGES,
   getMenuAccess,
   whatsappCapabilitiesFromRecursos,
   sanitizePublicMessage,
+  getUnifiedRecursos,
 } from './planRules.js';
 
 import {

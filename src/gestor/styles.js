@@ -712,6 +712,24 @@ export const css = `
     background: var(--sidebar-hover);
   }
 
+  .amb-dropdown__upgrade {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.78rem;
+    color: var(--sidebar-foreground);
+    opacity: 0.75;
+  }
+
+  .amb-dropdown__upgrade-link {
+    color: var(--sidebar-primary, var(--rn-indicator));
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.8rem;
+  }
+
+  .amb-dropdown__upgrade-link:hover { text-decoration: underline; }
   /* ── /AmbienteSelector ──────────────────────────────────── */
 
   .sidebar-footer {
@@ -930,6 +948,59 @@ export const css = `
     background: var(--rn-page-canvas);
     color: var(--rn-text);
   }
+
+  .upgrade-wall {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem;
+  }
+
+  .upgrade-wall__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    max-width: 400px;
+    text-align: center;
+    background: var(--rn-card);
+    border: 1px solid var(--rn-border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 2rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  }
+
+  .upgrade-wall__icon { font-size: 2.5rem; line-height: 1; }
+
+  .upgrade-wall__title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--rn-text);
+  }
+
+  .upgrade-wall__desc {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--rn-muted);
+    line-height: 1.55;
+  }
+
+  .upgrade-wall__btn {
+    margin-top: 0.5rem;
+    padding: 0.625rem 1.5rem;
+    background: var(--rn-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .upgrade-wall__btn:hover { opacity: 0.88; }
 
   /* ─── CARDS (rn-card) ─── */
   .card {

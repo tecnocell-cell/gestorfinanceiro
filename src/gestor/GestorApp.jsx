@@ -179,10 +179,15 @@ export default function GestorApp() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {
-    empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
+    state, empresa, tipo, pessoa, company, modalOpen, apiOnline, appLoadError,
     viewOnly, impersonatingUser, enterAsTenant, exitAsTenant,
     lastSyncAt, syncing, reloadAppState, patchEmpresa,
   } = useGestor();
+
+  const ambienteAtivo = (state?.ambientes ?? []).find(
+    (a) => a.id === state?.ambienteAtualId
+  );
+  const tipoAmbiente = ambienteAtivo?.tipo ?? (tipo === "juridica" ? "empresa" : "pessoal");
 
   const goTo = (p) => {
     setPage(p);
@@ -235,8 +240,8 @@ export default function GestorApp() {
   };
 
   const { canAccessMenu } = useEmpresaPermissions();
-  const { filterNavSections } = usePlanMenu(tipo);
-  const isPF = isPessoaFisica(tipo);
+  const { filterNavSections } = usePlanMenu(tipoAmbiente);
+  const isPF = tipoAmbiente === "pessoal";
   const rawSections = isPF ? NAV_SECTIONS_FISICA : NAV_SECTIONS_PJ;
   const navSections = filterNavSections(
     rawSections
@@ -253,6 +258,9 @@ export default function GestorApp() {
   const AdminPageComponent = ADMIN_PAGE_MAP[page] || ADMIN_PAGE_MAP[DEFAULT_ADMIN_PAGE];
   const currentPage = (!isAdminPage && pageMap[page]) ? page : "dashboard";
   const PageComponent = pageMap[currentPage] || pageMap.dashboard;
+
+  const currentNavItem = navItems.find((n) => n.id === currentPage);
+  const pageBlocked = !isAdminPage && currentNavItem?.planAccess === "blocked";
 
   useEffect(() => {
     if (page === "super-admin") setPage(DEFAULT_ADMIN_PAGE);
@@ -501,6 +509,25 @@ export default function GestorApp() {
               )
             ) : currentPage === "onboarding" ? (
               <OnboardingPage onDone={() => goTo("dashboard")} />
+            ) : pageBlocked ? (
+              <div className="upgrade-wall">
+                <div className="upgrade-wall__box">
+                  <span className="upgrade-wall__icon" aria-hidden>🔒</span>
+                  <h2 className="upgrade-wall__title">
+                    {currentNavItem?.label || "Esta página"} não está incluso no seu plano
+                  </h2>
+                  <p className="upgrade-wall__desc">
+                    Faça upgrade para desbloquear este recurso e continuar crescendo com o Fluxiva.
+                  </p>
+                  <button
+                    type="button"
+                    className="upgrade-wall__btn"
+                    onClick={() => goTo("plano-assinatura")}
+                  >
+                    Ver planos
+                  </button>
+                </div>
+              </div>
             ) : (
               <PageComponent onNavigate={goTo} />
             )}

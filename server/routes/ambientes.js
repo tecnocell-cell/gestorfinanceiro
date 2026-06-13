@@ -9,6 +9,7 @@ import {
   initializeAmbienteInState,
 } from '../ambientes/ambientesService.js';
 import { query } from '../db.js';
+import { getUserSubscriptionResources } from '../billing/accessControl.js';
 
 const router = Router();
 const guard = [authMiddleware, activeMiddleware, subscriptionGuard, attachEmpresaContext];
@@ -28,6 +29,23 @@ router.get('/', guard, async (req, res) => {
 router.post('/', guard, async (req, res) => {
   const { nome, tipo = 'empresa', icone, cor, cnpj, segmento } = req.body || {};
   try {
+    // Verifica limite de ambientes do plano
+    const { recursos } = await getUserSubscriptionResources(req.stateOwnerId);
+    const maxAmbientes = recursos.maxAmbientes ?? 1;
+    const { rows: countRows } = await query(
+      `SELECT COUNT(*)::int AS n FROM ambientes_financeiros WHERE usuario_id = $1 AND ativo = true`,
+      [req.stateOwnerId]
+    );
+    const atual = countRows[0]?.n ?? 0;
+    if (atual >= maxAmbientes) {
+      return res.status(403).json({
+        error: `Seu plano permite até ${maxAmbientes} ambiente${maxAmbientes === 1 ? '' : 's'}. Faça upgrade para criar mais.`,
+        code: 'LIMITE_AMBIENTES',
+        limite: maxAmbientes,
+        atual,
+      });
+    }
+
     const ambiente = await createAmbiente(req.stateOwnerId, { nome, tipo, icone, cor });
     await initializeAmbienteInState(req.stateOwnerId, ambiente.id, tipo, nome, { cnpj, segmento });
     res.status(201).json({ ambiente });
