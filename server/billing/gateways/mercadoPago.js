@@ -165,6 +165,7 @@ export async function createCardPayment(params) {
   const payer = params.payer || {};
   const payment = await mpFetch('/v1/payments', {
     method: 'POST',
+    idempotencyKey: params.idempotencyKey,
     body: {
       transaction_amount: params.valueReais,
       token: params.cardToken,

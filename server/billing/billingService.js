@@ -127,6 +127,7 @@ export async function createCheckout(usuarioId, planoSlug, opts = {}) {
         cardToken: opts.cardToken,
         installments: opts.installments || 1,
         payer: opts.payer,
+        idempotencyKey: `cartao-${fatura.id}`,
       });
       payload = {
         metodo: 'cartao',
