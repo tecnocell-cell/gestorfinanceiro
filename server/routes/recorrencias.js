@@ -61,17 +61,43 @@ const CAMPOS_VALIDOS_TIPO          = ["Receita", "Despesa"];
 const CAMPOS_VALIDOS_PERIODICIDADE = ["mensal", "semanal", "anual"];
 const CAMPOS_VALIDOS_STATUS        = ["ativa", "pausada", "encerrada"];
 
+// ─── Helpers de ambiente ──────────────────────────────────────────────────────
+
+/**
+ * Retorna o ambienteAtualId do usuário a partir da tabela de estados.
+ * Fallback: primeiro ambiente ativo do usuário.
+ */
+async function getAmbienteAtualId(usuarioId) {
+  const { rows: stateRows } = await query(
+    "SELECT dados->>'ambienteAtualId' AS amb FROM estados WHERE usuario_id = $1",
+    [usuarioId]
+  );
+  const fromState = stateRows[0]?.amb;
+  if (fromState) return fromState;
+
+  const { rows: ambRows } = await query(
+    `SELECT id FROM ambientes_financeiros WHERE usuario_id = $1 AND ativo = true
+     ORDER BY ordem ASC, created_at ASC LIMIT 1`,
+    [usuarioId]
+  );
+  return ambRows[0]?.id || null;
+}
+
 // ─── GET /api/recorrencias ────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
+    const ambienteId = await getAmbienteAtualId(req.user.id);
+
+    // Filtra pelo ambiente atual; inclui legados (NULL) só se não houver ambiente_id
     const { rows } = await query(
       `SELECT * FROM recorrencias
        WHERE usuario_id = $1
+         AND (ambiente_id = $2 OR (ambiente_id IS NULL AND $2::uuid IS NULL))
        ORDER BY
          CASE status WHEN 'ativa' THEN 0 WHEN 'pausada' THEN 1 ELSE 2 END,
          proxima_data ASC,
          created_at DESC`,
-      [req.user.id]
+      [req.user.id, ambienteId || null]
     );
     res.json({ recorrencias: rows });
   } catch (err) {
@@ -104,11 +130,13 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    const ambienteId = await getAmbienteAtualId(req.user.id);
+
     const { rows } = await query(
       `INSERT INTO recorrencias
          (usuario_id, tipo, descricao, valor, periodicidade, proxima_data,
-          plano_id, conta_id, empresa_id, observacao)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          plano_id, conta_id, empresa_id, observacao, ambiente_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
       [
         req.user.id, tipo, descricao.trim(), valorNum,
@@ -117,6 +145,7 @@ router.post("/", async (req, res) => {
         conta_id   || null,
         empresa_id || null,
         observacao || null,
+        ambienteId || null,
       ]
     );
     res.status(201).json({ recorrencia: rows[0] });
