@@ -665,7 +665,7 @@ app.post(
       // Coleta IDs E fingerprints de todos os registros do ambiente pessoal.
       // Fingerprint: match por conteúdo (historico+valor+tipo) caso IDs difiram
       // (pode ocorrer quando a contaminação copiou dados antes da migração porAmbiente).
-      const idsPessoal = { lancamentos: new Set(), recorrencias: new Set(), contasPagar: new Set() };
+      const idsPessoal = { lancamentos: new Set(), recorrencias: new Set(), contasPagar: new Set(), contas: new Set() };
       const fpPessoal  = { recorrencias: new Set(), contasPagar: new Set() };
 
       const recFp = (r) => `${String(r.descricao||r.historico||'').trim().toLowerCase()}|${Number(r.valor||0)}|${r.tipo||''}`;
@@ -691,6 +691,7 @@ app.post(
           if (c?.id) idsPessoal.contasPagar.add(c.id);
           fpPessoal.contasPagar.add(cpFp(c));
         }
+        for (const c of ambData.contas || []) { if (c?.id) idsPessoal.contas.add(c.id); }
       }
 
       const isRepasse = (item) => {
@@ -733,21 +734,36 @@ app.post(
         const recFilt  = filtrarRec(ambData.recorrencias);
         const cpFilt   = filtrarCp(ambData.contasPagar);
 
+        // Contas: se o ID de uma conta da empresa existe no pessoal, é contaminação.
+        // Preserva a conta (para não quebrar referências de lançamentos) mas zera
+        // o saldoInicial para que o saldo parta de 0 (correto para PJ).
+        const contasOriginais = ambData.contas || [];
+        let contasCorrigidas = contasOriginais;
+        let contasContaminadas = 0;
+        if (idsPessoal.contas.size > 0) {
+          contasCorrigidas = contasOriginais.map((c) => {
+            if (!c?.id || !idsPessoal.contas.has(c.id)) return c;
+            contasContaminadas++;
+            return { ...c, saldoInicial: 0, _repairedSaldoInicial: true };
+          });
+        }
+
         const removidos =
           (ambData.lancamentos?.length  || 0) - lancFilt.length +
           (ambData.recorrencias?.length || 0) - recFilt.length +
           (ambData.contasPagar?.length  || 0) - cpFilt.length;
 
-        if (removidos > 0) {
-          console.log(`[REPAIR] empresa=${ae.nome} (${ae.id.slice(0,8)}): -${(ambData.lancamentos?.length||0)-lancFilt.length} lanc, -${(ambData.recorrencias?.length||0)-recFilt.length} rec, -${(ambData.contasPagar?.length||0)-cpFilt.length} cp`);
+        if (removidos > 0 || contasContaminadas > 0) {
+          console.log(`[REPAIR] empresa=${ae.nome} (${ae.id.slice(0,8)}): -${(ambData.lancamentos?.length||0)-lancFilt.length} lanc, -${(ambData.recorrencias?.length||0)-recFilt.length} rec, -${(ambData.contasPagar?.length||0)-cpFilt.length} cp, ${contasContaminadas} contas saldoInicial zerado`);
         }
 
-        totalRemovidos += removidos;
+        totalRemovidos += removidos + contasContaminadas;
         novoPorAmbiente[ae.id] = {
           ...ambData,
           lancamentos:  lancFilt,
           recorrencias: recFilt,
           contasPagar:  cpFilt,
+          contas:       contasCorrigidas,
         };
       }
 

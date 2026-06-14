@@ -49,6 +49,7 @@ export const MENU_TEXTO =
   `  • extrato anual\n` +
   `  • lançamentos hoje\n` +
   `  • lançamentos junho\n` +
+  `  • últimos lançamentos\n` +
   `  • gastos alimentação mês\n` +
   `  • gastos por categoria mês\n\n` +
   `💸 *Registrar lançamento*\n` +
@@ -87,6 +88,14 @@ export function detectQueryCommand(text) {
   if (t === "extrato anual" || t === "extrato ano" || t === "lancamentos anual" || t === "lancamentos ano")
     return { cmd: "extrato", period: "anual" };
 
+  // Últimos lançamentos: "ultimos", "ultimos lancamentos", "recentes", "ultimos 5"
+  const ultimosMatch = t.match(/^ultimos?(?:\s+lancamentos?)?(?:\s+(\d+))?$/) ||
+                       t.match(/^recentes?(?:\s+(\d+))?$/);
+  if (ultimosMatch) {
+    const limite = parseInt(ultimosMatch[1] || ultimosMatch[2] || "10", 10);
+    return { cmd: "ultimos", limite: Math.min(Math.max(limite || 10, 1), 30) };
+  }
+
   for (const [nome, num] of Object.entries(MESES)) {
     if (t === `lancamentos ${nome}` || t === `extrato ${nome}`)
       return { cmd: "extrato", period: "mesNome", month: num, monthNome: nome };
@@ -113,6 +122,7 @@ export async function handleQueryCommand(usuarioId, cmd, ambienteId = null) {
   try {
     if (cmd.cmd === "saldo") return await cmdSaldo(usuarioId, cmd.conta, ambienteId);
     if (cmd.cmd === "extrato") return await cmdExtrato(usuarioId, cmd.period, cmd.month, cmd.monthNome, ambienteId);
+    if (cmd.cmd === "ultimos") return await cmdUltimos(usuarioId, cmd.limite, ambienteId);
     if (cmd.cmd === "gastos") return await cmdGastos(usuarioId, cmd.categoria, cmd.period, ambienteId);
     if (cmd.cmd === "gastos_categoria") return await cmdGastosPorCategoria(usuarioId, cmd.period, ambienteId);
   } catch (err) {
@@ -120,6 +130,50 @@ export async function handleQueryCommand(usuarioId, cmd, ambienteId = null) {
     return "Erro ao processar consulta. Tente novamente.";
   }
   return "Comando não reconhecido.";
+}
+
+// ── Últimos lançamentos ──────────────────────────────────────────────────────
+
+async function cmdUltimos(usuarioId, limite = 10, ambienteId = null) {
+  const state = await getEmpresaDados(usuarioId, ambienteId);
+  if (!state) return "Nenhum estado financeiro encontrado.";
+
+  const { empresa } = state;
+  const todos = Array.isArray(empresa?.lancamentos) ? empresa.lancamentos : [];
+
+  if (!todos.length) {
+    return (
+      `${BOT_AVATAR}\n` +
+      `📋 *Últimos lançamentos*\n\n` +
+      `_Nenhum lançamento encontrado._\n` +
+      `${DIV}`
+    );
+  }
+
+  const lista = [...todos]
+    .sort((a, b) => (b.data || "").localeCompare(a.data || "") || (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, limite);
+
+  let totalEntradas = 0;
+  let totalSaidas = 0;
+  const linhas = lista.map((l) => {
+    const v = Number(l.valor || 0);
+    if (l.tipo === "Entrada") totalEntradas += v;
+    if (l.tipo === "Saida") totalSaidas += v;
+    const icon = l.tipo === "Entrada" ? "📈" : "📉";
+    const desc = (l.historico || l.descricao || "—").slice(0, 25);
+    return `${icon} ${fmtDate(l.data)}  ${fmtMoney(v)}  ${desc}`;
+  });
+
+  return (
+    `${BOT_AVATAR}\n` +
+    `📋 *Últimos ${lista.length} lançamentos*\n` +
+    `${DIV}\n` +
+    `${linhas.join("\n")}\n` +
+    `${DIV}\n` +
+    `📈 Entradas   *${fmtMoney(totalEntradas)}*\n` +
+    `📉 Saídas     *${fmtMoney(totalSaidas)}*`
+  );
 }
 
 // ── Saldo ────────────────────────────────────────────────────────────────────

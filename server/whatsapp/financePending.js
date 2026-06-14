@@ -182,13 +182,18 @@ export async function confirmPendingLancamento(usuarioId, pending) {
   let { dados, empresa, empresaIdx, empresas } = state;
 
   // Se o usuário escolheu um ambiente específico no fluxo multiambiente,
-  // usar aquele em vez do ambienteAtualId do servidor (que pode ser diferente).
+  // usa porAmbiente[id] diretamente — empresas[] é uma view de apenas 1 elemento
+  // (o ambiente ativo no browser) e findIndex falharia se PF estava ativo no browser
+  // mas o usuário escolheu PJ no WhatsApp.
   const ambienteIdEscolhido = pending.payload?.ambienteId;
   if (ambienteIdEscolhido) {
-    const idx = empresas.findIndex((e) => e.id === ambienteIdEscolhido);
-    if (idx >= 0) {
-      empresaIdx = idx;
-      empresa = empresas[idx];
+    if (dados.porAmbiente?.[ambienteIdEscolhido]) {
+      empresa = dados.porAmbiente[ambienteIdEscolhido];
+      empresaIdx = 0;
+    } else {
+      // Fallback legado sem porAmbiente
+      const idx = empresas.findIndex((e) => e.id === ambienteIdEscolhido);
+      if (idx >= 0) { empresaIdx = idx; empresa = empresas[idx]; }
     }
   }
   const lancamentos = Array.isArray(empresa.lancamentos) ? empresa.lancamentos : [];
