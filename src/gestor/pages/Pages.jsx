@@ -332,32 +332,24 @@ export function LancamentosPage() {
             <div className="lanc-table-wrap lanc-table-wrap-pj">
               <table className="lanc-table lanc-table-pj">
                 <colgroup>
-                  <col className="lanc-col-cod" />
-                  <col className="lanc-col-lote" />
                   <col className="lanc-col-date" />
-                  <col className="lanc-col-conta" />
                   <col className="lanc-col-conta" />
                   <col className="lanc-col-val" />
                   {(showSaldoCol || contaFilter) && <col className="lanc-col-saldo" />}
                   <col className="lanc-col-cat" />
-                  <col className="lanc-col-op" />
                   <col className="lanc-col-hist" />
-                  <col className="lanc-col-dom" />
+                  <col className="lanc-col-status" />
                   <col className="lanc-col-act" />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Cód.</th>
-                    <th>Lote</th>
                     <th>Data</th>
-                    <th>Conta saída</th>
-                    <th>Conta entrada</th>
+                    <th>Conta</th>
                     <th className="lanc-th-num">Valor</th>
                     {(showSaldoCol || contaFilter) && <th className="lanc-th-num">Saldo</th>}
                     <th>Categoria</th>
-                    <th>Operação</th>
-                    <th>Histórico</th>
-                    <th>Dom.</th>
+                    <th>Histórico / Descrição</th>
+                    <th>Status</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -365,53 +357,52 @@ export function LancamentosPage() {
                   {rows.map((l) => {
                     const cEnt = l.contaEntradaId ? contas.find((c) => c.id === l.contaEntradaId) : contaPorCodigo(contas, l.codigoDestino);
                     const cSai = l.contaSaidaId ? contas.find((c) => c.id === l.contaSaidaId) : contaPorCodigo(contas, l.codigoOrigem);
+                    const contaLabel = l.tipo === "Transferencia"
+                      ? `${cSai?.apelido || cSai?.nome || "?"} → ${cEnt?.apelido || cEnt?.nome || "?"}`
+                      : l.tipo === "Entrada"
+                        ? (cEnt?.apelido || cEnt?.nome || "—")
+                        : (cSai?.apelido || cSai?.nome || "—");
                     const planoLabel = getPlanoLabelLancamento(l, planoContas);
                     const opIntegracao = getIntegracaoOperacaoLabel(l);
-                    const opIntegracaoShort = getIntegracaoOperacaoLabel(l, { short: true });
                     const cli = clientes.find((c) => c.id === l.clienteId);
                     const tipoCls = l.tipo === "Entrada" ? "in" : l.tipo === "Saida" ? "out" : "tr";
                     const tipoIcon = l.tipo === "Entrada" ? "↓" : l.tipo === "Saida" ? "↑" : "⇄";
+                    const histTitle = [opIntegracao, l.historico, l.observacao, planoLabel, cli?.nome].filter(Boolean).join(" · ");
+                    const statusPago = l.pago || l.status === "pago";
                     return (
                       <tr key={l.id} className={`lanc-row lanc-row-${tipoCls}`}>
-                        <td className="td-mono">{l.codigo ?? "—"}</td>
-                        <td className="td-mono lanc-cell-quiet">{l.lote}</td>
                         <td className="td-mono">
                           <div className="lanc-date-cell">
                             <span className={`lanc-type-dot lanc-type-${tipoCls}`} title={l.tipo} aria-hidden>{tipoIcon}</span>
                             <div>
                               <div>{fmtDate(l.data)}</div>
-                              {l.createdAt && (
-                                <div className="lanc-cell-meta">
-                                  {new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                                  {l.source === "whatsapp" && " 📱"}
-                                </div>
-                              )}
+                              <div className="lanc-cell-meta">
+                                {l.createdAt && new Date(l.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                {l.source === "whatsapp" && " 📱"}
+                                {l.exportado && <span className="lanc-badge-dom" title="Exportado">DOM</span>}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="lanc-td-conta">{cSai?.apelido || cSai?.nome || (l.tipo === "Saida" || l.tipo === "Transferencia" ? "—" : "")}</td>
-                        <td className="lanc-td-conta">{cEnt?.apelido || cEnt?.nome || (l.tipo === "Entrada" || l.tipo === "Transferencia" ? "—" : "")}</td>
+                        <td className="lanc-td-conta">{contaLabel}</td>
                         <td className={`lanc-th-num lanc-td-val lanc-value lanc-value-${tipoCls}`}>{fmtBRL(l.valor)}</td>
                         {(showSaldoCol || contaFilter) && <td className="lanc-th-num lanc-td-saldo td-mono">{l.saldoConta != null ? fmtBRL(l.saldoConta) : "—"}</td>}
                         <td className="lanc-cell-clip lanc-td-cat" title={planoLabel || undefined}>
+                          {opIntegracao && <span className="lanc-badge lanc-badge-integracao lanc-badge-op">{opIntegracao}</span>}
                           {planoLabel || "—"}
                         </td>
-                        <td className="lanc-cell-clip lanc-td-op">
-                          {opIntegracao ? (
-                            <span className="lanc-badge lanc-badge-integracao" title={opIntegracao}>
-                              {opIntegracaoShort}
-                            </span>
-                          ) : (
-                            "—"
+                        <td className="lanc-td-hist" title={histTitle || undefined}>
+                          <div className="lanc-hist-main">{l.historico || "—"}</div>
+                          {(l.observacao || cli?.nome) && (
+                            <div className="lanc-hist-sub">
+                              {[cli?.nome, l.observacao].filter(Boolean).join(" · ")}
+                            </div>
                           )}
                         </td>
-                        <td className="lanc-td-hist" title={[opIntegracao, l.historico, planoLabel, cli?.nome].filter(Boolean).join(" · ") || undefined}>
-                          <span className="lanc-cell-hist">{l.historico || "—"}</span>
-                        </td>
-                        <td>
-                          {l.exportado
-                            ? <span className="lanc-badge lanc-badge-blue">Sim</span>
-                            : <span className="lanc-badge lanc-badge-amber">Não</span>}
+                        <td className="lanc-td-status">
+                          <span className={`lanc-badge lanc-badge-status ${statusPago ? "lanc-badge-pago" : "lanc-badge-pendente"}`}>
+                            {statusPago ? "Pago" : "Pendente"}
+                          </span>
                         </td>
                         <td className="lanc-actions-cell">
                           <div className="lanc-actions">

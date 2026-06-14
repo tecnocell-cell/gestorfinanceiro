@@ -6561,31 +6561,27 @@ export const css = `
   .lanc-table.lanc-table-pj {
     table-layout: fixed;
     width: 100%;
-    font-size: 11px;
+    font-size: 12px;
   }
-  .lanc-table-pj .lanc-col-cod { width: 4%; }
-  .lanc-table-pj .lanc-col-lote { width: 5%; }
-  .lanc-table-pj .lanc-col-date { width: 9%; }
-  .lanc-table-pj .lanc-col-conta { width: 11%; }
-  .lanc-table-pj .lanc-col-val { width: 9%; }
-  .lanc-table-pj .lanc-col-saldo { width: 8%; }
-  .lanc-table-pj .lanc-col-cat { width: 14%; }
-  .lanc-table-pj .lanc-col-op { width: 9%; }
-  .lanc-table-pj .lanc-col-hist { width: auto; }
-  .lanc-table-pj .lanc-col-dom { width: 5%; }
-  .lanc-table-pj .lanc-col-act { width: 76px; min-width: 76px; }
+  /* 7 colunas: Data | Conta | Valor | Categoria | Histórico | Status | Ações */
+  .lanc-table-pj .lanc-col-date   { width: 10%; }
+  .lanc-table-pj .lanc-col-conta  { width: 13%; }
+  .lanc-table-pj .lanc-col-val    { width: 9%; }
+  .lanc-table-pj .lanc-col-saldo  { width: 8%; }
+  .lanc-table-pj .lanc-col-cat    { width: 16%; }
+  .lanc-table-pj .lanc-col-hist   { width: auto; }
+  .lanc-table-pj .lanc-col-status { width: 7%; }
+  .lanc-table-pj .lanc-col-act    { width: 64px; min-width: 64px; }
   .lanc-table-pj thead th {
-    font-size: 9px;
-    padding: 6px 5px;
-    letter-spacing: 0.03em;
-    white-space: normal;
-    line-height: 1.2;
+    font-size: 10px;
+    padding: 7px 8px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
   .lanc-table-pj tbody td {
-    padding: 6px 5px;
-    font-size: 11px;
-    line-height: 1.35;
-    overflow: visible;
+    padding: 8px 8px;
+    font-size: 12px;
+    line-height: 1.4;
     vertical-align: top;
   }
   .lanc-table-pj .lanc-td-conta,
@@ -6593,27 +6589,67 @@ export const css = `
   .lanc-table-pj .lanc-td-hist {
     white-space: normal;
     word-break: break-word;
-    overflow: visible;
-    text-overflow: unset;
   }
-  .lanc-table-pj .lanc-td-cat,
-  .lanc-table-pj .lanc-td-op {
-    font-size: 10.5px;
+  .lanc-table-pj .lanc-td-cat {
+    font-size: 11.5px;
   }
   .lanc-table-pj .lanc-cell-clip {
     white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
   }
   .lanc-table-pj .lanc-td-val,
   .lanc-table-pj .lanc-date-cell,
   .lanc-table-pj td.td-mono {
     white-space: nowrap;
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
-  .lanc-table-pj .lanc-td-hist .lanc-cell-hist {
-    -webkit-line-clamp: 3;
+  /* Histórico principal + subtítulo (observação / cliente) */
+  .lanc-hist-main {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .lanc-hist-sub {
     font-size: 10.5px;
+    color: var(--text3);
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  /* Badge DOM discreto na célula de data */
+  .lanc-badge-dom {
+    display: inline-block;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--info);
+    opacity: 0.7;
+    margin-left: 3px;
+    vertical-align: middle;
+  }
+  /* Status badge */
+  .lanc-td-status { text-align: center; }
+  .lanc-badge-status {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .lanc-badge-pago {
+    background: color-mix(in oklab, var(--success) 15%, transparent);
+    color: var(--success);
+  }
+  .lanc-badge-pendente {
+    background: color-mix(in oklab, var(--warning) 15%, transparent);
+    color: color-mix(in oklab, var(--warning) 70%, var(--text));
+  }
+  /* Badge de integração inline na categoria */
+  .lanc-badge-op {
+    display: block;
+    font-size: 9.5px;
+    margin-bottom: 2px;
+    width: fit-content;
   }
   .lanc-table thead th {
     text-align: left; padding: 10px 12px;
