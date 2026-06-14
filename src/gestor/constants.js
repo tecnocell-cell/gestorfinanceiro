@@ -66,7 +66,11 @@ export const NAV_SECTIONS_FISICA = [
   },
 ];
 
-/** Menu lateral PJ — agrupado por seção. */
+/** Menu lateral PJ — agrupado por seção.
+ * Sistema (WhatsApp, Conexões, Segurança, etc.) é gerenciado pelo ambiente
+ * pessoal (conta mãe) e não aparece aqui. O ambiente empresa expõe apenas
+ * as funcionalidades financeiras e operacionais da empresa.
+ */
 export const NAV_SECTIONS_PJ = [
   {
     section: "Principal",
@@ -101,22 +105,6 @@ export const NAV_SECTIONS_PJ = [
       { id: "resultado-centro-custo", label: "Centro de Custo" },
       { id: "orcado-realizado", label: "Orçado x Realizado" },
       { id: "relatorios", label: "Relatórios" },
-    ],
-  },
-  {
-    section: "Sistema",
-    items: [
-      { id: "whatsapp", label: "WhatsApp" },
-      { id: "integracao-pf-pj", label: "Repasses entre Ambientes" },
-      { id: "open-finance", label: "Conexões" },
-      { id: "tutoriais", label: "Tutoriais" },
-      { id: "ajuda", label: "Ajuda" },
-      { id: "suporte", label: "Suporte" },
-      { id: "empresa", label: "Empresa" },
-      { id: "equipe", label: "Equipe" },
-      { id: "notificacoes", label: "Notificações" },
-      { id: "seguranca", label: "Segurança" },
-      { id: "plano-assinatura", label: "Portal do Cliente" },
     ],
   },
 ];

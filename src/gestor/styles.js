@@ -653,10 +653,10 @@ export const css = `
     left: 0;
     right: 0;
     min-width: 200px;
-    background: var(--rn-card, #1e2124);
-    border: 1px solid var(--sidebar-border);
+    background: color-mix(in oklab, var(--rn-primary) 90%, #000);
+    border: 1px solid rgba(255,255,255,0.12);
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     z-index: 200;
     overflow: hidden;
   }
@@ -687,9 +687,9 @@ export const css = `
     font-weight: 600;
   }
 
-  .amb-dropdown__icon { font-size: 1rem; }
-  .amb-dropdown__nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .amb-dropdown__check { font-size: 0.75rem; opacity: 0.8; }
+  .amb-dropdown__icon { font-size: 1rem; flex-shrink: 0; }
+  .amb-dropdown__nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--rn-white, #fff); }
+  .amb-dropdown__check { font-size: 0.75rem; opacity: 0.8; color: var(--rn-white, #fff); }
 
   .amb-dropdown__divider {
     height: 1px;
