@@ -641,8 +641,8 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
 // ─── Reparo de isolamento multiambiente ──────────────────────────────────────
 //
 // POST /api/repair/ambiente-empresa
-// Limpa lançamentos do ambiente empresa que são cópias do ambiente pessoal.
-// Preserva lançamentos com tipoOrigem/tipoDestino de repasse entre ambientes.
+// Limpa lancamentos, recorrencias e contasPagar do ambiente empresa que são
+// cópias do ambiente pessoal. Preserva repasses explícitos entre ambientes.
 // Seguro: não remove dados do ambiente pessoal, não altera assinaturas.
 app.post(
   '/api/repair/ambiente-empresa',
@@ -656,20 +656,26 @@ app.post(
       const dados = rows[0].dados;
       if (!dados.porAmbiente) return res.json({ ok: true, message: 'Nenhum porAmbiente encontrado. Nada a reparar.' });
 
-      // Monta conjunto de IDs de lançamentos de todos os ambientes pessoal
       const ambientes = await listAmbientes(stateOwnerId);
       const ambientesEmpresa = ambientes.filter((a) => a.tipo === 'empresa');
       const ambientesPessoal = ambientes.filter((a) => a.tipo === 'pessoal');
 
       if (!ambientesEmpresa.length) return res.json({ ok: true, message: 'Nenhum ambiente empresa encontrado.' });
 
-      const idsPessoal = new Set();
+      // Coleta IDs de todos os registros do ambiente pessoal (lancamentos, recorrencias, contasPagar)
+      const idsPessoal = { lancamentos: new Set(), recorrencias: new Set(), contasPagar: new Set() };
       for (const ap of ambientesPessoal) {
         const ambData = dados.porAmbiente[ap.id];
-        for (const l of ambData?.lancamentos || []) {
-          if (l?.id) idsPessoal.add(l.id);
-        }
+        if (!ambData) continue;
+        for (const l of ambData.lancamentos || [])  { if (l?.id) idsPessoal.lancamentos.add(l.id); }
+        for (const r of ambData.recorrencias || [])  { if (r?.id) idsPessoal.recorrencias.add(r.id); }
+        for (const c of ambData.contasPagar || [])   { if (c?.id) idsPessoal.contasPagar.add(c.id); }
       }
+
+      const isRepasse = (item) => {
+        const fields = [item.tipoOrigem, item.tipoDestino, item.operacao].map((v) => String(v || '').toLowerCase());
+        return fields.some((f) => f.includes('empresa') || f.includes('pessoal') || f.includes('transf'));
+      };
 
       let totalRemovidos = 0;
       const novoPorAmbiente = { ...dados.porAmbiente };
@@ -678,31 +684,35 @@ app.post(
         const ambData = dados.porAmbiente[ae.id];
         if (!ambData) continue;
 
-        const lancamentosOriginais = ambData.lancamentos || [];
-        // Mantém apenas lançamentos que NÃO existem no ambiente pessoal
-        // OU que são repasses explícitos (tipoOrigem/tipoDestino contém 'empresa' ou 'pessoal')
-        const lancamentosFiltrados = lancamentosOriginais.filter((l) => {
-          if (!l?.id) return false;
-          if (!idsPessoal.has(l.id)) return true; // não está no pessoal — manter
-          // Está no pessoal mas é um repasse explícito — manter CÓPIA no empresa
-          const isRepasse =
-            String(l.tipoOrigem || '').toLowerCase().includes('empresa') ||
-            String(l.tipoOrigem || '').toLowerCase().includes('pessoal') ||
-            String(l.tipoDestino || '').toLowerCase().includes('empresa') ||
-            String(l.tipoDestino || '').toLowerCase().includes('pessoal') ||
-            String(l.operacao || '').toLowerCase().includes('transf');
-          return isRepasse;
-        });
+        const filtrar = (lista, idsSet) =>
+          (lista || []).filter((item) => {
+            if (!item?.id) return false;
+            if (!idsSet.has(item.id)) return true;
+            return isRepasse(item);
+          });
 
-        totalRemovidos += lancamentosOriginais.length - lancamentosFiltrados.length;
-        novoPorAmbiente[ae.id] = { ...ambData, lancamentos: lancamentosFiltrados };
+        const lancFilt = filtrar(ambData.lancamentos, idsPessoal.lancamentos);
+        const recFilt  = filtrar(ambData.recorrencias, idsPessoal.recorrencias);
+        const cpFilt   = filtrar(ambData.contasPagar, idsPessoal.contasPagar);
+
+        const removidos =
+          (ambData.lancamentos?.length  || 0) - lancFilt.length +
+          (ambData.recorrencias?.length || 0) - recFilt.length +
+          (ambData.contasPagar?.length  || 0) - cpFilt.length;
+
+        totalRemovidos += removidos;
+        novoPorAmbiente[ae.id] = {
+          ...ambData,
+          lancamentos:  lancFilt,
+          recorrencias: recFilt,
+          contasPagar:  cpFilt,
+        };
       }
 
       if (totalRemovidos === 0) {
-        return res.json({ ok: true, message: 'Nenhum lançamento contaminado encontrado. Ambientes já estão isolados.' });
+        return res.json({ ok: true, totalRemovidos: 0, message: 'Ambientes já estão isolados. Nada a reparar.' });
       }
 
-      // Reconstrói view para o ambiente atual
       const repairedDados = { ...dados, porAmbiente: novoPorAmbiente };
       const rebuilt = rebuildEmpresasView(repairedDados);
 
@@ -711,8 +721,8 @@ app.post(
         [JSON.stringify(rebuilt), stateOwnerId]
       );
 
-      console.log(`[REPAIR] user=${stateOwnerId.slice(0,8)}: removidos ${totalRemovidos} lançamentos contaminados de ambientes empresa.`);
-      res.json({ ok: true, totalRemovidos, message: `Reparo concluído: ${totalRemovidos} lançamento(s) removido(s) do(s) ambiente(s) empresa.` });
+      console.log(`[REPAIR] user=${stateOwnerId.slice(0,8)}: removidos ${totalRemovidos} registros contaminados (lancamentos+recorrencias+contasPagar) de ambientes empresa.`);
+      res.json({ ok: true, totalRemovidos, message: `Reparo concluído: ${totalRemovidos} registro(s) removido(s) do(s) ambiente(s) empresa.` });
     } catch (err) {
       console.error('POST /api/repair/ambiente-empresa:', err.message);
       res.status(500).json({ error: 'Erro ao reparar isolamento.' });
