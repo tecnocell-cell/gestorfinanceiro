@@ -108,13 +108,13 @@ export function detectQueryCommand(text) {
 
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
-export async function handleQueryCommand(usuarioId, cmd) {
+export async function handleQueryCommand(usuarioId, cmd, ambienteId = null) {
   if (cmd.cmd === "ajuda") return MENU_TEXTO;
   try {
-    if (cmd.cmd === "saldo") return await cmdSaldo(usuarioId, cmd.conta);
-    if (cmd.cmd === "extrato") return await cmdExtrato(usuarioId, cmd.period, cmd.month, cmd.monthNome);
-    if (cmd.cmd === "gastos") return await cmdGastos(usuarioId, cmd.categoria, cmd.period);
-    if (cmd.cmd === "gastos_categoria") return await cmdGastosPorCategoria(usuarioId, cmd.period);
+    if (cmd.cmd === "saldo") return await cmdSaldo(usuarioId, cmd.conta, ambienteId);
+    if (cmd.cmd === "extrato") return await cmdExtrato(usuarioId, cmd.period, cmd.month, cmd.monthNome, ambienteId);
+    if (cmd.cmd === "gastos") return await cmdGastos(usuarioId, cmd.categoria, cmd.period, ambienteId);
+    if (cmd.cmd === "gastos_categoria") return await cmdGastosPorCategoria(usuarioId, cmd.period, ambienteId);
   } catch (err) {
     console.error(`[whatsapp/query] erro cmd=${cmd.cmd}:`, err.message);
     return "Erro ao processar consulta. Tente novamente.";
@@ -138,8 +138,8 @@ function calcSaldoConta(conta, lancamentos) {
   return saldo;
 }
 
-async function cmdSaldo(usuarioId, contaNome) {
-  const state = await getEmpresaDados(usuarioId);
+async function cmdSaldo(usuarioId, contaNome, ambienteId = null) {
+  const state = await getEmpresaDados(usuarioId, ambienteId);
   if (!state) return "Nenhum estado financeiro encontrado.";
 
   const { empresa } = state;
@@ -185,8 +185,8 @@ async function cmdSaldo(usuarioId, contaNome) {
 
 // ── Extrato ──────────────────────────────────────────────────────────────────
 
-async function cmdExtrato(usuarioId, period, monthNum, monthNome) {
-  const state = await getEmpresaDados(usuarioId);
+async function cmdExtrato(usuarioId, period, monthNum, monthNome, ambienteId = null) {
+  const state = await getEmpresaDados(usuarioId, ambienteId);
   if (!state) return "Nenhum estado financeiro encontrado.";
 
   const { empresa } = state;
@@ -254,8 +254,8 @@ async function cmdExtrato(usuarioId, period, monthNum, monthNome) {
 
 // ── Gastos por categoria ─────────────────────────────────────────────────────
 
-async function cmdGastos(usuarioId, categoriaBusca, period) {
-  const state = await getEmpresaDados(usuarioId);
+async function cmdGastos(usuarioId, categoriaBusca, period, ambienteId = null) {
+  const state = await getEmpresaDados(usuarioId, ambienteId);
   if (!state) return "Nenhum estado financeiro encontrado.";
 
   const { empresa } = state;
@@ -313,8 +313,8 @@ async function cmdGastos(usuarioId, categoriaBusca, period) {
 
 // ── Gastos por categoria (todas) ─────────────────────────────────────────────
 
-async function cmdGastosPorCategoria(usuarioId, period) {
-  const state = await getEmpresaDados(usuarioId);
+async function cmdGastosPorCategoria(usuarioId, period, ambienteId = null) {
+  const state = await getEmpresaDados(usuarioId, ambienteId);
   if (!state) return "Nenhum estado financeiro encontrado.";
 
   const { empresa } = state;

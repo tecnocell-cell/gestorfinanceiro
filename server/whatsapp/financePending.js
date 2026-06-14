@@ -35,7 +35,7 @@ export function todayIso() {
 
 // ── Acesso ao estado ─────────────────────────────────────────────────────────
 
-export async function getEmpresaDados(usuarioId) {
+export async function getEmpresaDados(usuarioId, ambienteIdOverride = null) {
   const { rows } = await query(
     "SELECT dados FROM estados WHERE usuario_id = $1",
     [usuarioId]
@@ -46,10 +46,9 @@ export async function getEmpresaDados(usuarioId) {
   const empresas = Array.isArray(dados?.empresas) ? dados.empresas : [];
   if (!empresas.length && !dados?.porAmbiente) return null;
 
-  // Multiambiente: usa porAmbiente[ambienteAtualId] como fonte primária.
-  // Isso evita race condition onde ambienteAtualId já foi atualizado via /selecionar
-  // mas empresas[] ainda contém dados do ambiente anterior (view desatualizada).
-  const activeId = dados.ambienteAtualId || dados.empresaAtivaId;
+  // Se ambienteIdOverride fornecido (ex: consulta WA após seleção de ambiente),
+  // usa esse ID diretamente em vez do que está ativo no browser.
+  const activeId = ambienteIdOverride || dados.ambienteAtualId || dados.empresaAtivaId;
   let empresa;
   let empresaIdx = 0;
   if (dados.porAmbiente && activeId && dados.porAmbiente[activeId]) {

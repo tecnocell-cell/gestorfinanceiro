@@ -180,7 +180,33 @@ async function processMessage(usuarioId, fromNumber, instanceName, inboxId, msgB
   const queryCmd = detectQueryCommand(body);
   if (queryCmd) {
     console.log(`[whatsapp/query] cmd=${queryCmd.cmd} usuario=${usuarioId}`);
-    const resp = await handleQueryCommand(usuarioId, queryCmd);
+
+    // ajuda não precisa de contexto de ambiente
+    if (queryCmd.cmd === "ajuda") {
+      sendReply(instanceName, fromNumber, MENU_TEXTO);
+      await markInbox(true);
+      return;
+    }
+
+    // Com múltiplos ambientes, perguntar qual antes de consultar
+    const ambientes = await getAmbientesDoUsuario(usuarioId);
+    if (ambientes.length > 1) {
+      const payload = {
+        action: "query_consulta",
+        step: "escolher_ambiente_consulta",
+        ambientes_opcoes: ambientes,
+        queryCmd,
+      };
+      await createPending(usuarioId, fromNumber, payload);
+      sendReply(instanceName, fromNumber, buildAmbienteSelectorMsg(ambientes));
+      console.log(`[whatsapp/query] aguardando ambiente para consulta: usuario=${usuarioId} cmd=${queryCmd.cmd}`);
+      await markInbox(true);
+      return;
+    }
+
+    // Ambiente único: consulta direta pelo ID do único ambiente
+    const ambienteId = ambientes[0]?.id || null;
+    const resp = await handleQueryCommand(usuarioId, queryCmd, ambienteId);
     sendReply(instanceName, fromNumber, resp);
     await markInbox(true);
     return;
@@ -220,6 +246,37 @@ function normStr(s) {
 async function handlePendingFlow(usuarioId, fromNumber, instanceName, pending, body) {
   const payload = pending.payload;
   const t = normStr(body);
+
+  // ── Seleção de ambiente para CONSULTA ────────────────────────────────────
+  if (payload.step === "escolher_ambiente_consulta") {
+    const opcoes = payload.ambientes_opcoes || [];
+    const num = parseInt(t, 10);
+
+    if (["cancelar", "cancel", "nao", "n", "não"].includes(t)) {
+      await deletePending(usuarioId);
+      sendReply(instanceName, fromNumber, MSG_CANCELADO);
+      return;
+    }
+
+    if (!Number.isFinite(num) || num < 1 || num > opcoes.length) {
+      sendReply(instanceName, fromNumber, buildAmbienteSelectorMsg(opcoes));
+      return;
+    }
+
+    const ambienteEscolhido = opcoes[num - 1];
+    await deletePending(usuarioId);
+
+    const resp = await handleQueryCommand(usuarioId, payload.queryCmd, ambienteEscolhido.id);
+    const icone = ambienteEscolhido.tipo === "pessoal" ? "🏠" : "🏢";
+    sendReply(instanceName, fromNumber,
+      `${icone} *${ambienteEscolhido.nome}*\n──────────────────────\n${resp}`
+    );
+    console.log(
+      `[whatsapp/query] consulta executada: usuario=${usuarioId}` +
+      ` cmd=${payload.queryCmd?.cmd} ambiente=${ambienteEscolhido.nome}`
+    );
+    return;
+  }
 
   // ── Seleção de ambiente (multiambiente) ───────────────────────────────────
   if (payload.step === "escolher_ambiente") {
