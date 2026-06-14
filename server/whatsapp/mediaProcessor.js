@@ -25,7 +25,9 @@ import { parseMessage }             from "./messageParser.js";
 import {
   createPending as fpCreatePending,
   getCategories,
+  getAmbientesDoUsuario,
   buildConfirmacaoMsg,
+  buildAmbienteSelectorMsg,
   todayIso,
 } from "./financePending.js";
 import { getUserSubscriptionResources } from "../billing/accessControl.js";
@@ -333,10 +335,28 @@ export async function processMediaInbox({
     }
 
     try {
-      // Usar o mesmo fluxo de whatsapp_pending que o canal de texto
       const tipo = parsed.tipo === "Receita" ? "Entrada" : "Saida";
-      const categorias = await getCategories(usuarioId, tipo);
+      const origem = messageType === "audio" ? "áudio" : "comprovante";
 
+      // Multiambiente: se o usuário tem mais de 1 ambiente, perguntar em qual registrar
+      const ambientes = await getAmbientesDoUsuario(usuarioId);
+      if (ambientes.length > 1) {
+        const payload = {
+          action: "create_lancamento",
+          step: "escolher_ambiente",
+          ambientes_opcoes: ambientes,
+          parsed: { ...parsed, _origem: origem },
+        };
+        await fpCreatePending(usuarioId, fromNumber, payload);
+        sendReply(buildAmbienteSelectorMsg(ambientes));
+        console.log(
+          `[mediaProcessor] aguardando seleção de ambiente: inbox=${inboxId}` +
+          ` tipo=${tipo} valor=${parsed.valor} origem=${origem}`
+        );
+        return;
+      }
+
+      const categorias = await getCategories(usuarioId, tipo);
       let catSugerida = null;
       let confidence = "baixa";
       if (parsed.categoria && categorias.length) {
@@ -352,9 +372,13 @@ export async function processMediaInbox({
         confidence = "baixa";
       }
 
+      const ambienteUnico = ambientes[0] ?? null;
       const payload = {
         action: "create_lancamento",
         step: "confirmacao",
+        ...(ambienteUnico
+          ? { ambienteId: ambienteUnico.id, ambienteNome: ambienteUnico.nome, ambienteTipo: ambienteUnico.tipo }
+          : {}),
         lancamento: {
           data: todayIso(),
           tipo,
@@ -364,7 +388,7 @@ export async function processMediaInbox({
           planoId: catSugerida?.id || null,
           categoriaNome: catSugerida?.descricao || "",
           historico: parsed.descricao,
-          observacao: "Criado via WhatsApp (áudio)",
+          observacao: `Criado via WhatsApp (${origem})`,
           status: "pago",
           pago: true,
           exportado: false,
@@ -381,8 +405,8 @@ export async function processMediaInbox({
       sendReply(buildConfirmacaoMsg(payload));
 
       console.log(
-        `[mediaProcessor] pending criado (whatsapp_pending): inbox=${inboxId} tipo=${tipo}` +
-        ` valor=${parsed.valor} desc=${parsed.descricao}`
+        `[mediaProcessor] pending criado: inbox=${inboxId} tipo=${tipo}` +
+        ` valor=${parsed.valor} desc=${parsed.descricao} origem=${origem}`
       );
     } catch (err) {
       console.error("[mediaProcessor] erro ao criar pending:", err.message);
