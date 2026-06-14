@@ -662,14 +662,35 @@ app.post(
 
       if (!ambientesEmpresa.length) return res.json({ ok: true, message: 'Nenhum ambiente empresa encontrado.' });
 
-      // Coleta IDs de todos os registros do ambiente pessoal (lancamentos, recorrencias, contasPagar)
+      // Coleta IDs E fingerprints de todos os registros do ambiente pessoal.
+      // Fingerprint: match por conteúdo (historico+valor+tipo) caso IDs difiram
+      // (pode ocorrer quando a contaminação copiou dados antes da migração porAmbiente).
       const idsPessoal = { lancamentos: new Set(), recorrencias: new Set(), contasPagar: new Set() };
+      const fpPessoal  = { recorrencias: new Set(), contasPagar: new Set() };
+
+      const recFp = (r) => `${String(r.descricao||r.historico||'').trim().toLowerCase()}|${Number(r.valor||0)}|${r.tipo||''}`;
+      const cpFp  = (c) => `${String(c.descricao||c.historico||'').trim().toLowerCase()}|${Number(c.valor||0)}|${c.tipo||''}`;
+
+      // Fontes de dados pessoal: porAmbiente E dados.empresas[] (fallback legacy)
+      const fontesPessoal = [];
       for (const ap of ambientesPessoal) {
-        const ambData = dados.porAmbiente[ap.id];
-        if (!ambData) continue;
-        for (const l of ambData.lancamentos || [])  { if (l?.id) idsPessoal.lancamentos.add(l.id); }
-        for (const r of ambData.recorrencias || [])  { if (r?.id) idsPessoal.recorrencias.add(r.id); }
-        for (const c of ambData.contasPagar || [])   { if (c?.id) idsPessoal.contasPagar.add(c.id); }
+        if (dados.porAmbiente[ap.id]) fontesPessoal.push(dados.porAmbiente[ap.id]);
+      }
+      // Fallback: se empresas[] contém dados marcados como pessoal (tipo_perfil fisica)
+      for (const emp of (dados.empresas || [])) {
+        if (emp?.tipo_perfil === 'fisica' || emp?.tipoPerfil === 'fisica') fontesPessoal.push(emp);
+      }
+
+      for (const ambData of fontesPessoal) {
+        for (const l of ambData.lancamentos  || []) { if (l?.id) idsPessoal.lancamentos.add(l.id); }
+        for (const r of ambData.recorrencias || []) {
+          if (r?.id) idsPessoal.recorrencias.add(r.id);
+          fpPessoal.recorrencias.add(recFp(r));
+        }
+        for (const c of ambData.contasPagar  || []) {
+          if (c?.id) idsPessoal.contasPagar.add(c.id);
+          fpPessoal.contasPagar.add(cpFp(c));
+        }
       }
 
       const isRepasse = (item) => {
@@ -684,21 +705,42 @@ app.post(
         const ambData = dados.porAmbiente[ae.id];
         if (!ambData) continue;
 
-        const filtrar = (lista, idsSet) =>
+        const filtrarLanc = (lista) =>
           (lista || []).filter((item) => {
             if (!item?.id) return false;
-            if (!idsSet.has(item.id)) return true;
+            if (!idsPessoal.lancamentos.has(item.id)) return true;
             return isRepasse(item);
           });
 
-        const lancFilt = filtrar(ambData.lancamentos, idsPessoal.lancamentos);
-        const recFilt  = filtrar(ambData.recorrencias, idsPessoal.recorrencias);
-        const cpFilt   = filtrar(ambData.contasPagar, idsPessoal.contasPagar);
+        const filtrarRec = (lista) =>
+          (lista || []).filter((item) => {
+            if (!item?.id) return false;
+            // Contaminated se ID OU fingerprint bate com pessoal
+            const contaminado = idsPessoal.recorrencias.has(item.id) || fpPessoal.recorrencias.has(recFp(item));
+            if (!contaminado) return true;
+            return isRepasse(item);
+          });
+
+        const filtrarCp = (lista) =>
+          (lista || []).filter((item) => {
+            if (!item?.id) return false;
+            const contaminado = idsPessoal.contasPagar.has(item.id) || fpPessoal.contasPagar.has(cpFp(item));
+            if (!contaminado) return true;
+            return isRepasse(item);
+          });
+
+        const lancFilt = filtrarLanc(ambData.lancamentos);
+        const recFilt  = filtrarRec(ambData.recorrencias);
+        const cpFilt   = filtrarCp(ambData.contasPagar);
 
         const removidos =
           (ambData.lancamentos?.length  || 0) - lancFilt.length +
           (ambData.recorrencias?.length || 0) - recFilt.length +
           (ambData.contasPagar?.length  || 0) - cpFilt.length;
+
+        if (removidos > 0) {
+          console.log(`[REPAIR] empresa=${ae.nome} (${ae.id.slice(0,8)}): -${(ambData.lancamentos?.length||0)-lancFilt.length} lanc, -${(ambData.recorrencias?.length||0)-recFilt.length} rec, -${(ambData.contasPagar?.length||0)-cpFilt.length} cp`);
+        }
 
         totalRemovidos += removidos;
         novoPorAmbiente[ae.id] = {
