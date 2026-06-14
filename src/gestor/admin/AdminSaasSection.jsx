@@ -4,8 +4,7 @@ import { CHART } from "../constants.js";
 import {
   PlanBadge,
   SubscriptionStatusBadge,
-  PF_PLAN_OPTIONS,
-  PJ_PLAN_OPTIONS,
+  FLUXIVA_PLAN_OPTIONS,
 } from "./saasBadges.jsx";
 import { User } from "../components/icons.jsx";
 
@@ -73,7 +72,7 @@ function ModalEditarPlano({ cliente, onClose, onSaved }) {
   const [slug, setSlug] = useState(cliente.plano_slug || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const options = cliente.tipo_perfil === "fisica" ? PF_PLAN_OPTIONS : PJ_PLAN_OPTIONS;
+  const options = FLUXIVA_PLAN_OPTIONS;
 
   const submit = async (e) => {
     e.preventDefault();

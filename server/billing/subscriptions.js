@@ -19,14 +19,23 @@ function trialDaysForTipo(tipoPerfil) {
   return segmentoFromTipoPerfil(tipoPerfil) === 'pf' ? 7 : 14;
 }
 
-export async function listPlanosAtivos(tipoPerfil) {
-  const segmento = segmentoFromTipoPerfil(tipoPerfil);
+export async function listPlanosAtivos(_tipoPerfil) {
+  // Modelo Fluxiva unificado: exibe planos fluxiva_* para todos os usuários.
+  // Fallback para slugs legados (pf_*/pj_*) se nenhum plano fluxiva_ existir no banco.
+  const { rows: fluxivaRows } = await query(
+    `SELECT id, slug, nome, descricao, preco_centavos, intervalo, recursos, ativo, created_at
+     FROM planos
+     WHERE ativo = true AND slug LIKE 'fluxiva_%'
+     ORDER BY preco_centavos ASC`
+  );
+  if (fluxivaRows.length > 0) return fluxivaRows.map(formatPlano);
+
+  // Fallback legado — exibe planos pj_* (mais completos) se fluxiva_* ainda não existirem
   const { rows } = await query(
     `SELECT id, slug, nome, descricao, preco_centavos, intervalo, recursos, ativo, created_at
      FROM planos
-     WHERE ativo = true AND slug LIKE $1
-     ORDER BY preco_centavos ASC`,
-    [`${segmento}_%`]
+     WHERE ativo = true AND slug LIKE 'pj_%'
+     ORDER BY preco_centavos ASC`
   );
   return rows.map(formatPlano);
 }

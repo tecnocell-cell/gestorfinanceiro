@@ -23,8 +23,11 @@ const PLAN_META: Record<
     {
       label: p.nome,
       base: p.precoCentavos / 100,
-      extraUserRate: p.limiteUsuarios <= 1 ? 8 : 12,
-      extraNumberRate: p.limiteWhatsappNumeros <= 3 ? 5 : 10,
+      // Light e Start: 1 usuário incluído, sem usuários extras
+      // Pro: até 5 usuários, R$ 12/extra; Business: até 20, R$ 15/extra
+      extraUserRate: p.limiteUsuarios <= 1 ? 0 : p.limiteUsuarios <= 5 ? 12 : 15,
+      // Light e Start: 1 número; Pro: 3 números; Business: 5 números
+      extraNumberRate: p.limiteWhatsappNumeros <= 1 ? 0 : p.limiteWhatsappNumeros <= 3 ? 8 : 12,
       maxUsers: p.limiteUsuarios,
       maxNumbers: p.limiteWhatsappNumeros,
       texto: p.whatsappTexto,
@@ -45,7 +48,7 @@ const PLAN_META: Record<
 }>;
 
 export function PriceSimulator() {
-  const [plan, setPlan] = useState<PlanKey>("pj_pro");
+  const [plan, setPlan] = useState<PlanKey>("fluxiva_pro");
   const meta = PLAN_META[plan];
   const [users, setUsers] = useState(1);
   const [numbers, setNumbers] = useState(1);

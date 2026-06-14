@@ -1,4 +1,4 @@
-import { query } from '../db.js';
+import { query, pool } from '../db.js';
 import { createInitialState } from '../initialState.js';
 
 /**
@@ -140,19 +140,27 @@ export function migrateToMultiambiente(dados, ambienteAtualId) {
 /**
  * Reconstrói dados.empresas como view do ambiente atual.
  * Deve ser chamado após migrateToMultiambiente.
+ *
+ * Se porAmbiente[ambienteAtualId] não existir (race condition durante criação),
+ * inicializa com dados vazios para o tipo correto — NUNCA muda ambienteAtualId
+ * nem cai silenciosamente para outro ambiente.
  */
-export function rebuildEmpresasView(dados) {
+export function rebuildEmpresasView(dados, tipoAmbienteAtual) {
   if (!dados.porAmbiente || !dados.ambienteAtualId) return dados;
 
-  let ambienteAtualId = dados.ambienteAtualId;
+  const ambienteAtualId = dados.ambienteAtualId;
   let ambData = dados.porAmbiente[ambienteAtualId];
 
   if (!ambData) {
-    // Fallback para primeiro disponível
-    const firstId = Object.keys(dados.porAmbiente)[0];
-    if (!firstId) return dados;
-    ambienteAtualId = firstId;
-    ambData = dados.porAmbiente[firstId];
+    // Ambiente ainda não inicializado (race condition). Usa dados vazios para o
+    // tipo correto em vez de cair silenciosamente para outro ambiente — isso
+    // evita que o cliente receba dados de outro ambiente e os sobrescreva.
+    const tipo = tipoAmbienteAtual || 'empresa';
+    ambData = buildEmptyAmbienteData(tipo, 'Ambiente');
+    console.warn(
+      `[rebuildEmpresasView] porAmbiente[${ambienteAtualId.slice(0,8)}] não encontrado — ` +
+      `inicializando vazio (tipo=${tipo}). Provável race condition na criação do ambiente.`
+    );
   }
 
   return {
@@ -205,35 +213,53 @@ export function mergeAmbienteIntoStored(storedDados, incomingEmpresa, ambienteAt
 /**
  * Inicializa porAmbiente[ambienteId] no estado do usuário com dados vazios.
  * Chamado ao criar novo ambiente.
+ *
+ * Usa SELECT FOR UPDATE dentro de transação para evitar race condition com PUT /state:
+ * o PUT concorrente ficará bloqueado até esta transação concluir, garantindo que
+ * porAmbiente[ambienteId] seja preservado na escrita final.
  */
 export async function initializeAmbienteInState(usuarioId, ambienteId, tipoAmbiente, nome, extras = {}) {
-  const { rows } = await query(
-    'SELECT dados FROM estados WHERE usuario_id = $1',
-    [usuarioId]
-  );
-  if (!rows.length) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  const dados = rows[0].dados;
-  const emptyData = buildEmptyAmbienteData(tipoAmbiente, nome, extras);
+    const { rows } = await client.query(
+      'SELECT dados FROM estados WHERE usuario_id = $1 FOR UPDATE',
+      [usuarioId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return;
+    }
 
-  // Garante que porAmbiente existe (migra se necessário)
-  const ambienteAtualId = dados.ambienteAtualId;
-  let base = dados;
-  if (!base.porAmbiente && ambienteAtualId && base.empresas?.[0]) {
-    base = migrateToMultiambiente(base, ambienteAtualId);
-    base = syncPortAmbienteFromView(base);
+    const dados = rows[0].dados;
+    const emptyData = buildEmptyAmbienteData(tipoAmbiente, nome, extras);
+
+    // Garante que porAmbiente existe (migra se necessário)
+    const ambienteAtualId = dados.ambienteAtualId;
+    let base = dados;
+    if (!base.porAmbiente && ambienteAtualId && base.empresas?.[0]) {
+      base = migrateToMultiambiente(base, ambienteAtualId);
+      base = syncPortAmbienteFromView(base);
+    }
+
+    const updated = {
+      ...base,
+      porAmbiente: {
+        ...(base.porAmbiente || {}),
+        [ambienteId]: emptyData,
+      },
+    };
+
+    await client.query(
+      'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+      [JSON.stringify(updated), usuarioId]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const updated = {
-    ...base,
-    porAmbiente: {
-      ...(base.porAmbiente || {}),
-      [ambienteId]: emptyData,
-    },
-  };
-
-  await query(
-    'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
-    [JSON.stringify(updated), usuarioId]
-  );
 }

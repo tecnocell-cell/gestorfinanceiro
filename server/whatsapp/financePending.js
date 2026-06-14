@@ -44,14 +44,27 @@ export async function getEmpresaDados(usuarioId) {
 
   const dados = rows[0].dados;
   const empresas = Array.isArray(dados?.empresas) ? dados.empresas : [];
-  if (!empresas.length) return null;
+  if (!empresas.length && !dados?.porAmbiente) return null;
 
-  // Use ambienteAtualId (multiambiente) como primário, empresaAtivaId como fallback legado
+  // Multiambiente: usa porAmbiente[ambienteAtualId] como fonte primária.
+  // Isso evita race condition onde ambienteAtualId já foi atualizado via /selecionar
+  // mas empresas[] ainda contém dados do ambiente anterior (view desatualizada).
   const activeId = dados.ambienteAtualId || dados.empresaAtivaId;
-  let idx = activeId ? empresas.findIndex((e) => e.id === activeId) : -1;
-  if (idx < 0) idx = 0;
+  let empresa;
+  let empresaIdx = 0;
+  if (dados.porAmbiente && activeId && dados.porAmbiente[activeId]) {
+    empresa = dados.porAmbiente[activeId];
+    empresaIdx = empresas.findIndex((e) => e.id === activeId);
+    if (empresaIdx < 0) empresaIdx = 0;
+  } else {
+    let idx = activeId ? empresas.findIndex((e) => e.id === activeId) : -1;
+    if (idx < 0) idx = 0;
+    empresa = empresas[idx];
+    empresaIdx = idx;
+  }
+  if (!empresa) return null;
 
-  return { dados, empresa: empresas[idx], empresaIdx: idx, empresas };
+  return { dados, empresa, empresaIdx, empresas };
 }
 
 export async function getAmbientesDoUsuario(usuarioId) {

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Check, Sparkles, Users, Smartphone, Bot } from "lucide-react";
+import { Check, X, Sparkles, Users, Smartphone, Bot } from "lucide-react";
 import { FLUXIVA_PLANS } from "@/lib/commercialPlans";
 
 export function Plans() {
@@ -12,20 +12,20 @@ export function Plans() {
           Planos Fluxiva
         </span>
         <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-          Controle sua vida financeira e sua empresa no mesmo lugar
+          Controle sua vida financeira e sua empresa em um único lugar
         </h2>
         <p className="mt-4 text-muted-foreground">
-          Um único plano para finanças pessoais, MEI e empresas — sem surpresas.
+          Crie ambientes pessoais e empresariais. Gerencie múltiplos negócios na mesma conta.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3 md:gap-5 lg:gap-6">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {plans.map((p) => (
           <div
             key={p.key}
-            className={`relative rounded-3xl border p-7 transition-all duration-300 hover:-translate-y-2 ${
+            className={`relative flex flex-col rounded-3xl border p-6 transition-all duration-300 hover:-translate-y-1 ${
               p.highlight
-                ? "border-transparent text-primary-foreground md:scale-[1.04]"
+                ? "border-transparent text-primary-foreground"
                 : "border-border bg-card hover:border-primary/40"
             }`}
             style={
@@ -51,28 +51,33 @@ export function Plans() {
                 </span>
               </>
             )}
-            <h3 className={`text-lg font-semibold ${p.highlight ? "text-white" : "text-foreground"}`}>{p.name}</h3>
-            <p className={`mt-1 text-sm ${p.highlight ? "text-white/70" : "text-muted-foreground"}`}>{p.tagline}</p>
-            <div className="mt-6 flex items-baseline gap-1">
-              <span className={`text-5xl font-bold tracking-tight ${p.highlight ? "text-white" : "text-foreground"}`}>{p.price}</span>
-              <span className={`text-sm ${p.highlight ? "text-white/70" : "text-muted-foreground"}`}>/mês</span>
+
+            <h3 className={`text-base font-semibold ${p.highlight ? "text-white" : "text-foreground"}`}>{p.name}</h3>
+            <p className={`mt-1 text-xs ${p.highlight ? "text-white/70" : "text-muted-foreground"}`}>{p.tagline}</p>
+            <div className="mt-5 flex items-baseline gap-1">
+              <span className={`text-4xl font-bold tracking-tight ${p.highlight ? "text-white" : "text-foreground"}`}>{p.price}</span>
+              <span className={`text-xs ${p.highlight ? "text-white/70" : "text-muted-foreground"}`}>/mês</span>
             </div>
 
-            <div className={`mt-5 space-y-2 rounded-2xl p-4 text-sm ${p.highlight ? "bg-white/10 backdrop-blur" : "bg-secondary"}`}>
-              <Meta highlight={p.highlight} icon={<Users className="h-4 w-4" />} text={p.users} />
-              <Meta highlight={p.highlight} icon={<Smartphone className="h-4 w-4" />} text={p.numbers} />
-              <Meta highlight={p.highlight} icon={<Bot className="h-4 w-4" />} text={p.ai} />
+            <div className={`mt-4 space-y-1.5 rounded-2xl p-3 text-xs ${p.highlight ? "bg-white/10 backdrop-blur" : "bg-secondary"}`}>
+              <Meta highlight={p.highlight} icon={<Users className="h-3.5 w-3.5" />} text={p.users} />
+              <Meta highlight={p.highlight} icon={<Smartphone className="h-3.5 w-3.5" />} text={p.numbers} />
+              <Meta highlight={p.highlight} icon={<Bot className="h-3.5 w-3.5" />} text={p.ai} />
             </div>
 
-            <ul className="mt-5 space-y-3">
+            <ul className="mt-4 flex-1 space-y-2.5">
               {p.features.map((f) => (
-                <li key={f} className={`flex items-start gap-2.5 text-sm ${p.highlight ? "text-white/90" : "text-foreground"}`}>
-                  <span
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                      p.highlight ? "bg-[color:var(--primary-glow)]/20" : "bg-primary/10"
-                    }`}
-                  >
-                    <Check className={`h-3 w-3 ${p.highlight ? "text-[color:var(--primary-glow)]" : "text-primary"}`} />
+                <li key={f} className={`flex items-start gap-2 text-xs ${p.highlight ? "text-white/90" : "text-foreground"}`}>
+                  <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${p.highlight ? "bg-[color:var(--primary-glow)]/20" : "bg-primary/10"}`}>
+                    <Check className={`h-2.5 w-2.5 ${p.highlight ? "text-[color:var(--primary-glow)]" : "text-primary"}`} />
+                  </span>
+                  <span>{f}</span>
+                </li>
+              ))}
+              {p.notIncluded?.map((f) => (
+                <li key={f} className={`flex items-start gap-2 text-xs ${p.highlight ? "text-white/40" : "text-muted-foreground/60"}`}>
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted/40">
+                    <X className="h-2.5 w-2.5" />
                   </span>
                   <span>{f}</span>
                 </li>
@@ -82,7 +87,7 @@ export function Plans() {
             <Link
               to="/cadastro"
               search={{ plan: p.key }}
-              className={`mt-7 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all hover:scale-[1.02] ${
+              className={`mt-6 inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition-all hover:scale-[1.02] ${
                 p.highlight
                   ? "bg-white text-[#063B22] hover:bg-white/95"
                   : "border border-border bg-background text-foreground hover:border-primary/40 hover:bg-secondary"

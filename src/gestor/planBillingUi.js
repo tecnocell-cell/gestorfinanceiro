@@ -1,15 +1,19 @@
 /** Metadados visuais e features para cards de plano (gestor). */
 
-/** Mapeamento visual de slugs legados para nomes Fluxiva unificados. */
+/** Mapeamento visual de slugs (legados e novos) para nomes Fluxiva unificados. */
 export const PLAN_DISPLAY_NAMES = {
-  pf_basico:     "Fluxiva Start",
-  pf_plus:       "Fluxiva Pro",
-  pf_premium:    "Fluxiva Business",
-  pj_start:      "Fluxiva Start",
-  pj_pro:        "Fluxiva Pro",
-  pj_business:   "Fluxiva Business",
-  fluxiva_start: "Fluxiva Start",
-  fluxiva_pro:   "Fluxiva Pro",
+  // Legados PF → equivalente Fluxiva
+  pf_basico:        "Fluxiva Light",
+  pf_plus:          "Fluxiva Start",
+  pf_premium:       "Fluxiva Pro",
+  // Legados PJ → equivalente Fluxiva
+  pj_start:         "Fluxiva Start",
+  pj_pro:           "Fluxiva Pro",
+  pj_business:      "Fluxiva Business",
+  // Novos slugs canônicos
+  fluxiva_light:    "Fluxiva Light",
+  fluxiva_start:    "Fluxiva Start",
+  fluxiva_pro:      "Fluxiva Pro",
   fluxiva_business: "Fluxiva Business",
 };
 
@@ -19,13 +23,16 @@ export function planDisplayName(slug) {
 }
 
 export const PLAN_BADGES = {
-  pf_plus: { label: "Mais popular", tone: "popular" },
-  pf_premium: { label: "Completo", tone: "premium" },
-  pj_pro: { label: "Recomendado", tone: "popular" },
-  pj_business: { label: "Empresarial", tone: "business" },
-  fluxiva_start: { label: "Gratuito", tone: "neutral" },
-  fluxiva_pro: { label: "Mais popular", tone: "popular" },
-  fluxiva_business: { label: "Completo", tone: "business" },
+  // Legados — exibidos com badge do equivalente Fluxiva
+  pf_plus:          { label: "Mais popular", tone: "popular" },
+  pf_premium:       { label: "Completo", tone: "premium" },
+  pj_pro:           { label: "Recomendado", tone: "popular" },
+  pj_business:      { label: "Empresarial", tone: "business" },
+  // Catálogo Fluxiva definitivo
+  fluxiva_light:    { label: "Essencial", tone: "neutral" },
+  fluxiva_start:    { label: "Pessoal + Empresa", tone: "neutral" },
+  fluxiva_pro:      { label: "Mais popular", tone: "popular" },
+  fluxiva_business: { label: "Empresas maiores", tone: "business" },
 };
 
 export function planIconSlug(slug) {

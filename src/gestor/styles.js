@@ -652,6 +652,7 @@ export const css = `
     top: calc(100% + 4px);
     left: 0;
     right: 0;
+    min-width: 200px;
     background: var(--rn-card, #1e2124);
     border: 1px solid var(--sidebar-border);
     border-radius: 8px;

@@ -51,7 +51,6 @@ const PLANS = Object.fromEntries(
     {
       label: p.name,
       price: p.price,
-      type: p.key.startsWith("PJ_") ? ("PJ" as const) : ("PF" as const),
       users: p.users,
       numbers: p.numbers,
       ai: p.ai,
@@ -64,7 +63,6 @@ const PLANS = Object.fromEntries(
   {
     label: string;
     price: string;
-    type: "PF" | "PJ";
     users: string;
     numbers: string;
     ai: string;
@@ -75,15 +73,11 @@ const PLANS = Object.fromEntries(
 
 const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
 
-function planTypeFromKey(key: PlanKey): "PF" | "PJ" {
-  return PLANS[key].type;
-}
-
-/** Detecta plano vindo de ?plan=PF_PLUS (ou pf_plus) na query string. */
+/** Detecta plano vindo de ?plan=FLUXIVA_PRO na query string. */
 function detectInitialPlan(): PlanKey {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get("plan")?.toUpperCase() as PlanKey | undefined;
-  return raw && PLAN_KEYS.includes(raw) ? raw : "PF_PLUS";
+  return raw && PLAN_KEYS.includes(raw) ? raw : "FLUXIVA_PRO";
 }
 
 function detectInitialPhone(): string {
@@ -173,8 +167,6 @@ export default function CadastroPage() {
 
   // Plano
   const [plan, setPlan] = useState<PlanKey>(detectInitialPlan);
-  const tipo = planTypeFromKey(plan);
-  const plansOfType = PLAN_KEYS.filter((k) => PLANS[k].type === tipo);
 
   // Verificação
   const [codigo, setCodigo]     = useState("");
@@ -220,7 +212,7 @@ export default function CadastroPage() {
         nome:        nome.trim(),
         email:       email.trim().toLowerCase(),
         senha,
-        tipo_perfil: tipo === "PF" ? "fisica" : "juridica",
+        tipo_perfil: "fisica",
         nome_perfil: nome.trim(),
         telefone:    phoneDigits,
         plano_slug:  plan.toLowerCase(),
@@ -340,25 +332,8 @@ export default function CadastroPage() {
             <div className="space-y-6">
               <StepHeader title="Escolha seu plano" desc="Você pode trocar de plano a qualquer momento." />
 
-              {/* Toggle PF/PJ */}
-              <div className="flex justify-center">
-                <div className="inline-flex rounded-full border border-border bg-background p-1">
-                  {(["PF", "PJ"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setPlan(t === "PF" ? "PF_PLUS" : "PJ_PRO")}
-                      className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                        tipo === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                      }`}
-                    >
-                      {t === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                {plansOfType.map((key) => {
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {PLAN_KEYS.map((key) => {
                   const p = PLANS[key];
                   const selected = plan === key;
                   return (

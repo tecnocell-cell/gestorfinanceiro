@@ -328,7 +328,7 @@ async function prepareMultiambienteState(dados, usuarioId, profile) {
   prepared = { ...prepared, ambienteAtualId };
 
   // Reconstrói empresas[] a partir do ambiente atual
-  prepared = rebuildEmpresasView(prepared);
+  prepared = rebuildEmpresasView(prepared, tipoAmbienteAtual);
 
   return { dados: prepared, ambienteAtualId, ambientes, needsMigrationSave, tipoAmbienteAtual };
 }
@@ -548,11 +548,59 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     // ── Fase 2: salvar somente no ambiente atual, preservando outros ambientes ─
     const ambienteAtualId = ambienteAtualIdPut || serverDados?.ambienteAtualId;
     const empresaAtual = (toSave.empresas || [])[0];
+
+    // Guard: bloqueia PUT se o ambiente não foi inicializado em porAmbiente.
+    // Isso impede que um PUT em race condition (timer disparado durante criação de ambiente)
+    // grave dados de outro ambiente em uma chave que ainda não existe no servidor.
+    if (
+      ambienteAtualId &&
+      serverDados?.porAmbiente &&
+      !(ambienteAtualId in serverDados.porAmbiente)
+    ) {
+      console.warn(
+        `[PUT /state] BLOQUEADO user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId.slice(0,8)}: ` +
+        `ambiente não existe em porAmbiente — race condition durante criação detectada.`
+      );
+      return res.status(409).json({
+        error: 'Ambiente ainda não inicializado. Recarregue o estado antes de salvar.',
+        code: 'AMBIENTE_NAO_INICIALIZADO',
+      });
+    }
+
     let finalToStore = toSave;
     if (ambienteAtualId && empresaAtual && serverDados) {
-      // Guard: bloquear PUT que salvaria dados PF em ambiente empresa (timer race ou bug frontend)
-      if (tipoAmbientePut === 'empresa' &&
-          (empresaAtual.tipo === 'fisica' || (empresaAtual.pessoa && !empresaAtual.company))) {
+      // Guard primário: tipo explicitamente PF em ambiente empresa
+      // Guard secundário: sobreposição de IDs de lançamentos com outro ambiente (timer race)
+      //   - Detecta casos onde normalizeStateForUser converteu PF→PJ antes deste check
+      const tipoConflito = tipoAmbientePut === 'empresa' &&
+        (empresaAtual.tipo === 'fisica' || (empresaAtual.pessoa && !empresaAtual.company));
+
+      let idConflito = false;
+      if (!tipoConflito && tipoAmbientePut === 'empresa' && serverDados.porAmbiente) {
+        const idsEntrando = new Set(
+          (empresaAtual.lancamentos || []).map((l) => l.id).filter(Boolean)
+        );
+        if (idsEntrando.size > 0) {
+          // Verifica se os IDs entrando já existem em outro ambiente (pessoal)
+          for (const [outroId, outroAmb] of Object.entries(serverDados.porAmbiente)) {
+            if (outroId === ambienteAtualId) continue;
+            const idsOutro = (outroAmb?.lancamentos || []).map((l) => l.id).filter(Boolean);
+            const sobrepostos = idsOutro.filter((id) => idsEntrando.has(id));
+            const pctSobreposicao = sobrepostos.length / idsEntrando.size;
+            if (pctSobreposicao >= 0.5) {
+              idConflito = true;
+              console.warn(
+                `[PUT /state] BLOQUEADO user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId.slice(0,8)}: ` +
+                `${sobrepostos.length}/${idsEntrando.size} lançamentos (${Math.round(pctSobreposicao*100)}%) ` +
+                `já existem no ambiente ${outroId.slice(0,8)}. Timer race detectado.`
+              );
+              break;
+            }
+          }
+        }
+      }
+
+      if (tipoConflito || idConflito) {
         console.warn(`[PUT /state] BLOQUEADO user=${stateOwnerId.slice(0,8)} amb=${ambienteAtualId.slice(0,8)}: tentativa de salvar dados PF (tipo=${empresaAtual.tipo}) em ambiente empresa. Timer race detectado.`);
         return res.status(409).json({
           error: 'Conflito de ambiente: dados PF não podem ser salvos em ambiente empresa.',
@@ -589,6 +637,88 @@ app.put("/api/state", authMiddleware, activeMiddleware, subscriptionGuard, attac
     res.status(500).json({ error: "Erro ao salvar estado." });
   }
 });
+
+// ─── Reparo de isolamento multiambiente ──────────────────────────────────────
+//
+// POST /api/repair/ambiente-empresa
+// Limpa lançamentos do ambiente empresa que são cópias do ambiente pessoal.
+// Preserva lançamentos com tipoOrigem/tipoDestino de repasse entre ambientes.
+// Seguro: não remove dados do ambiente pessoal, não altera assinaturas.
+app.post(
+  '/api/repair/ambiente-empresa',
+  authMiddleware, activeMiddleware, attachEmpresaContext,
+  async (req, res) => {
+    try {
+      const stateOwnerId = req.stateOwnerId;
+      const { rows } = await query('SELECT dados FROM estados WHERE usuario_id = $1', [stateOwnerId]);
+      if (!rows.length) return res.status(404).json({ error: 'Estado não encontrado.' });
+
+      const dados = rows[0].dados;
+      if (!dados.porAmbiente) return res.json({ ok: true, message: 'Nenhum porAmbiente encontrado. Nada a reparar.' });
+
+      // Monta conjunto de IDs de lançamentos de todos os ambientes pessoal
+      const ambientes = await listAmbientes(stateOwnerId);
+      const ambientesEmpresa = ambientes.filter((a) => a.tipo === 'empresa');
+      const ambientesPessoal = ambientes.filter((a) => a.tipo === 'pessoal');
+
+      if (!ambientesEmpresa.length) return res.json({ ok: true, message: 'Nenhum ambiente empresa encontrado.' });
+
+      const idsPessoal = new Set();
+      for (const ap of ambientesPessoal) {
+        const ambData = dados.porAmbiente[ap.id];
+        for (const l of ambData?.lancamentos || []) {
+          if (l?.id) idsPessoal.add(l.id);
+        }
+      }
+
+      let totalRemovidos = 0;
+      const novoPorAmbiente = { ...dados.porAmbiente };
+
+      for (const ae of ambientesEmpresa) {
+        const ambData = dados.porAmbiente[ae.id];
+        if (!ambData) continue;
+
+        const lancamentosOriginais = ambData.lancamentos || [];
+        // Mantém apenas lançamentos que NÃO existem no ambiente pessoal
+        // OU que são repasses explícitos (tipoOrigem/tipoDestino contém 'empresa' ou 'pessoal')
+        const lancamentosFiltrados = lancamentosOriginais.filter((l) => {
+          if (!l?.id) return false;
+          if (!idsPessoal.has(l.id)) return true; // não está no pessoal — manter
+          // Está no pessoal mas é um repasse explícito — manter CÓPIA no empresa
+          const isRepasse =
+            String(l.tipoOrigem || '').toLowerCase().includes('empresa') ||
+            String(l.tipoOrigem || '').toLowerCase().includes('pessoal') ||
+            String(l.tipoDestino || '').toLowerCase().includes('empresa') ||
+            String(l.tipoDestino || '').toLowerCase().includes('pessoal') ||
+            String(l.operacao || '').toLowerCase().includes('transf');
+          return isRepasse;
+        });
+
+        totalRemovidos += lancamentosOriginais.length - lancamentosFiltrados.length;
+        novoPorAmbiente[ae.id] = { ...ambData, lancamentos: lancamentosFiltrados };
+      }
+
+      if (totalRemovidos === 0) {
+        return res.json({ ok: true, message: 'Nenhum lançamento contaminado encontrado. Ambientes já estão isolados.' });
+      }
+
+      // Reconstrói view para o ambiente atual
+      const repairedDados = { ...dados, porAmbiente: novoPorAmbiente };
+      const rebuilt = rebuildEmpresasView(repairedDados);
+
+      await query(
+        'UPDATE estados SET dados = $1, updated_at = NOW() WHERE usuario_id = $2',
+        [JSON.stringify(rebuilt), stateOwnerId]
+      );
+
+      console.log(`[REPAIR] user=${stateOwnerId.slice(0,8)}: removidos ${totalRemovidos} lançamentos contaminados de ambientes empresa.`);
+      res.json({ ok: true, totalRemovidos, message: `Reparo concluído: ${totalRemovidos} lançamento(s) removido(s) do(s) ambiente(s) empresa.` });
+    } catch (err) {
+      console.error('POST /api/repair/ambiente-empresa:', err.message);
+      res.status(500).json({ error: 'Erro ao reparar isolamento.' });
+    }
+  }
+);
 
 // ─── Admin: gestão de tenants ─────────────────────────────────────────────────
 

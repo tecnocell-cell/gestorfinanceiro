@@ -81,14 +81,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro pessoal e empresarial com WhatsApp, relatórios, importações e automações.",
       },
       { name: "author", content: "Fluxiva" },
       { property: "og:title", content: "Fluxiva Financeiro — Controle financeiro inteligente no WhatsApp" },
       {
         property: "og:description",
         content:
-          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro pessoal e empresarial com WhatsApp, relatórios, importações e automações.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://fluxiva.app" },
@@ -97,7 +97,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "twitter:description",
         content:
-          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro PF e PJ com WhatsApp, relatórios, importações e automações.",
+          "Controle gastos por texto, áudio ou comprovante. A Fluxiva organiza seu financeiro pessoal e empresarial com WhatsApp, relatórios, importações e automações.",
       },
       { property: "og:image", content: "/fluxiva-icon.png" },
       { name: "twitter:image", content: "/fluxiva-icon.png" },

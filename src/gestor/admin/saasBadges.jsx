@@ -1,10 +1,16 @@
 const PLAN_STYLES = {
-  pf_basico: { label: "Fluxiva Start", className: "saas-badge-plan saas-badge-plan--gray" },
-  pf_plus: { label: "Fluxiva Pro", className: "saas-badge-plan saas-badge-plan--blue" },
-  pf_premium: { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--purple" },
-  pj_start: { label: "Fluxiva Start", className: "saas-badge-plan saas-badge-plan--green" },
-  pj_pro: { label: "Fluxiva Pro", className: "saas-badge-plan saas-badge-plan--orange" },
-  pj_business: { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--gold" },
+  // Legados — mapeados para nome Fluxiva
+  pf_basico:        { label: "Fluxiva Light",    className: "saas-badge-plan saas-badge-plan--gray" },
+  pf_plus:          { label: "Fluxiva Start",    className: "saas-badge-plan saas-badge-plan--blue" },
+  pf_premium:       { label: "Fluxiva Pro",      className: "saas-badge-plan saas-badge-plan--orange" },
+  pj_start:         { label: "Fluxiva Start",    className: "saas-badge-plan saas-badge-plan--green" },
+  pj_pro:           { label: "Fluxiva Pro",      className: "saas-badge-plan saas-badge-plan--orange" },
+  pj_business:      { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--gold" },
+  // Catálogo Fluxiva definitivo
+  fluxiva_light:    { label: "Fluxiva Light",    className: "saas-badge-plan saas-badge-plan--gray" },
+  fluxiva_start:    { label: "Fluxiva Start",    className: "saas-badge-plan saas-badge-plan--green" },
+  fluxiva_pro:      { label: "Fluxiva Pro",      className: "saas-badge-plan saas-badge-plan--orange" },
+  fluxiva_business: { label: "Fluxiva Business", className: "saas-badge-plan saas-badge-plan--gold" },
 };
 
 const STATUS_STYLES = {
@@ -26,14 +32,24 @@ export function SubscriptionStatusBadge({ status }) {
   return <span className={meta.className}>{meta.label}</span>;
 }
 
-export const PF_PLAN_OPTIONS = [
-  { slug: "pf_basico", label: "Fluxiva Start" },
-  { slug: "pf_plus", label: "Fluxiva Pro" },
-  { slug: "pf_premium", label: "Fluxiva Business" },
+/** Planos Fluxiva — catálogo unificado para selects de admin */
+export const FLUXIVA_PLAN_OPTIONS = [
+  { slug: "fluxiva_light",    label: "Fluxiva Light" },
+  { slug: "fluxiva_start",    label: "Fluxiva Start" },
+  { slug: "fluxiva_pro",      label: "Fluxiva Pro" },
+  { slug: "fluxiva_business", label: "Fluxiva Business" },
 ];
 
+/** @deprecated Use FLUXIVA_PLAN_OPTIONS */
+export const PF_PLAN_OPTIONS = [
+  { slug: "pf_basico",  label: "Fluxiva Light (legado)" },
+  { slug: "pf_plus",    label: "Fluxiva Start (legado)" },
+  { slug: "pf_premium", label: "Fluxiva Pro (legado)" },
+];
+
+/** @deprecated Use FLUXIVA_PLAN_OPTIONS */
 export const PJ_PLAN_OPTIONS = [
-  { slug: "pj_start", label: "Fluxiva Start" },
-  { slug: "pj_pro", label: "Fluxiva Pro" },
-  { slug: "pj_business", label: "Fluxiva Business" },
+  { slug: "pj_start",    label: "Fluxiva Start (legado)" },
+  { slug: "pj_pro",      label: "Fluxiva Pro (legado)" },
+  { slug: "pj_business", label: "Fluxiva Business (legado)" },
 ];

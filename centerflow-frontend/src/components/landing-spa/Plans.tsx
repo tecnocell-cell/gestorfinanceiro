@@ -1,13 +1,13 @@
 /**
- * landing-spa/Plans.tsx — planos unificados Fluxiva (sem tabs PF/PJ).
+ * landing-spa/Plans.tsx — planos unificados Fluxiva (4 planos definitivos).
  */
-import { Check, Sparkles, Users, Smartphone, Bot } from "lucide-react";
+import { Check, X, Sparkles, Users, Smartphone, Bot } from "lucide-react";
 import { FLUXIVA_PLANS, type CommercialPlanDisplay } from "@/lib/commercialPlans";
 
 function PlanCard({ plan }: { plan: CommercialPlanDisplay }) {
   return (
     <div
-      className={`relative flex flex-col rounded-3xl border p-7 transition-all ${
+      className={`relative flex flex-col rounded-3xl border p-6 transition-all ${
         plan.highlight
           ? "border-primary bg-primary/5 shadow-lg"
           : "border-border bg-card hover:border-primary/40"
@@ -19,34 +19,39 @@ function PlanCard({ plan }: { plan: CommercialPlanDisplay }) {
         </span>
       )}
       <div>
-        <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+        <h3 className="text-base font-bold text-foreground">{plan.name}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{plan.tagline}</p>
         <p className="mt-4 text-3xl font-bold text-foreground">
           {plan.price}
-          <span className="text-sm font-normal text-muted-foreground">/mês</span>
+          <span className="text-xs font-normal text-muted-foreground">/mês</span>
         </p>
       </div>
 
-      <ul className="mt-5 space-y-2.5 text-sm">
+      <ul className="mt-4 flex-1 space-y-2 text-xs">
         <li className="flex items-center gap-2 text-foreground">
-          <Users className="h-4 w-4 shrink-0 text-primary" /> {plan.users}
+          <Users className="h-3.5 w-3.5 shrink-0 text-primary" /> {plan.users}
         </li>
         <li className="flex items-center gap-2 text-foreground">
-          <Smartphone className="h-4 w-4 shrink-0 text-primary" /> {plan.numbers}
+          <Smartphone className="h-3.5 w-3.5 shrink-0 text-primary" /> {plan.numbers}
         </li>
         <li className="flex items-center gap-2 text-foreground">
-          <Bot className="h-4 w-4 shrink-0 text-primary" /> {plan.ai}
+          <Bot className="h-3.5 w-3.5 shrink-0 text-primary" /> {plan.ai}
         </li>
         {plan.features.map((f) => (
           <li key={f} className="flex items-center gap-2 text-foreground">
-            <Check className="h-4 w-4 shrink-0 text-primary" /> {f}
+            <Check className="h-3.5 w-3.5 shrink-0 text-primary" /> {f}
+          </li>
+        ))}
+        {plan.notIncluded?.map((f) => (
+          <li key={f} className="flex items-center gap-2 text-muted-foreground/50">
+            <X className="h-3.5 w-3.5 shrink-0" /> {f}
           </li>
         ))}
       </ul>
 
       <a
         href={`/cadastro?plan=${plan.key}`}
-        className={`mt-7 inline-flex w-full items-center justify-center rounded-full py-3 text-sm font-semibold transition-all hover:opacity-90 ${
+        className={`mt-6 inline-flex w-full items-center justify-center rounded-full py-2.5 text-xs font-semibold transition-all hover:opacity-90 ${
           plan.highlight
             ? "bg-primary text-primary-foreground"
             : "border border-border bg-background text-foreground hover:bg-secondary"
@@ -67,14 +72,14 @@ export function Plans() {
           Planos Fluxiva
         </span>
         <h2 className="mt-4 text-3xl font-bold text-foreground md:text-4xl">
-          Controle sua vida financeira e sua empresa no mesmo lugar
+          Controle sua vida financeira e sua empresa em um único lugar
         </h2>
         <p className="mt-4 text-muted-foreground">
-          Trial gratuito de 7 dias. Sem cartão. Cancele quando quiser.
+          Crie ambientes pessoais e empresariais. Gerencie múltiplos negócios na mesma conta.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {FLUXIVA_PLANS.map((p) => (
           <PlanCard key={p.key} plan={p} />
         ))}

@@ -217,12 +217,14 @@ DEFAULT_RESOURCES_BY_SLUG.empresarial = {
 export const COMMERCIAL_PLAN_SLUGS = {
   pf: ['pf_basico', 'pf_plus', 'pf_premium'],
   pj: ['pj_start', 'pj_pro', 'pj_business'],
-  fluxiva: ['fluxiva_start', 'fluxiva_pro', 'fluxiva_business'],
+  fluxiva: ['fluxiva_light', 'fluxiva_start', 'fluxiva_pro', 'fluxiva_business'],
 };
 
-// ── Planos unificados Fluxiva (multiambiente) ─────────────────────────────────
-PLAN_CATALOG.fluxiva_start = {
-  nome: 'Fluxiva Start',
+// ── Planos unificados Fluxiva — estrutura comercial definitiva ────────────────
+
+/** Fluxiva Light — controle pessoal, sem ambiente empresa */
+PLAN_CATALOG.fluxiva_light = {
+  nome: 'Fluxiva Light',
   precoCentavos: 1990,
   segmento: 'fluxiva',
   recursos: {
@@ -250,41 +252,73 @@ PLAN_CATALOG.fluxiva_start = {
   },
 };
 
-PLAN_CATALOG.fluxiva_pro = {
-  nome: 'Fluxiva Pro',
-  precoCentavos: 4990,
+/** Fluxiva Start — pessoal + empresa, 1 usuário */
+PLAN_CATALOG.fluxiva_start = {
+  nome: 'Fluxiva Start',
+  precoCentavos: 2990,
   segmento: 'fluxiva',
   recursos: {
-    maxAmbientes: 3,
-    limiteUsuarios: 3,
-    limiteWhatsappNumeros: 2,
+    maxAmbientes: 2,
+    limiteUsuarios: 1,
+    limiteWhatsappNumeros: 1,
     limiteLancamentos: null,
     whatsappTexto: true,
-    whatsappAudio: true,
-    whatsappComprovante: true,
-    iaComprovante: true,
-    categoriasAvancadas: true,
-    relatoriosCompletos: true,
-    dre: true,
+    whatsappAudio: false,
+    whatsappComprovante: false,
+    iaComprovante: false,
+    categoriasAvancadas: false,
+    relatoriosCompletos: false,
+    dre: false,
     dreCompleto: false,
-    dreSimplificado: true,
-    centroCusto: true,
-    projetos: true,
-    resultadoClienteProjeto: true,
+    dreSimplificado: false,
+    centroCusto: false,
+    projetos: false,
+    resultadoClienteProjeto: false,
     apiAccess: false,
-    suportePrioritario: true,
+    suportePrioritario: false,
     openFinance: false,
     integracaoPfPj: true,
     openFinanceAddon: addon(2990),
   },
 };
 
-PLAN_CATALOG.fluxiva_business = {
-  nome: 'Fluxiva Business',
-  precoCentavos: 9990,
+/** Fluxiva Pro — até 5 usuários, 3 WA, 5 ambientes, DRE, centro de custo */
+PLAN_CATALOG.fluxiva_pro = {
+  nome: 'Fluxiva Pro',
+  precoCentavos: 7990,
   segmento: 'fluxiva',
   recursos: {
-    maxAmbientes: 10,
+    maxAmbientes: 5,
+    limiteUsuarios: 5,
+    limiteWhatsappNumeros: 3,
+    limiteLancamentos: null,
+    whatsappTexto: true,
+    whatsappAudio: true,
+    whatsappComprovante: false,
+    iaComprovante: false,
+    categoriasAvancadas: true,
+    relatoriosCompletos: true,
+    dre: true,
+    dreCompleto: false,
+    dreSimplificado: true,
+    centroCusto: true,
+    projetos: false,
+    resultadoClienteProjeto: true,
+    apiAccess: false,
+    suportePrioritario: false,
+    openFinance: false,
+    integracaoPfPj: true,
+    openFinanceAddon: addon(2990),
+  },
+};
+
+/** Fluxiva Business — até 20 usuários, 5 WA, ambientes ilimitados, IA completa */
+PLAN_CATALOG.fluxiva_business = {
+  nome: 'Fluxiva Business',
+  precoCentavos: 29990,
+  segmento: 'fluxiva',
+  recursos: {
+    maxAmbientes: null,
     limiteUsuarios: 20,
     limiteWhatsappNumeros: 5,
     limiteLancamentos: null,
@@ -303,6 +337,7 @@ PLAN_CATALOG.fluxiva_business = {
     resultadoClienteProjeto: true,
     apiAccess: true,
     suportePrioritario: true,
+    governancaFinanceira: true,
     openFinance: false,
     integracaoPfPj: true,
     openFinanceAddon: addon(4990),
@@ -310,17 +345,17 @@ PLAN_CATALOG.fluxiva_business = {
 };
 
 /**
- * Mapeia plano antigo (PF/PJ) para equivalente Fluxiva.
- * Usado para calcular recursos de usuários em planos legados.
+ * Mapeia plano legado (PF/PJ) para equivalente Fluxiva.
+ * Mantido para compatibilidade — usuários antigos não quebram.
  */
 export const LEGACY_PLAN_MAP = {
-  pf_basico:    'fluxiva_start',
-  pf_plus:      'fluxiva_pro',
+  pf_basico:    'fluxiva_light',
+  pf_plus:      'fluxiva_start',
   pf_premium:   'fluxiva_pro',
-  pj_start:     'fluxiva_pro',
-  pj_pro:       'fluxiva_business',
+  pj_start:     'fluxiva_start',
+  pj_pro:       'fluxiva_pro',
   pj_business:  'fluxiva_business',
-  free:         'fluxiva_start',
+  free:         'fluxiva_light',
   pro:          'fluxiva_pro',
   empresarial:  'fluxiva_business',
 };

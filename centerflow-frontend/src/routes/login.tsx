@@ -47,7 +47,7 @@ function LoginPage() {
             Seu dinheiro,<br /> sob controle —<br /> no seu WhatsApp.
           </h2>
           <p className="max-w-md text-white/85">
-            Lance gastos por texto, áudio ou foto. A IA do Fluxiva organiza para você, PF e PJ.
+            Lance gastos por texto, áudio ou foto. A IA do Fluxiva organiza para você — pessoal e empresa.
           </p>
 
           <div className="space-y-3">

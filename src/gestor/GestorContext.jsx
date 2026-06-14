@@ -24,7 +24,7 @@ import {
   generateId,
   nextLote,
 } from "./finance.js";
-import { stateApi, adminApi, healthApi } from "./api.js";
+import { stateApi, adminApi, healthApi, repairApi } from "./api.js";
 import { useAuth } from "./AuthContext.jsx";
 import { normalizeTipoPerfil, resolveProfileTipo } from "./profileLabels.js";
 import { safeNum } from "./finance.js";
@@ -152,6 +152,30 @@ export function GestorProvider({ children }) {
         loadOk.current = true;
         setAppLoadError(false);
         setLastSyncAt(Date.now());
+
+        // Auto-reparo de isolamento multiambiente:
+        // Se detectar IDs de lançamentos do empresa que também existem no pessoal,
+        // aciona o endpoint de reparo server-side (idempotente e não destrutivo).
+        const ambientes = dados?.ambientes ?? [];
+        const temMultiplosAmbientes = ambientes.length > 1;
+        if (temMultiplosAmbientes) {
+          repairApi.ambienteEmpresa().then((result) => {
+            if (result?.totalRemovidos > 0) {
+              console.info(`[repair] Isolamento corrigido: ${result.totalRemovidos} lançamento(s) removido(s) do ambiente empresa. Recarregando estado...`);
+              // Recarrega o estado do servidor após reparo, sem disparar save
+              stateApi.fetch().then(({ dados: dadosReparados, profile: spReparado }) => {
+                const p2 = spReparado?.tipo_perfil ? { ...profile, ...spReparado } : profile;
+                const p2Ajustado = profileComTipoAmbiente(p2, dadosReparados);
+                const nextReparado = isValidAppState(dadosReparados)
+                  ? normalizeStateForUser(dadosReparados, p2Ajustado)
+                  : next;
+                justReloaded.current = true;
+                setState(nextReparado);
+                stateRef.current = nextReparado;
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
       })
       .catch((err) => {
         console.warn("Falha ao carregar estado da API:", err.message);

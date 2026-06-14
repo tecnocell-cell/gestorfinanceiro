@@ -194,6 +194,10 @@ export const stateApi = {
   save:  (state) => request("/state", { method: "PUT", body: { dados: state } }),
 };
 
+export const repairApi = {
+  ambienteEmpresa: () => request("/repair/ambiente-empresa", { method: "POST" }),
+};
+
 /** Saúde do backend PostgreSQL (Express) */
 export const healthApi = {
   status: () => request("/status"),

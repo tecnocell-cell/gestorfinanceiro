@@ -16,12 +16,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Controle financeiro PF e PJ com lançamentos por texto, áudio e leitura de comprovantes por IA, direto no WhatsApp.",
+          "Controle financeiro pessoal e empresarial com lançamentos por texto, áudio e leitura de comprovantes por IA, direto no WhatsApp.",
       },
       { property: "og:title", content: "Fluxiva Financeiro" },
       {
         property: "og:description",
-        content: "Financeiro PF/PJ com IA no WhatsApp. Lance por texto, áudio ou foto do comprovante.",
+        content: "Financeiro pessoal e empresarial com IA no WhatsApp. Lance por texto, áudio ou foto do comprovante.",
       },
     ],
   }),

@@ -1,19 +1,17 @@
 /**
- * Catálogo comercial — manter alinhado com server/billing/planRules.js (Etapa 7.2)
+ * Catálogo comercial unificado Fluxiva — 4 planos definitivos.
+ * Slugs legados (pf_*, pj_*) mantidos apenas para compatibilidade no servidor.
  */
 export type PlanSlug =
-  | "pf_basico"
-  | "pf_plus"
-  | "pf_premium"
-  | "pj_start"
-  | "pj_pro"
-  | "pj_business";
+  | "fluxiva_light"
+  | "fluxiva_start"
+  | "fluxiva_pro"
+  | "fluxiva_business";
 
 export type PlanCatalogEntry = {
   slug: PlanSlug;
   nome: string;
   precoCentavos: number;
-  segmento: "pf" | "pj";
   limiteUsuarios: number;
   limiteWhatsappNumeros: number;
   whatsappTexto: boolean;
@@ -23,10 +21,9 @@ export type PlanCatalogEntry = {
 
 export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
   {
-    slug: "pf_basico",
-    nome: "Fluxiva Start",
+    slug: "fluxiva_light",
+    nome: "Fluxiva Light",
     precoCentavos: 1990,
-    segmento: "pf",
     limiteUsuarios: 1,
     limiteWhatsappNumeros: 1,
     whatsappTexto: true,
@@ -34,56 +31,31 @@ export const PLAN_CATALOG_LANDING: PlanCatalogEntry[] = [
     whatsappComprovante: false,
   },
   {
-    slug: "pf_plus",
-    nome: "Fluxiva Pro",
+    slug: "fluxiva_start",
+    nome: "Fluxiva Start",
     precoCentavos: 2990,
-    segmento: "pf",
     limiteUsuarios: 1,
+    limiteWhatsappNumeros: 1,
+    whatsappTexto: true,
+    whatsappAudio: false,
+    whatsappComprovante: false,
+  },
+  {
+    slug: "fluxiva_pro",
+    nome: "Fluxiva Pro",
+    precoCentavos: 7990,
+    limiteUsuarios: 5,
     limiteWhatsappNumeros: 3,
     whatsappTexto: true,
     whatsappAudio: true,
     whatsappComprovante: false,
   },
   {
-    slug: "pf_premium",
+    slug: "fluxiva_business",
     nome: "Fluxiva Business",
-    precoCentavos: 4990,
-    segmento: "pf",
-    limiteUsuarios: 1,
-    limiteWhatsappNumeros: 5,
-    whatsappTexto: true,
-    whatsappAudio: true,
-    whatsappComprovante: true,
-  },
-  {
-    slug: "pj_start",
-    nome: "Fluxiva Start Empresa",
-    precoCentavos: 5990,
-    segmento: "pj",
-    limiteUsuarios: 3,
-    limiteWhatsappNumeros: 2,
-    whatsappTexto: true,
-    whatsappAudio: true,
-    whatsappComprovante: false,
-  },
-  {
-    slug: "pj_pro",
-    nome: "Fluxiva Pro Empresa",
-    precoCentavos: 9990,
-    segmento: "pj",
-    limiteUsuarios: 8,
-    limiteWhatsappNumeros: 5,
-    whatsappTexto: true,
-    whatsappAudio: true,
-    whatsappComprovante: true,
-  },
-  {
-    slug: "pj_business",
-    nome: "Fluxiva Business Empresa",
-    precoCentavos: 19990,
-    segmento: "pj",
+    precoCentavos: 29990,
     limiteUsuarios: 20,
-    limiteWhatsappNumeros: 15,
+    limiteWhatsappNumeros: 5,
     whatsappTexto: true,
     whatsappAudio: true,
     whatsappComprovante: true,

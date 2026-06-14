@@ -35,8 +35,10 @@ export function segmentoFromSlug(slug) {
   return null;
 }
 
-export function defaultPlanoSlugForTipo(tipoPerfil) {
-  return segmentoFromTipoPerfil(tipoPerfil) === 'pf' ? 'pf_basico' : 'pj_start';
+export function defaultPlanoSlugForTipo(_tipoPerfil) {
+  // Modelo Fluxiva unificado: todos os novos usuários iniciam no Light.
+  // Mantém fallback para pf_basico caso fluxiva_light não exista no banco (pré-migration).
+  return 'fluxiva_light';
 }
 
 export function planoMatchesTipoPerfil(slug, tipoPerfil) {
